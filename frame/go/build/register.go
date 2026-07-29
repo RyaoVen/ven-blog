@@ -10,7 +10,11 @@ func Register(a *hybrid.App) error {
 	if err := registerRoles(a); err != nil {
 		return err
 	}
-	return nil
+	store := newBlogStore()
+	if err := registerPostPages(a, store); err != nil {
+		return err
+	}
+	return registerPostAPIs(a, store)
 }
 
 // registerRoles 注册博客角色：author 继承 reader（须在页面注册前完成）。
