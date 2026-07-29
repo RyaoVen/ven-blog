@@ -1,0 +1,33 @@
+{
+  "name": "node",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/main.js",
+  "scripts": {
+    "generate:routes": "ts-node generateRoutes.ts",
+    "build": "npm run generate:routes && tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "dev": "npm run generate:routes && ts-node main.ts",
+    "typecheck": "npm run generate:routes && tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "esbuild": "^0.28.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "yaml": "^2.8.3"
+  }
+}
