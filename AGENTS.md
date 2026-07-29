@@ -55,4 +55,4 @@ cd frame/node && npm run typecheck && npm test
 
 环境配置：`BLOG_MYSQL_DSN`（必配，代码内默认 root:root 仅占位）、`BLOG_AUTHOR_NAME`/`BLOG_AUTHOR_PASSWORD`（种子 author）。真实密码一律走环境变量，不进仓库。
 
-已知框架依赖（向框架侧提出，不私改框架）：① ISR 中间件需放行 `X-Ven-Data-Only`（修复中）；② 会话需携带用户身份（`CurrentUser`），落地前发文归属取种子 author 账号；③ 角色 Resolve 继承语义穿透（暂用扁平注册绕过）。
+已知框架依赖（向框架侧提出，不私改框架）：① ISR 中间件放行 `X-Ven-Data-Only`（**上游已修复**，#5 已同步）；② 会话需携带用户身份（`CurrentUser`），落地前发文归属取种子 author 账号；③ 角色 Resolve 继承穿透（**上游已修复**，#5 已同步；本仓角色仍用扁平注册，够用）。
