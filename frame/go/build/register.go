@@ -1,8 +1,17 @@
-// Package build 业务层：角色、页面与 API 的注册入口。
-// 在这里编写业务注册（框架不附带 demo）；hybrid API 用法见根目录 README.md 与 PROMPT.md。
+// Package build 业务组装根（composition root）：
+// 构造基础设施 → 注入应用服务 → 注册接口层。
+// 分层约定（DDD）见根目录 AGENTS.md「业务分层」一节。
 package build
 
-import "ven_hybird/hybrid"
+import (
+	"fmt"
+
+	"ven_hybird/build/application/postapp"
+	"ven_hybird/build/application/userapp"
+	"ven_hybird/build/infrastructure/persistence"
+	"ven_hybird/build/interfaces"
+	"ven_hybird/hybrid"
+)
 
 // Register 注册业务角色、页面与 API。
 // 页面 pattern 必须与 src/**/page.tsx 推导出的路由一致，否则启动即失败。
@@ -10,12 +19,35 @@ func Register(a *hybrid.App) error {
 	if err := registerRoles(a); err != nil {
 		return err
 	}
-	store := newBlogStore()
-	registerAuth(a, store)
-	if err := registerPostPages(a, store); err != nil {
+
+	// 基础设施：MySQL 连接（自动建库建表）与仓储
+	db, err := persistence.Open(persistence.DSNFromEnv())
+	if err != nil {
+		return fmt.Errorf("build: %w", err)
+	}
+	userRepo := persistence.NewUserRepository(db)
+	postRepo := persistence.NewPostRepository(db)
+	if err := persistence.SeedUsers(userRepo); err != nil {
+		return fmt.Errorf("build: seed users: %w", err)
+	}
+
+	// 发文归属：框架会话尚无用户身份（只有角色），唯一可发文的是种子 author。
+	// 待框架支持 CurrentUser 后改为取调用者（见根目录 AGENTS.md 框架依赖）。
+	author, err := userRepo.FindByUsername(persistence.AuthorUsernameFromEnv())
+	if err != nil {
+		return fmt.Errorf("build: find author: %w", err)
+	}
+
+	// 应用服务
+	posts := postapp.NewService(postRepo)
+	users := userapp.NewService(userRepo)
+
+	// 接口层注册
+	interfaces.RegisterAuth(a, users)
+	if err := interfaces.RegisterPages(a, posts); err != nil {
 		return err
 	}
-	return registerPostAPIs(a, store)
+	return interfaces.RegisterAPIs(a, posts, author)
 }
 
 // registerRoles 注册博客角色（须在页面注册前完成）。
