@@ -40,3 +40,19 @@ cd frame/node && npm run typecheck && npm test
 
 - 一单元一 issue → 分支 `<type>/issue-<N>-<slug>` → 小步 conventional commits `<type>(<scope>): 中文描述 (#N)` → 检查通过 → push → PR（body：做了什么/怎么验证/`Closes #N`）→ `gh pr merge --squash --delete-branch` → 回 master 同步
 - 不直推 master、不 force-push、不改写已 push 历史、不动他人 PR/issue
+
+## 业务分层（DDD，ven-blog 约定）
+
+博客业务按 DDD 四层组织，全部在 `frame/go/build/` 内（框架边界不变）：
+
+- `build/register.go`：组装根（composition root）——构造基础设施、注入应用服务、注册接口层
+- `build/domain/<聚合>/`：领域层——实体、值对象、领域规则、仓储接口（不依赖任何外层）
+- `build/application/<聚合>app/`：应用层——用例服务，编排领域规则与仓储（不依赖 hybrid/fiber）
+- `build/infrastructure/`：基础设施——MySQL 仓储实现（`persistence/`，含 embed 迁移）、图片后端等
+- `build/interfaces/`：接口层——hybrid/fiber 适配（页面/API/认证注册、DTO、错误映射）
+
+依赖方向只允许 `interfaces → application → domain`，`infrastructure` 实现 `domain` 的仓储接口并由组装根注入。失效声明（`DataChange`）属框架协调，只在接口层调用。
+
+环境配置：`BLOG_MYSQL_DSN`（必配，代码内默认 root:root 仅占位）、`BLOG_AUTHOR_NAME`/`BLOG_AUTHOR_PASSWORD`（种子 author）。真实密码一律走环境变量，不进仓库。
+
+已知框架依赖（向框架侧提出，不私改框架）：① ISR 中间件需放行 `X-Ven-Data-Only`（修复中）；② 会话需携带用户身份（`CurrentUser`），落地前发文归属取种子 author 账号；③ 角色 Resolve 继承语义穿透（暂用扁平注册绕过）。

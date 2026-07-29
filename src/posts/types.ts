@@ -1,10 +1,14 @@
-/** 文章相关共享类型（与 Go 侧 build 包的 JSON 同形） */
+/** 文章相关共享类型（与 Go 侧 build/interfaces PostView 的 JSON 同形） */
 
 /** 一篇博客文章 */
 export interface Post {
     id: string;
     title: string;
+    summary: string;
     content: string;
+    coverUrl: string;
+    authorName: string;
+    tags: string[];
     createdAt: string;
     updatedAt: string;
 }
