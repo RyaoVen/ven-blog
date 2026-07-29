@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS images (
     uploader_id BIGINT UNSIGNED NOT NULL,
     filename    VARCHAR(256)    NOT NULL,
     mime        VARCHAR(64)     NOT NULL,
-    blob        LONGBLOB        NULL COMMENT 'mysql 后端时存二进制',
+    data        LONGBLOB        NULL COMMENT 'mysql 后端时存二进制',
     oss_url     VARCHAR(1024)   NULL COMMENT 'oss 后端时存外链',
     created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),

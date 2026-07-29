@@ -41,7 +41,7 @@ func RegisterAPIs(a *hybrid.App, posts *postapp.Service, author *user.User) erro
 			return writePostError(c, err)
 		}
 		declarePostsChanged(a, p.ID)
-		return c.JSON(201, map[string]any{"id": p.ID})
+		return c.JSON(201, map[string]any{"id": strconv.FormatInt(p.ID, 10)})
 	}); err != nil {
 		return err
 	}
