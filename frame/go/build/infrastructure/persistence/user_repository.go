@@ -1,0 +1,113 @@
+package persistence
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"os"
+
+	mysqldriver "github.com/go-sql-driver/mysql"
+	"golang.org/x/crypto/bcrypt"
+
+	"ven_hybird/build/domain/user"
+)
+
+// UserRepository 是 user.Repository 的 MySQL 实现。
+type UserRepository struct {
+	db *sql.DB
+}
+
+// NewUserRepository 构造用户仓储。
+func NewUserRepository(db *sql.DB) *UserRepository {
+	return &UserRepository{db: db}
+}
+
+// FindByUsername 按用户名查找，不存在返回 user.ErrNotFound。
+func (r *UserRepository) FindByUsername(username string) (*user.User, error) {
+	u := &user.User{}
+	err := r.db.QueryRow(
+		"SELECT id, username, password_hash, role, bio, avatar_url, created_at FROM users WHERE username = ?",
+		username,
+	).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.Bio, &u.AvatarURL, &u.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, user.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find user %q: %w", username, err)
+	}
+	return u, nil
+}
+
+// Create 创建用户并回填 ID；用户名冲突返回 user.ErrUsernameTaken。
+func (r *UserRepository) Create(u *user.User) error {
+	res, err := r.db.Exec(
+		"INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
+		u.Username, u.PasswordHash, u.Role.String(),
+	)
+	if err != nil {
+		if isDuplicateEntry(err) {
+			return user.ErrUsernameTaken
+		}
+		return fmt.Errorf("create user %q: %w", u.Username, err)
+	}
+	u.ID, err = res.LastInsertId()
+	return err
+}
+
+// Count 返回用户总数。
+func (r *UserRepository) Count() (int, error) {
+	var n int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&n); err != nil {
+		return 0, fmt.Errorf("count users: %w", err)
+	}
+	return n, nil
+}
+
+// AuthorUsernameFromEnv 返回种子 author 用户名（BLOG_AUTHOR_NAME，默认 author）。
+// 组装根用它定位"当前唯一可发文账号"（框架会话尚无用户身份，见 register.go 注释）。
+func AuthorUsernameFromEnv() string {
+	if name := os.Getenv("BLOG_AUTHOR_NAME"); name != "" {
+		return name
+	}
+	return "author"
+}
+
+// SeedUsers 用户表为空时写入种子账号：
+// author（BLOG_AUTHOR_NAME/BLOG_AUTHOR_PASSWORD 可覆盖，默认 author/author123）；
+// reader（reader/reader123，用于验证 403）。密码 bcrypt 哈希。
+func SeedUsers(repo *UserRepository) error {
+	n, err := repo.Count()
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+	authorPassword := os.Getenv("BLOG_AUTHOR_PASSWORD")
+	if authorPassword == "" {
+		authorPassword = "author123"
+	}
+	seeds := []struct {
+		username, password string
+		role               user.Role
+	}{
+		{AuthorUsernameFromEnv(), authorPassword, user.RoleAuthor},
+		{"reader", "reader123", user.RoleReader},
+	}
+	for _, s := range seeds {
+		hash, err := bcrypt.GenerateFromPassword([]byte(s.password), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		if err := repo.Create(&user.User{Username: s.username, PasswordHash: string(hash), Role: s.role}); err != nil {
+			return fmt.Errorf("seed user %q: %w", s.username, err)
+		}
+	}
+	return nil
+}
+
+// isDuplicateEntry 判定 MySQL 1062 唯一键冲突。
+func isDuplicateEntry(err error) bool {
+	var mysqlErr *mysqldriver.MySQLError
+	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
+}
