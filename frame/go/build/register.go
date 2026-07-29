@@ -11,6 +11,7 @@ func Register(a *hybrid.App) error {
 		return err
 	}
 	store := newBlogStore()
+	registerAuth(a, store)
 	if err := registerPostPages(a, store); err != nil {
 		return err
 	}
