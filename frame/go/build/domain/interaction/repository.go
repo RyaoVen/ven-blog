@@ -1,0 +1,22 @@
+package interaction
+
+// Repository 互动仓储接口（领域层定义，基础设施层实现）。
+type Repository interface {
+	// AddLike 点赞（已存在时幂等）。
+	AddLike(userID int64, targetType TargetType, targetID int64) error
+	// RemoveLike 取消点赞。
+	RemoveLike(userID int64, targetType TargetType, targetID int64) error
+	// IsLiked 查询用户是否已点赞。
+	IsLiked(userID int64, targetType TargetType, targetID int64) (bool, error)
+	// LikeCount 目标点赞总数。
+	LikeCount(targetType TargetType, targetID int64) (int, error)
+
+	// AddFavorite 收藏（已存在时幂等）。
+	AddFavorite(userID, postID int64) error
+	// RemoveFavorite 取消收藏。
+	RemoveFavorite(userID, postID int64) error
+	// IsFavorited 查询用户是否已收藏。
+	IsFavorited(userID, postID int64) (bool, error)
+	// FavoriteCount 文章收藏总数。
+	FavoriteCount(postID int64) (int, error)
+}
