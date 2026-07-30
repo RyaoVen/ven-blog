@@ -5,6 +5,7 @@ import { navigate } from "../../app/router";
 import { Layout } from "../../lib/layout";
 import { formatDateTime } from "../../lib/format";
 import { useRole } from "../../lib/role";
+import { v } from "../../lib/theme";
 import type { PostState } from "../types";
 
 export default function PostDetailPage({ bootstrap }: PageAppProps) {
@@ -15,7 +16,7 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
     if (!post) {
         return (
             <Layout>
-                <p>文章不存在或已删除。</p>
+                <p style={{ color: v.textSecondary }}>文章不存在或已删除。</p>
             </Layout>
         );
     }
@@ -33,31 +34,52 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
     return (
         <Layout>
             <article>
-                <h1 style={{ marginBottom: 4 }}>{post.title}</h1>
-                <div style={{ fontSize: 13, color: "#57606a", marginBottom: 24 }}>
-                    发布于 {formatDateTime(post.createdAt)}
-                    {post.updatedAt !== post.createdAt && `（更新于 ${formatDateTime(post.updatedAt)}）`}
-                </div>
-                <div style={{ whiteSpace: "pre-wrap" }}>{post.content}</div>
-            </article>
-            {role === "author" && (
-                <div style={{ marginTop: 32, display: "flex", gap: 12 }}>
-                    <a href={`/write?id=${post.id}`} style={{ color: "#0969da", textDecoration: "none" }}>
-                        编辑
-                    </a>
-                    <button
-                        type="button"
-                        onClick={onDelete}
+                <h1 style={{ fontSize: 30, marginBottom: 12 }}>{post.title}</h1>
+                <div
+                    className="ven-meta"
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        paddingBottom: 20,
+                        marginBottom: 28,
+                        borderBottom: `1px solid ${v.border}`,
+                    }}
+                >
+                    <span
                         style={{
-                            border: "1px solid #d0d7de",
-                            borderRadius: 6,
-                            background: "#f6f8fa",
-                            color: "#cf222e",
-                            padding: "4px 10px",
-                            fontSize: 14,
-                            cursor: "pointer",
+                            width: 28,
+                            height: 28,
+                            borderRadius: 2,
+                            background: v.text,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                            color: v.bg,
                         }}
                     >
+                        {post.authorName.slice(0, 1).toUpperCase()}
+                    </span>
+                    <span style={{ color: v.textSecondary, fontWeight: 550 }}>{post.authorName}</span>
+                    <span>发布于 {formatDateTime(post.createdAt)}</span>
+                    {post.updatedAt !== post.createdAt && <span>（更新于 {formatDateTime(post.updatedAt)}）</span>}
+                    {post.tags.map((t) => (
+                        <span key={t} className="ven-chip">
+                            {t}
+                        </span>
+                    ))}
+                </div>
+                <div style={{ whiteSpace: "pre-wrap", fontSize: 15.5, lineHeight: 1.85 }}>{post.content}</div>
+            </article>
+            {role === "author" && (
+                <div style={{ marginTop: 36, display: "flex", gap: 12 }}>
+                    <a href={`/write?id=${post.id}`} className="ven-btn">
+                        编辑
+                    </a>
+                    <button type="button" onClick={onDelete} className="ven-btn ven-btn-danger">
                         删除
                     </button>
                 </div>
