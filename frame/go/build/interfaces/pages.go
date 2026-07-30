@@ -3,16 +3,23 @@ package interfaces
 
 import (
 	"errors"
+	"strconv"
+	"strings"
 
+	"ven_hybird/build/application/commentapp"
+	"ven_hybird/build/application/interactionapp"
 	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/domain/post"
 	"ven_hybird/hybrid"
 )
 
 // RegisterPages 注册文章相关页面。
-// 列表/详情是公开 ISR 静态页（物化落盘直发，DataChange 失效再生）；
+// /posts 是带标签筛选与分页的公开动态页（?tag=/?page= 查询串场景不能走 ISR——
+// 物化文件按 path 直发，不同 query 会被同一份基础文件截胡）；
+// 详情是公开 ISR 静态页（物化落盘直发，DataChange 失效再生）；
 // /write 是 author 专属动态页；/login 与 /403 是框架守卫要求的公开空数据页。
-func RegisterPages(a *hybrid.App, posts *postapp.Service) error {
+// 详情 initialState 只放公开数据（文章/计数/评论列表）；viewer 个性化状态由 /api 互动接口下发。
+func RegisterPages(a *hybrid.App, posts *postapp.Service, comments *commentapp.Service, inter *interactionapp.Service) error {
 	// 首页：最近 5 篇文章
 	if err := a.Page("/", nil, func(c *hybrid.PageCtx) error {
 		list, err := posts.ListRecent(5)
@@ -24,18 +31,32 @@ func RegisterPages(a *hybrid.App, posts *postapp.Service) error {
 		return err
 	}
 
-	// 文章列表（ISR，全站仅一页）
-	if err := a.StaticPage("/posts", 1, true, func(c *hybrid.PageCtx) error {
-		list, err := posts.ListRecent(0)
+	// 文章列表：?tag= 标签筛选 + ?page= 分页，tags 为全量标签（筛选条用）
+	if err := a.Page("/posts", nil, func(c *hybrid.PageCtx) error {
+		page, _ := strconv.Atoi(c.Query("page"))
+		tag := strings.TrimSpace(c.Query("tag"))
+		paged, err := posts.List(postapp.ListFilter{Tag: tag, Page: page})
 		if err != nil {
 			return err
 		}
-		return c.JSON(map[string]any{"posts": toPostViews(list)})
+		tags, err := posts.AllTags()
+		if err != nil {
+			return err
+		}
+		return c.JSON(map[string]any{
+			"posts":    toPostViews(paged.Posts),
+			"total":    paged.Total,
+			"page":     paged.Page,
+			"pageSize": paged.PageSize,
+			"tag":      tag,
+			"tags":     tags,
+		})
 	}); err != nil {
 		return err
 	}
 
 	// 文章详情（ISR，上限 1000 页，全局更新时按热度预渲染）
+	// initialState：post + 公开互动计数 + 评论列表（viewer 状态不在此下发，ISR 共享物化不烘个人数据）
 	if err := a.StaticPage("/posts/:id", 1000, true, func(c *hybrid.PageCtx) error {
 		p, err := posts.Get(mustID(c.Param("id")))
 		if errors.Is(err, post.ErrNotFound) {
@@ -44,7 +65,20 @@ func RegisterPages(a *hybrid.App, posts *postapp.Service) error {
 		if err != nil {
 			return err
 		}
-		return c.JSON(map[string]any{"post": toPostView(p)})
+		likeCount, favoriteCount, err := inter.Counts(p.ID)
+		if err != nil {
+			return err
+		}
+		cmts, err := comments.ListForPost(p.ID)
+		if err != nil {
+			return err
+		}
+		return c.JSON(map[string]any{
+			"post":          toPostView(p),
+			"likeCount":     likeCount,
+			"favoriteCount": favoriteCount,
+			"comments":      toCommentViews(cmts),
+		})
 	}); err != nil {
 		return err
 	}

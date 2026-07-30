@@ -1,0 +1,22 @@
+package comment
+
+import "errors"
+
+// 领域错误。
+var (
+	ErrNotFound = errors.New("comment not found")
+	// ErrForbidden 无权删除他人评论。
+	ErrForbidden = errors.New("forbidden")
+)
+
+// Repository 评论仓储接口（领域层定义，基础设施层实现）。
+type Repository interface {
+	// ListByPost 返回文章下的评论（创建时间倒序，含用户名）。
+	ListByPost(postID int64) ([]*Comment, error)
+	// Get 按 ID 取评论，不存在返回 ErrNotFound（删除前归属校验用）。
+	Get(id int64) (*Comment, error)
+	// Create 创建评论并回填 ID 与时间戳。
+	Create(c *Comment) error
+	// Delete 删除评论，不存在返回 ErrNotFound。
+	Delete(id int64) error
+}
