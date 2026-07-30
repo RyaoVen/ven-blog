@@ -94,9 +94,14 @@ export function Layout({ children }: { children: ReactNode }) {
                             注销（{role}）
                         </button>
                     ) : (
-                        <a href="/login" className="ven-btn">
-                            登录
-                        </a>
+                        <>
+                            <a href="/login" className="ven-btn">
+                                登录
+                            </a>
+                            <a href="/register" className="ven-btn ven-btn-primary">
+                                注册
+                            </a>
+                        </>
                     )}
                 </nav>
             </header>
