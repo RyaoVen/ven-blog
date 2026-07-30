@@ -4,6 +4,8 @@ package interfaces
 import (
 	"errors"
 
+	"ven_hybird/build/application/commentapp"
+	"ven_hybird/build/application/interactionapp"
 	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/domain/post"
 	"ven_hybird/hybrid"
@@ -12,7 +14,8 @@ import (
 // RegisterPages 注册文章相关页面。
 // 列表/详情是公开 ISR 静态页（物化落盘直发，DataChange 失效再生）；
 // /write 是 author 专属动态页；/login 与 /403 是框架守卫要求的公开空数据页。
-func RegisterPages(a *hybrid.App, posts *postapp.Service) error {
+// 详情 initialState 只放公开数据（文章/计数/评论列表）；viewer 个性化状态由 /api 互动接口下发。
+func RegisterPages(a *hybrid.App, posts *postapp.Service, comments *commentapp.Service, inter *interactionapp.Service) error {
 	// 首页：最近 5 篇文章
 	if err := a.Page("/", nil, func(c *hybrid.PageCtx) error {
 		list, err := posts.ListRecent(5)
@@ -36,6 +39,7 @@ func RegisterPages(a *hybrid.App, posts *postapp.Service) error {
 	}
 
 	// 文章详情（ISR，上限 1000 页，全局更新时按热度预渲染）
+	// initialState：post + 公开互动计数 + 评论列表（viewer 状态不在此下发，ISR 共享物化不烘个人数据）
 	if err := a.StaticPage("/posts/:id", 1000, true, func(c *hybrid.PageCtx) error {
 		p, err := posts.Get(mustID(c.Param("id")))
 		if errors.Is(err, post.ErrNotFound) {
@@ -44,7 +48,20 @@ func RegisterPages(a *hybrid.App, posts *postapp.Service) error {
 		if err != nil {
 			return err
 		}
-		return c.JSON(map[string]any{"post": toPostView(p)})
+		likeCount, favoriteCount, err := inter.Counts(p.ID)
+		if err != nil {
+			return err
+		}
+		cmts, err := comments.ListForPost(p.ID)
+		if err != nil {
+			return err
+		}
+		return c.JSON(map[string]any{
+			"post":          toPostView(p),
+			"likeCount":     likeCount,
+			"favoriteCount": favoriteCount,
+			"comments":      toCommentViews(cmts),
+		})
 	}); err != nil {
 		return err
 	}
