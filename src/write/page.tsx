@@ -4,36 +4,8 @@ import { FormEvent, useState } from "react";
 import type { PageAppProps } from "../app/pageApp";
 import { navigate } from "../app/router";
 import { Layout } from "../lib/layout";
+import { v } from "../lib/theme";
 import type { PostState } from "../posts/types";
-
-const styles = {
-    form: { display: "flex", flexDirection: "column", gap: 12 },
-    input: {
-        padding: "8px 12px",
-        fontSize: 16,
-        border: "1px solid #d0d7de",
-        borderRadius: 6,
-    },
-    textarea: {
-        padding: "8px 12px",
-        fontSize: 14,
-        border: "1px solid #d0d7de",
-        borderRadius: 6,
-        fontFamily: "inherit",
-        resize: "vertical",
-    },
-    submit: {
-        padding: "8px 20px",
-        fontSize: 14,
-        color: "#fff",
-        background: "#1f883d",
-        border: "none",
-        borderRadius: 6,
-        cursor: "pointer",
-    },
-    cancel: { color: "#57606a", textDecoration: "none", fontSize: 14, alignSelf: "center" },
-    error: { color: "#cf222e", fontSize: 14, margin: 0 },
-} as const;
 
 export default function WritePage({ bootstrap }: PageAppProps) {
     const state = (bootstrap.initialState ?? { post: null }) as PostState;
@@ -68,29 +40,30 @@ export default function WritePage({ bootstrap }: PageAppProps) {
 
     return (
         <Layout>
-            <h1>{editing ? "编辑文章" : "写文章"}</h1>
-            <form style={styles.form} onSubmit={onSubmit}>
+            <h1 style={{ fontSize: 24, marginBottom: 20 }}>{editing ? "编辑文章" : "写文章"}</h1>
+            <form style={{ display: "flex", flexDirection: "column", gap: 14 }} onSubmit={onSubmit}>
                 <input
-                    style={styles.input}
+                    className="ven-input"
+                    style={{ fontSize: 16, fontWeight: 550 }}
                     placeholder="标题"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     required
                 />
                 <textarea
-                    style={styles.textarea}
-                    placeholder="正文（纯文本）"
+                    className="ven-input"
+                    placeholder="正文（Markdown 支持即将上线）"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     rows={16}
                     required
                 />
-                {error && <p style={styles.error}>{error}</p>}
-                <div style={{ display: "flex", gap: 12 }}>
-                    <button style={styles.submit} type="submit" disabled={submitting}>
+                {error && <p style={{ color: v.danger, fontSize: 14, margin: 0 }}>{error}</p>}
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <button className="ven-btn ven-btn-primary" type="submit" disabled={submitting}>
                         {submitting ? "保存中…" : editing ? "保存" : "发布"}
                     </button>
-                    <a style={styles.cancel} href={editing ? `/posts/${editing.id}` : "/posts"}>
+                    <a style={{ fontSize: 14, color: v.textSecondary }} href={editing ? `/posts/${editing.id}` : "/posts"}>
                         取消
                     </a>
                 </div>

@@ -4,27 +4,7 @@ import { FormEvent, useState } from "react";
 import type { PageAppProps } from "../app/pageApp";
 import { navigate } from "../app/router";
 import { Layout } from "../lib/layout";
-
-const styles = {
-    form: { maxWidth: 360, display: "flex", flexDirection: "column", gap: 12 },
-    label: { display: "flex", flexDirection: "column", gap: 4, fontSize: 14 },
-    input: {
-        padding: "6px 10px",
-        fontSize: 14,
-        border: "1px solid #d0d7de",
-        borderRadius: 6,
-    },
-    submit: {
-        padding: "8px 0",
-        fontSize: 14,
-        color: "#fff",
-        background: "#1f883d",
-        border: "none",
-        borderRadius: 6,
-        cursor: "pointer",
-    },
-    error: { color: "#cf222e", fontSize: 14, margin: 0 },
-} as const;
+import { v } from "../lib/theme";
 
 export default function LoginPage({ bootstrap }: PageAppProps) {
     const [username, setUsername] = useState("");
@@ -57,34 +37,37 @@ export default function LoginPage({ bootstrap }: PageAppProps) {
 
     return (
         <Layout>
-            <h1>登录</h1>
-            <form style={styles.form} onSubmit={onSubmit}>
-                <label style={styles.label}>
-                    用户名
-                    <input
-                        style={styles.input}
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        autoComplete="username"
-                        required
-                    />
-                </label>
-                <label style={styles.label}>
-                    密码
-                    <input
-                        style={styles.input}
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        autoComplete="current-password"
-                        required
-                    />
-                </label>
-                {error && <p style={styles.error}>{error}</p>}
-                <button style={styles.submit} type="submit" disabled={submitting}>
-                    {submitting ? "登录中…" : "登录"}
-                </button>
-            </form>
+            <div className="ven-card" style={{ maxWidth: 400, margin: "48px auto", padding: "32px 28px" }}>
+                <h1 style={{ fontSize: 22, marginBottom: 4 }}>登录</h1>
+                <p style={{ fontSize: 14, color: v.textSecondary, marginBottom: 24 }}>登录后可评论、点赞、收藏</p>
+                <form style={{ display: "flex", flexDirection: "column", gap: 16 }} onSubmit={onSubmit}>
+                    <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+                        用户名
+                        <input
+                            className="ven-input"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            autoComplete="username"
+                            required
+                        />
+                    </label>
+                    <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+                        密码
+                        <input
+                            className="ven-input"
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            autoComplete="current-password"
+                            required
+                        />
+                    </label>
+                    {error && <p style={{ color: v.danger, fontSize: 14, margin: 0 }}>{error}</p>}
+                    <button className="ven-btn ven-btn-primary" type="submit" disabled={submitting}>
+                        {submitting ? "登录中…" : "登录"}
+                    </button>
+                </form>
+            </div>
         </Layout>
     );
 }
