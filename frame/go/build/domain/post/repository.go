@@ -9,6 +9,8 @@ var ErrNotFound = errors.New("post not found")
 type Repository interface {
 	// List 返回全部文章（创建时间倒序，含作者名）。
 	List() ([]*Post, error)
+	// ListByAuthor 返回指定作者的全部文章（创建时间倒序，含作者名）。
+	ListByAuthor(authorID int64) ([]*Post, error)
 	// Get 按 ID 取文章，不存在返回 ErrNotFound。
 	Get(id int64) (*Post, error)
 	// Create 新建文章并回填 ID 与时间戳。
