@@ -1,6 +1,6 @@
 /** 发文/编辑页（仅 author 可访问，由框架守卫）；带 ?id= 时为编辑模式，表单回填被编辑文章 */
 
-import { FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useRef, useState } from "react";
 import type { PageAppProps } from "../app/pageApp";
 import { navigate } from "../app/router";
 import { Layout } from "../lib/layout";
@@ -17,6 +17,45 @@ export default function WritePage({ bootstrap }: PageAppProps) {
     const [error, setError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [preview, setPreview] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const fileRef = useRef<HTMLInputElement>(null);
+    const contentRef = useRef<HTMLTextAreaElement>(null);
+
+    // insertImage 把图片 Markdown 插到 textarea 光标处（预览态/无光标时追加末尾）
+    function insertImage(url: string) {
+        const snippet = `![](${url})`;
+        const ta = contentRef.current;
+        if (!ta) {
+            setContent((prev) => prev + snippet);
+            return;
+        }
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        setContent((prev) => prev.slice(0, start) + snippet + prev.slice(end));
+    }
+
+    async function onPickImage(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        event.target.value = ""; // 允许重复选择同一文件
+        if (!file) return;
+        setUploading(true);
+        setError(null);
+        try {
+            const form = new FormData();
+            form.append("file", file);
+            const resp = await fetch("/api/upload", { method: "POST", body: form });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok) {
+                setError(data?.error ?? "图片上传失败");
+                return;
+            }
+            insertImage(data.url);
+        } catch {
+            setError("网络错误，请重试");
+        } finally {
+            setUploading(false);
+        }
+    }
 
     async function onSubmit(event: FormEvent) {
         event.preventDefault();
@@ -66,6 +105,7 @@ export default function WritePage({ bootstrap }: PageAppProps) {
                     </div>
                 ) : (
                     <textarea
+                        ref={contentRef}
                         className="ven-input"
                         placeholder="正文（Markdown：代码块/表格/列表/引用/:::warning 警告、:::tip 提示、:::note 注意）"
                         value={content}
@@ -86,6 +126,21 @@ export default function WritePage({ bootstrap }: PageAppProps) {
                     >
                         {preview ? "继续编辑" : "预览"}
                     </button>
+                    <button
+                        className="ven-btn"
+                        type="button"
+                        disabled={uploading}
+                        onClick={() => fileRef.current?.click()}
+                    >
+                        {uploading ? "上传中…" : "插入图片"}
+                    </button>
+                    <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        style={{ display: "none" }}
+                        onChange={onPickImage}
+                    />
                     <a style={{ fontSize: 14, color: v.textSecondary }} href={editing ? `/posts/${editing.id}` : "/posts"}>
                         取消
                     </a>
