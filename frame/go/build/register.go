@@ -31,23 +31,16 @@ func Register(a *hybrid.App) error {
 		return fmt.Errorf("build: seed users: %w", err)
 	}
 
-	// 发文归属：框架会话尚无用户身份（只有角色），唯一可发文的是种子 author。
-	// 待框架支持 CurrentUser 后改为取调用者（见根目录 AGENTS.md 框架依赖）。
-	author, err := userRepo.FindByUsername(persistence.AuthorUsernameFromEnv())
-	if err != nil {
-		return fmt.Errorf("build: find author: %w", err)
-	}
-
 	// 应用服务
 	posts := postapp.NewService(postRepo)
 	users := userapp.NewService(userRepo)
 
-	// 接口层注册
+	// 接口层注册（发文归属经 c.User() 取调用者，框架会话已携带用户身份）
 	interfaces.RegisterAuth(a, users)
 	if err := interfaces.RegisterPages(a, posts); err != nil {
 		return err
 	}
-	return interfaces.RegisterAPIs(a, posts, author)
+	return interfaces.RegisterAPIs(a, posts)
 }
 
 // registerRoles 注册博客角色（须在页面注册前完成）。
