@@ -66,8 +66,11 @@ func RegisterPages(a *hybrid.App, posts *postapp.Service) error {
 		return err
 	}
 
-	// 登录页与 403 页：空数据渲染
+	// 登录页、注册页与 403 页：空数据渲染
 	if err := a.Page("/login", nil, func(c *hybrid.PageCtx) error { return c.Render() }); err != nil {
+		return err
+	}
+	if err := a.Page("/register", nil, func(c *hybrid.PageCtx) error { return c.Render() }); err != nil {
 		return err
 	}
 	return a.Page("/403", nil, func(c *hybrid.PageCtx) error { return c.Render() })
