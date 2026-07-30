@@ -50,6 +50,30 @@ func (s *Service) Authenticate(username, password string) (*user.User, error) {
 	return u, nil
 }
 
+// Profile 用户主页数据：用户实体 + 作品统计。
+type Profile struct {
+	User     *user.User
+	Posts    int
+	Comments int
+}
+
+// GetProfile 用户主页用例：按用户名取用户并聚合文章/评论统计；不存在返回 user.ErrNotFound。
+func (s *Service) GetProfile(username string) (*Profile, error) {
+	u, err := s.repo.FindByUsername(username)
+	if err != nil {
+		return nil, err
+	}
+	posts, err := s.repo.CountPosts(u.ID)
+	if err != nil {
+		return nil, err
+	}
+	comments, err := s.repo.CountComments(u.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &Profile{User: u, Posts: posts, Comments: comments}, nil
+}
+
 // ErrInvalidCredentials 用户名或密码错误。
 var ErrInvalidCredentials = errors.New("invalid credentials")
 

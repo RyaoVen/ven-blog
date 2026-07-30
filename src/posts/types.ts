@@ -1,4 +1,4 @@
-/** 文章相关共享类型（与 Go 侧 build/interfaces PostView 的 JSON 同形） */
+/** 文章相关共享类型（与 Go 侧 build/interfaces 的 JSON 同形） */
 
 /** 一篇博客文章 */
 export interface Post {
@@ -13,12 +13,41 @@ export interface Post {
     updatedAt: string;
 }
 
+/** 一条评论 */
+export interface Comment {
+    id: string;
+    userId: string;
+    username: string;
+    content: string;
+    createdAt: string;
+}
+
 /** 列表类页面的 initialState */
 export interface PostListState {
     posts: Post[];
 }
 
-/** 详情/编辑类页面的 initialState */
+/** /posts 列表页（标签筛选 + 分页）的 initialState */
+export interface PagedPostsState {
+    posts: Post[];
+    total: number;
+    page: number;
+    pageSize: number;
+    /** 当前筛选标签（空串表示全部） */
+    tag: string;
+    /** 全量标签（筛选条用） */
+    tags: string[];
+}
+
+/** 编辑类页面的 initialState */
 export interface PostState {
     post: Post | null;
+}
+
+/** 详情页的 initialState（公开数据；viewer 个性化状态走 /api 互动接口） */
+export interface PostDetailState {
+    post: Post | null;
+    likeCount: number;
+    favoriteCount: number;
+    comments: Comment[];
 }

@@ -3,8 +3,13 @@
 package postapp
 
 import (
+	"strings"
+
 	"ven_hybird/build/domain/post"
 )
+
+// defaultPageSize 是列表分页的默认每页条数。
+const defaultPageSize = 10
 
 // Service 文章用例服务。
 type Service struct {
@@ -16,16 +21,65 @@ func NewService(repo post.Repository) *Service {
 	return &Service{repo: repo}
 }
 
+// PostInput 是创建/更新文章的用例入参。
+type PostInput struct {
+	Title    string
+	Content  string
+	Summary  string
+	CoverURL string
+	Tags     []string
+}
+
+// ListFilter 是列表筛选条件：标签 + 分页。
+type ListFilter struct {
+	Tag      string
+	Page     int
+	PageSize int
+}
+
+// Paged 是一页文章与分页信息。
+type Paged struct {
+	Posts    []*post.Post
+	Total    int
+	Page     int
+	PageSize int
+}
+
 // ListRecent 最近文章（首页用），limit <= 0 表示全部。
 func (s *Service) ListRecent(limit int) ([]*post.Post, error) {
-	posts, err := s.repo.List()
+	posts, _, err := s.repo.ListPaged("", 1, limit)
+	return posts, err
+}
+
+// List 分页列表：Page 归一为 >= 1，PageSize <= 0 时默认 10，Tag 去首尾空白。
+func (s *Service) List(filter ListFilter) (*Paged, error) {
+	page := filter.Page
+	if page < 1 {
+		page = 1
+	}
+	pageSize := filter.PageSize
+	if pageSize <= 0 {
+		pageSize = defaultPageSize
+	}
+	posts, total, err := s.repo.ListPaged(strings.TrimSpace(filter.Tag), page, pageSize)
 	if err != nil {
 		return nil, err
 	}
-	if limit > 0 && len(posts) > limit {
-		posts = posts[:limit]
+	return &Paged{Posts: posts, Total: total, Page: page, PageSize: pageSize}, nil
+}
+
+// AllTags 全量标签（列表页筛选条用）。
+func (s *Service) AllTags() ([]string, error) {
+	return s.repo.AllTags()
+}
+
+// Search 按关键词搜索文章；trim 后为空直接返回空切片（不打数据库）。
+func (s *Service) Search(q string) ([]*post.Post, error) {
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return []*post.Post{}, nil
 	}
-	return posts, nil
+	return s.repo.Search(q, 50)
 }
 
 // Get 文章详情。
@@ -33,13 +87,18 @@ func (s *Service) Get(id int64) (*post.Post, error) {
 	return s.repo.Get(id)
 }
 
+// ListByAuthor 指定作者的文章（作者主页用，创建时间倒序）。
+func (s *Service) ListByAuthor(authorID int64) ([]*post.Post, error) {
+	return s.repo.ListByAuthor(authorID)
+}
+
 // Create 发文：领域校验 + 落库。
-func (s *Service) Create(authorID int64, title, content string) (*post.Post, error) {
-	if msg := post.Validate(title, content); msg != "" {
+func (s *Service) Create(authorID int64, in PostInput) (*post.Post, error) {
+	if msg := post.Validate(in.Title, in.Content, in.Summary, in.CoverURL); msg != "" {
 		return nil, &ValidationError{Message: msg}
 	}
 	p := &post.Post{AuthorID: authorID}
-	p.Apply(title, content)
+	p.Apply(in.Title, in.Content, in.Summary, in.CoverURL, in.Tags)
 	if err := s.repo.Create(p); err != nil {
 		return nil, err
 	}
@@ -47,12 +106,12 @@ func (s *Service) Create(authorID int64, title, content string) (*post.Post, err
 }
 
 // Update 编辑文章。
-func (s *Service) Update(id int64, title, content string) (*post.Post, error) {
-	if msg := post.Validate(title, content); msg != "" {
+func (s *Service) Update(id int64, in PostInput) (*post.Post, error) {
+	if msg := post.Validate(in.Title, in.Content, in.Summary, in.CoverURL); msg != "" {
 		return nil, &ValidationError{Message: msg}
 	}
 	p := &post.Post{ID: id}
-	p.Apply(title, content)
+	p.Apply(in.Title, in.Content, in.Summary, in.CoverURL, in.Tags)
 	if err := s.repo.Update(p); err != nil {
 		return nil, err
 	}

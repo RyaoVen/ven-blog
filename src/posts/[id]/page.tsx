@@ -1,4 +1,4 @@
-/** 文章详情页（ISR 静态页）：信息头 + Markdown 正文 + TOC 侧栏；编辑/删除仅 author 客户端可见 */
+/** 文章详情页（ISR 静态页）：信息头 + Markdown 正文 + TOC 侧栏 + 互动条 + 评论区；编辑/删除仅 author 客户端可见 */
 
 import { useMemo } from "react";
 import type { PageAppProps } from "../../app/pageApp";
@@ -9,14 +9,17 @@ import { renderMarkdown } from "../../lib/markdown";
 import { markdownCss } from "../../lib/markdownCss";
 import { useRole } from "../../lib/role";
 import { v } from "../../lib/theme";
+import { CommentsSection } from "../comments";
+import { InteractionBar, usePostViewer } from "../interactions";
 import { Toc } from "../toc";
-import type { PostState } from "../types";
+import type { PostDetailState } from "../types";
 
 export default function PostDetailPage({ bootstrap }: PageAppProps) {
-    const state = (bootstrap.initialState ?? { post: null }) as PostState;
+    const state = (bootstrap.initialState ?? { post: null, likeCount: 0, favoriteCount: 0, comments: [] }) as PostDetailState;
     const post = state.post;
     const role = useRole();
     const rendered = useMemo(() => (post ? renderMarkdown(post.content) : null), [post]);
+    const { viewer, toggle } = usePostViewer(post?.id ?? "0", state.likeCount, state.favoriteCount);
 
     if (!post || !rendered) {
         return (
@@ -69,7 +72,12 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
                 >
                     {post.authorName.slice(0, 1).toUpperCase()}
                 </span>
-                <span style={{ color: v.textSecondary, fontWeight: 550 }}>{post.authorName}</span>
+                <a
+                    href={"/author/" + post.authorName}
+                    style={{ color: v.textSecondary, fontWeight: 550, textDecoration: "none" }}
+                >
+                    {post.authorName}
+                </a>
                 <span>发布于 {formatDateTime(post.createdAt)}</span>
                 {post.updatedAt !== post.createdAt && <span>（更新于 {formatDateTime(post.updatedAt)}）</span>}
                 {post.tags.map((t) => (
@@ -81,6 +89,8 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
             <div className="ven-post-layout">
                 <article>
                     <div className="ven-prose" dangerouslySetInnerHTML={{ __html: rendered.html }} />
+                    <InteractionBar viewer={viewer} onToggle={toggle} />
+                    <CommentsSection postId={post.id} comments={state.comments} viewerUserId={viewer.userId} />
                     {role === "author" && (
                         <div style={{ marginTop: 36, display: "flex", gap: 12 }}>
                             <a href={`/write?id=${post.id}`} className="ven-btn">

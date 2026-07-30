@@ -13,6 +13,9 @@ export default function WritePage({ bootstrap }: PageAppProps) {
     const state = (bootstrap.initialState ?? { post: null }) as PostState;
     const editing = state.post;
     const [title, setTitle] = useState(editing?.title ?? "");
+    const [summary, setSummary] = useState(editing?.summary ?? "");
+    const [coverUrl, setCoverUrl] = useState(editing?.coverUrl ?? "");
+    const [tags, setTags] = useState(editing?.tags.join(", ") ?? "");
     const [content, setContent] = useState(editing?.content ?? "");
     const [error, setError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -62,10 +65,14 @@ export default function WritePage({ bootstrap }: PageAppProps) {
         setSubmitting(true);
         setError(null);
         try {
+            const tagList = tags
+                .split(/[,，]/)
+                .map((t) => t.trim())
+                .filter(Boolean);
             const resp = await fetch(editing ? `/api/posts/${editing.id}` : "/api/posts", {
                 method: editing ? "PUT" : "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title, content }),
+                body: JSON.stringify({ title, content, summary, coverUrl, tags: tagList }),
             });
             const data = await resp.json().catch(() => null);
             if (!resp.ok) {
@@ -94,6 +101,26 @@ export default function WritePage({ bootstrap }: PageAppProps) {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     required
+                />
+                <textarea
+                    className="ven-input"
+                    placeholder="摘要（可选，200 字以内；留空则列表自动截取正文）"
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    rows={2}
+                    maxLength={200}
+                />
+                <input
+                    className="ven-input"
+                    placeholder="封面图 URL（可选）"
+                    value={coverUrl}
+                    onChange={(e) => setCoverUrl(e.target.value)}
+                />
+                <input
+                    className="ven-input"
+                    placeholder="标签（可选，逗号分隔，最多 8 个）"
+                    value={tags}
+                    onChange={(e) => setTags(e.target.value)}
                 />
                 {preview ? (
                     <div
