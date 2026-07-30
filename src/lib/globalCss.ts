@@ -1,0 +1,99 @@
+/** 全局样式：CSS 变量（浅色落地 + 暗色预留）、元素基线、通用工具类；经 Layout 的 <style> 注入 */
+
+export const globalCss = `
+/* ===== 设计变量：浅色主题 ===== */
+:root {
+    --bg: #ffffff;
+    --bg-subtle: #f6f8fa;
+    --bg-inset: #eaeef2;
+    --border: #d0d7de;
+    --border-strong: #b6bec9;
+    --text: #1f2328;
+    --text-secondary: #57606a;
+    --text-muted: #6e7781;
+    --accent: #0969da;
+    --accent-hover: #0757b8;
+    --primary: #1f883d;
+    --primary-hover: #1a7f37;
+    --danger: #cf222e;
+    --shadow-card: 0 1px 2px rgba(31, 35, 40, 0.06), 0 1px 3px rgba(31, 35, 40, 0.08);
+    --shadow-card-hover: 0 6px 18px rgba(31, 35, 40, 0.12);
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+}
+
+/* ===== 设计变量：暗色主题（预留，接入切换后生效） ===== */
+[data-theme="dark"] {
+    --bg: #0d1117;
+    --bg-subtle: #161b22;
+    --bg-inset: #0a0e14;
+    --border: #30363d;
+    --border-strong: #484f58;
+    --text: #e6edf3;
+    --text-secondary: #9198a1;
+    --text-muted: #7d8590;
+    --accent: #4493f8;
+    --accent-hover: #5ea0fa;
+    --primary: #238636;
+    --primary-hover: #2ea043;
+    --danger: #f85149;
+    --shadow-card: 0 1px 2px rgba(1, 4, 9, 0.5);
+    --shadow-card-hover: 0 6px 18px rgba(1, 4, 9, 0.6);
+}
+
+/* ===== 元素基线 ===== */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); text-decoration: underline; }
+h1, h2, h3, h4, h5 { line-height: 1.3; font-weight: 650; margin: 0 0 12px; }
+p { margin: 0 0 12px; }
+code, pre { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace; }
+::selection { background: rgba(9, 105, 218, 0.18); }
+
+/* ===== 通用工具类 ===== */
+.ven-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 7px 16px; font-size: 14px; font-weight: 550; font-family: inherit;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--bg-subtle); color: var(--text);
+    cursor: pointer; text-decoration: none;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.ven-btn:hover { background: var(--bg-inset); text-decoration: none; color: var(--text); }
+.ven-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.ven-btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.ven-btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: #fff; }
+.ven-btn-danger { color: var(--danger); }
+.ven-btn-danger:hover { color: var(--danger); border-color: var(--danger); }
+
+.ven-input {
+    width: 100%; padding: 8px 12px; font-size: 14px; font-family: inherit;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--bg); color: var(--text);
+}
+.ven-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.15); }
+textarea.ven-input { resize: vertical; line-height: 1.6; }
+
+.ven-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-md); box-shadow: var(--shadow-card);
+}
+.ven-card-hover { transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s; }
+.ven-card-hover:hover { box-shadow: var(--shadow-card-hover); transform: translateY(-1px); border-color: var(--border-strong); }
+
+.ven-chip {
+    display: inline-block; font-size: 12px; line-height: 1.6; padding: 1px 10px;
+    border-radius: 999px; background: var(--bg-subtle);
+    border: 1px solid var(--border); color: var(--text-secondary);
+}
+`;
