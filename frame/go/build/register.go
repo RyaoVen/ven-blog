@@ -27,6 +27,7 @@ func Register(a *hybrid.App) error {
 	}
 	userRepo := persistence.NewUserRepository(db)
 	postRepo := persistence.NewPostRepository(db)
+	imageRepo := persistence.NewImageRepository(db)
 	if err := persistence.SeedUsers(userRepo); err != nil {
 		return fmt.Errorf("build: seed users: %w", err)
 	}
@@ -37,6 +38,7 @@ func Register(a *hybrid.App) error {
 
 	// 接口层注册（发文归属经 c.User() 取调用者，框架会话已携带用户身份）
 	interfaces.RegisterAuth(a, users)
+	interfaces.RegisterImages(a, imageRepo)
 	if err := interfaces.RegisterPages(a, posts); err != nil {
 		return err
 	}
