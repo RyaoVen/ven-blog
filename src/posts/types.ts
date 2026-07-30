@@ -18,6 +18,18 @@ export interface PostListState {
     posts: Post[];
 }
 
+/** /posts 列表页（标签筛选 + 分页）的 initialState */
+export interface PagedPostsState {
+    posts: Post[];
+    total: number;
+    page: number;
+    pageSize: number;
+    /** 当前筛选标签（空串表示全部） */
+    tag: string;
+    /** 全量标签（筛选条用） */
+    tags: string[];
+}
+
 /** 详情/编辑类页面的 initialState */
 export interface PostState {
     post: Post | null;

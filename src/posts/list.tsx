@@ -29,9 +29,14 @@ export function PostList({ posts }: { posts: Post[] }) {
                         <span>{p.authorName}</span>
                         <span>{formatDateTime(p.createdAt)}</span>
                         {p.tags.map((t) => (
-                            <span key={t} className="ven-chip">
+                            <a
+                                key={t}
+                                className="ven-chip"
+                                href={`/posts?tag=${encodeURIComponent(t)}`}
+                                style={{ textDecoration: "none" }}
+                            >
                                 {t}
-                            </span>
+                            </a>
                         ))}
                     </div>
                 </li>
