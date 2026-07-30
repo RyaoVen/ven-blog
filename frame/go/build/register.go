@@ -6,6 +6,7 @@ package build
 import (
 	"fmt"
 
+	"ven_hybird/build/application/momentapp"
 	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/application/userapp"
 	"ven_hybird/build/infrastructure/persistence"
@@ -27,6 +28,7 @@ func Register(a *hybrid.App) error {
 	}
 	userRepo := persistence.NewUserRepository(db)
 	postRepo := persistence.NewPostRepository(db)
+	momentRepo := persistence.NewMomentRepository(db)
 	if err := persistence.SeedUsers(userRepo); err != nil {
 		return fmt.Errorf("build: seed users: %w", err)
 	}
@@ -34,13 +36,17 @@ func Register(a *hybrid.App) error {
 	// 应用服务
 	posts := postapp.NewService(postRepo)
 	users := userapp.NewService(userRepo)
+	moments := momentapp.NewService(momentRepo)
 
 	// 接口层注册（发文归属经 c.User() 取调用者，框架会话已携带用户身份）
 	interfaces.RegisterAuth(a, users)
 	if err := interfaces.RegisterPages(a, posts); err != nil {
 		return err
 	}
-	return interfaces.RegisterAPIs(a, posts)
+	if err := interfaces.RegisterAPIs(a, posts); err != nil {
+		return err
+	}
+	return interfaces.RegisterMoments(a, moments)
 }
 
 // registerRoles 注册博客角色（须在页面注册前完成）。
