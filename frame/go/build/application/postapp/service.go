@@ -73,6 +73,15 @@ func (s *Service) AllTags() ([]string, error) {
 	return s.repo.AllTags()
 }
 
+// Search 按关键词搜索文章；trim 后为空直接返回空切片（不打数据库）。
+func (s *Service) Search(q string) ([]*post.Post, error) {
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return []*post.Post{}, nil
+	}
+	return s.repo.Search(q, 50)
+}
+
 // Get 文章详情。
 func (s *Service) Get(id int64) (*post.Post, error) {
 	return s.repo.Get(id)

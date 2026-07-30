@@ -76,6 +76,38 @@ func (r *PostRepository) ListPaged(tag string, page, pageSize int) ([]*post.Post
 	return posts, total, nil
 }
 
+// maxSearchLimit 单次搜索返回上限。
+const maxSearchLimit = 50
+
+// likeEscaper 转义 LIKE 模式中的通配符（配 ESCAPE '\\' 子句）。
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+// Search 按关键词 LIKE 匹配标题或正文（创建时间倒序）；limit 归一到 [1, maxSearchLimit]。
+func (r *PostRepository) Search(query string, limit int) ([]*post.Post, error) {
+	if limit <= 0 || limit > maxSearchLimit {
+		limit = maxSearchLimit
+	}
+	pattern := "%" + likeEscaper.Replace(query) + "%"
+	rows, err := r.db.Query(
+		postSelect+` WHERE p.title LIKE ? ESCAPE '\\' OR p.content LIKE ? ESCAPE '\\'
+ORDER BY p.created_at DESC, p.id DESC LIMIT ?`,
+		pattern, pattern, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("search posts: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	posts := make([]*post.Post, 0)
+	for rows.Next() {
+		p, err := scanPost(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan post: %w", err)
+		}
+		posts = append(posts, p)
+	}
+	return posts, rows.Err()
+}
+
 // Get 按 ID 取文章（含标签），不存在返回 post.ErrNotFound。
 func (r *PostRepository) Get(id int64) (*post.Post, error) {
 	p, err := scanPost(r.db.QueryRow(postSelect+" WHERE p.id = ?", id))
