@@ -6,6 +6,8 @@ package build
 import (
 	"fmt"
 
+	"ven_hybird/build/application/commentapp"
+	"ven_hybird/build/application/interactionapp"
 	"ven_hybird/build/application/momentapp"
 	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/application/userapp"
@@ -28,6 +30,8 @@ func Register(a *hybrid.App) error {
 	}
 	userRepo := persistence.NewUserRepository(db)
 	postRepo := persistence.NewPostRepository(db)
+	commentRepo := persistence.NewCommentRepository(db)
+	interactionRepo := persistence.NewInteractionRepository(db)
 	momentRepo := persistence.NewMomentRepository(db)
 	if err := persistence.SeedUsers(userRepo); err != nil {
 		return fmt.Errorf("build: seed users: %w", err)
@@ -36,11 +40,16 @@ func Register(a *hybrid.App) error {
 	// 应用服务
 	posts := postapp.NewService(postRepo)
 	users := userapp.NewService(userRepo)
+	comments := commentapp.NewService(commentRepo)
+	interactions := interactionapp.NewService(interactionRepo)
 	moments := momentapp.NewService(momentRepo)
 
 	// 接口层注册（发文归属经 c.User() 取调用者，框架会话已携带用户身份）
 	interfaces.RegisterAuth(a, users)
-	if err := interfaces.RegisterPages(a, posts); err != nil {
+	if err := interfaces.RegisterPages(a, posts, comments, interactions); err != nil {
+		return err
+	}
+	if err := interfaces.RegisterInteractions(a, comments, interactions); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterAPIs(a, posts); err != nil {
