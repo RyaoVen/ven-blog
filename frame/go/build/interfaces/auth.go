@@ -3,6 +3,7 @@ package interfaces
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -60,9 +61,9 @@ func RegisterAuth(a *hybrid.App, users *userapp.Service) {
 	})
 }
 
-// grantAuthJSON 下发双 cookie 并返回角色。
+// grantAuthJSON 下发双 cookie（会话携带用户 ID）并返回角色。
 func grantAuthJSON(ctx *fiber.Ctx, a *hybrid.App, u *user.User) error {
-	if err := a.Server().GrantAuth(ctx, u.Role.String()); err != nil {
+	if err := a.Server().GrantAuthWithUser(ctx, u.Role.String(), strconv.FormatInt(u.ID, 10)); err != nil {
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 	return ctx.JSON(fiber.Map{"ok": true, "role": u.Role.String()})

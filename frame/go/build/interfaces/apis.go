@@ -7,7 +7,6 @@ import (
 
 	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/domain/post"
-	"ven_hybird/build/domain/user"
 	"ven_hybird/hybrid"
 )
 
@@ -17,10 +16,17 @@ type postInput struct {
 	Content string `json:"content"`
 }
 
-// RegisterAPIs 注册文章 CRUD API。
-// author 是当前唯一可发文账号（框架会话只携带角色、尚无用户身份；
-// 待框架支持 CurrentUser 后改为取调用者）。仅 author 角色能调写接口，归属它是正确的。
-func RegisterAPIs(a *hybrid.App, posts *postapp.Service, author *user.User) error {
+// currentUserID 从会话取调用者用户 ID（接口守卫已确保登录与角色，这里只做转换与兜底）。
+func currentUserID(c *hybrid.ApiCtx) (int64, error) {
+	userID, _, ok := c.User()
+	if !ok {
+		return 0, errors.New("unauthenticated")
+	}
+	return strconv.ParseInt(userID, 10, 64)
+}
+
+// RegisterAPIs 注册文章 CRUD API。发文/编辑归属经 c.User() 取调用者。
+func RegisterAPIs(a *hybrid.App, posts *postapp.Service) error {
 	if err := a.Get("/posts", nil, func(c *hybrid.ApiCtx) error {
 		list, err := posts.ListRecent(0)
 		if err != nil {
@@ -36,7 +42,11 @@ func RegisterAPIs(a *hybrid.App, posts *postapp.Service, author *user.User) erro
 		if err := c.Bind(&in); err != nil {
 			return c.Error(400, "bad body")
 		}
-		p, err := posts.Create(author.ID, in.Title, in.Content)
+		authorID, err := currentUserID(c)
+		if err != nil {
+			return c.Error(401, "unauthenticated")
+		}
+		p, err := posts.Create(authorID, in.Title, in.Content)
 		if err != nil {
 			return writePostError(c, err)
 		}
