@@ -11,6 +11,8 @@ type Repository interface {
 	List() ([]*Post, error)
 	// Get 按 ID 取文章，不存在返回 ErrNotFound。
 	Get(id int64) (*Post, error)
+	// Search 按关键词匹配标题或正文（创建时间倒序，含作者名）；limit 为返回上限（实现归一到 [1, 50]）。
+	Search(query string, limit int) ([]*Post, error)
 	// Create 新建文章并回填 ID 与时间戳。
 	Create(p *Post) error
 	// Update 更新标题与正文，不存在返回 ErrNotFound。

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"ven_hybird/build/domain/post"
 )
@@ -34,6 +35,38 @@ func (r *PostRepository) List() ([]*post.Post, error) {
 	rows, err := r.db.Query(postSelect + " ORDER BY p.created_at DESC, p.id DESC")
 	if err != nil {
 		return nil, fmt.Errorf("list posts: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	posts := make([]*post.Post, 0)
+	for rows.Next() {
+		p, err := scanPost(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan post: %w", err)
+		}
+		posts = append(posts, p)
+	}
+	return posts, rows.Err()
+}
+
+// maxSearchLimit 单次搜索返回上限。
+const maxSearchLimit = 50
+
+// likeEscaper 转义 LIKE 模式中的通配符（配 ESCAPE '\\' 子句）。
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+// Search 按关键词 LIKE 匹配标题或正文（创建时间倒序）；limit 归一到 [1, maxSearchLimit]。
+func (r *PostRepository) Search(query string, limit int) ([]*post.Post, error) {
+	if limit <= 0 || limit > maxSearchLimit {
+		limit = maxSearchLimit
+	}
+	pattern := "%" + likeEscaper.Replace(query) + "%"
+	rows, err := r.db.Query(
+		postSelect+` WHERE p.title LIKE ? ESCAPE '\\' OR p.content LIKE ? ESCAPE '\\'
+ORDER BY p.created_at DESC, p.id DESC LIMIT ?`,
+		pattern, pattern, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("search posts: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 	posts := make([]*post.Post, 0)
