@@ -40,6 +40,9 @@ export default function WritePage({ bootstrap }: PageAppProps) {
 
     return (
         <Layout>
+            <p className="ven-meta" style={{ margin: "0 0 6px" }}>
+                {editing ? "EDIT" : "NEW POST"}
+            </p>
             <h1 style={{ fontSize: 24, marginBottom: 20 }}>{editing ? "编辑文章" : "写文章"}</h1>
             <form style={{ display: "flex", flexDirection: "column", gap: 14 }} onSubmit={onSubmit}>
                 <input

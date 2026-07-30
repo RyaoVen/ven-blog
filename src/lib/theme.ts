@@ -14,6 +14,7 @@ export const v = {
     accentHover: "var(--accent-hover)",
     primary: "var(--primary)",
     primaryHover: "var(--primary-hover)",
+    primaryFg: "var(--primary-fg)",
     danger: "var(--danger)",
     shadowCard: "var(--shadow-card)",
     shadowCardHover: "var(--shadow-card-hover)",

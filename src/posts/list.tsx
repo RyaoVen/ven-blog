@@ -25,7 +25,7 @@ export function PostList({ posts }: { posts: Post[] }) {
                         {p.title}
                     </a>
                     <p style={{ margin: "8px 0 12px", fontSize: 14, color: v.textSecondary }}>{excerptOf(p)}</p>
-                    <div style={{ display: "flex", gap: 12, alignItems: "center", fontSize: 13, color: v.textMuted }}>
+                    <div className="ven-meta" style={{ display: "flex", gap: 14, alignItems: "center" }}>
                         <span>{p.authorName}</span>
                         <span>{formatDateTime(p.createdAt)}</span>
                         {p.tags.map((t) => (

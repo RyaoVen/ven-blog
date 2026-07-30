@@ -38,16 +38,17 @@ const styles = {
         textDecoration: "none",
     },
     brandDot: {
-        width: 26,
-        height: 26,
-        borderRadius: 8,
-        background: `linear-gradient(135deg, ${v.accent}, ${v.primary})`,
+        width: 24,
+        height: 24,
+        borderRadius: 2,
+        background: v.text,
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        color: "#fff",
-        fontSize: 13,
-        fontWeight: 800,
+        color: v.bg,
+        fontSize: 12,
+        fontWeight: 700,
+        fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
     },
     nav: { display: "flex", gap: 18, alignItems: "center", fontSize: 14 },
     navLink: { color: v.textSecondary, textDecoration: "none" },
@@ -100,9 +101,9 @@ export function Layout({ children }: { children: ReactNode }) {
                 </nav>
             </header>
             <main style={styles.main}>{children}</main>
-            <footer style={styles.footer}>
-                <span>© 2026 RyaoVen</span>
-                <span>Powered by VenHybird</span>
+            <footer style={styles.footer} className="ven-meta">
+                <span>© 2026 RYAOVEN</span>
+                <span>POWERED BY VENHYBIRD</span>
             </footer>
         </div>
     );

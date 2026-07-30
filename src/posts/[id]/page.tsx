@@ -36,14 +36,13 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
             <article>
                 <h1 style={{ fontSize: 30, marginBottom: 12 }}>{post.title}</h1>
                 <div
+                    className="ven-meta"
                     style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 10,
-                        fontSize: 13,
-                        color: v.textMuted,
+                        gap: 12,
                         paddingBottom: 20,
-                        marginBottom: 24,
+                        marginBottom: 28,
                         borderBottom: `1px solid ${v.border}`,
                     }}
                 >
@@ -51,14 +50,15 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
                         style={{
                             width: 28,
                             height: 28,
-                            borderRadius: "50%",
-                            background: v.bgInset,
+                            borderRadius: 2,
+                            background: v.text,
                             display: "inline-flex",
                             alignItems: "center",
                             justifyContent: "center",
                             fontSize: 13,
-                            fontWeight: 650,
-                            color: v.textSecondary,
+                            fontWeight: 700,
+                            fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                            color: v.bg,
                         }}
                     >
                         {post.authorName.slice(0, 1).toUpperCase()}
@@ -72,7 +72,7 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
                         </span>
                     ))}
                 </div>
-                <div style={{ whiteSpace: "pre-wrap", fontSize: 15, lineHeight: 1.8 }}>{post.content}</div>
+                <div style={{ whiteSpace: "pre-wrap", fontSize: 15.5, lineHeight: 1.85 }}>{post.content}</div>
             </article>
             {role === "author" && (
                 <div style={{ marginTop: 36, display: "flex", gap: 12 }}>

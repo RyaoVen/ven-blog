@@ -38,6 +38,9 @@ export default function LoginPage({ bootstrap }: PageAppProps) {
     return (
         <Layout>
             <div className="ven-card" style={{ maxWidth: 400, margin: "48px auto", padding: "32px 28px" }}>
+                <p className="ven-meta" style={{ margin: "0 0 6px" }}>
+                    SIGN IN
+                </p>
                 <h1 style={{ fontSize: 22, marginBottom: 4 }}>登录</h1>
                 <p style={{ fontSize: 14, color: v.textSecondary, marginBottom: 24 }}>登录后可评论、点赞、收藏</p>
                 <form style={{ display: "flex", flexDirection: "column", gap: 16 }} onSubmit={onSubmit}>
