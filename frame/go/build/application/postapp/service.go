@@ -3,6 +3,8 @@
 package postapp
 
 import (
+	"strings"
+
 	"ven_hybird/build/domain/post"
 )
 
@@ -26,6 +28,15 @@ func (s *Service) ListRecent(limit int) ([]*post.Post, error) {
 		posts = posts[:limit]
 	}
 	return posts, nil
+}
+
+// Search 按关键词搜索文章；trim 后为空直接返回空切片（不打数据库）。
+func (s *Service) Search(q string) ([]*post.Post, error) {
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return []*post.Post{}, nil
+	}
+	return s.repo.Search(q, 50)
 }
 
 // Get 文章详情。
