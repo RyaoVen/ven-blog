@@ -16,6 +16,8 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "@types/markdown-it-container": "^4.0.0",
     "@types/node": "^25.5.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -26,6 +28,9 @@
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
+    "highlight.js": "^11.11.1",
+    "markdown-it": "^14.3.0",
+    "markdown-it-container": "^4.0.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "yaml": "^2.8.3"

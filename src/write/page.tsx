@@ -4,6 +4,8 @@ import { FormEvent, useState } from "react";
 import type { PageAppProps } from "../app/pageApp";
 import { navigate } from "../app/router";
 import { Layout } from "../lib/layout";
+import { renderMarkdown } from "../lib/markdown";
+import { markdownCss } from "../lib/markdownCss";
 import { v } from "../lib/theme";
 import type { PostState } from "../posts/types";
 
@@ -14,6 +16,7 @@ export default function WritePage({ bootstrap }: PageAppProps) {
     const [content, setContent] = useState(editing?.content ?? "");
     const [error, setError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
+    const [preview, setPreview] = useState(false);
 
     async function onSubmit(event: FormEvent) {
         event.preventDefault();
@@ -53,18 +56,35 @@ export default function WritePage({ bootstrap }: PageAppProps) {
                     onChange={(e) => setTitle(e.target.value)}
                     required
                 />
-                <textarea
-                    className="ven-input"
-                    placeholder="正文（Markdown 支持即将上线）"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    rows={16}
-                    required
-                />
+                {preview ? (
+                    <div
+                        className="ven-card ven-prose"
+                        style={{ padding: "16px 20px", minHeight: 300 }}
+                    >
+                        <style>{markdownCss}</style>
+                        <div dangerouslySetInnerHTML={{ __html: renderMarkdown(content).html }} />
+                    </div>
+                ) : (
+                    <textarea
+                        className="ven-input"
+                        placeholder="正文（Markdown：代码块/表格/列表/引用/:::warning 警告、:::tip 提示、:::note 注意）"
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        rows={16}
+                        required
+                    />
+                )}
                 {error && <p style={{ color: v.danger, fontSize: 14, margin: 0 }}>{error}</p>}
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                     <button className="ven-btn ven-btn-primary" type="submit" disabled={submitting}>
                         {submitting ? "保存中…" : editing ? "保存" : "发布"}
+                    </button>
+                    <button
+                        className="ven-btn"
+                        type="button"
+                        onClick={() => setPreview((p) => !p)}
+                    >
+                        {preview ? "继续编辑" : "预览"}
                     </button>
                     <a style={{ fontSize: 14, color: v.textSecondary }} href={editing ? `/posts/${editing.id}` : "/posts"}>
                         取消
