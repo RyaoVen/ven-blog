@@ -3,6 +3,8 @@ package interfaces
 
 import (
 	"errors"
+	"strconv"
+	"strings"
 
 	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/domain/post"
@@ -10,7 +12,9 @@ import (
 )
 
 // RegisterPages 注册文章相关页面。
-// 列表/详情是公开 ISR 静态页（物化落盘直发，DataChange 失效再生）；
+// /posts 是带标签筛选与分页的公开动态页（?tag=/?page= 查询串场景不能走 ISR——
+// 物化文件按 path 直发，不同 query 会被同一份基础文件截胡）；
+// 详情是公开 ISR 静态页（物化落盘直发，DataChange 失效再生）；
 // /write 是 author 专属动态页；/login 与 /403 是框架守卫要求的公开空数据页。
 func RegisterPages(a *hybrid.App, posts *postapp.Service) error {
 	// 首页：最近 5 篇文章
@@ -24,13 +28,26 @@ func RegisterPages(a *hybrid.App, posts *postapp.Service) error {
 		return err
 	}
 
-	// 文章列表（ISR，全站仅一页）
-	if err := a.StaticPage("/posts", 1, true, func(c *hybrid.PageCtx) error {
-		list, err := posts.ListRecent(0)
+	// 文章列表：?tag= 标签筛选 + ?page= 分页，tags 为全量标签（筛选条用）
+	if err := a.Page("/posts", nil, func(c *hybrid.PageCtx) error {
+		page, _ := strconv.Atoi(c.Query("page"))
+		tag := strings.TrimSpace(c.Query("tag"))
+		paged, err := posts.List(postapp.ListFilter{Tag: tag, Page: page})
 		if err != nil {
 			return err
 		}
-		return c.JSON(map[string]any{"posts": toPostViews(list)})
+		tags, err := posts.AllTags()
+		if err != nil {
+			return err
+		}
+		return c.JSON(map[string]any{
+			"posts":    toPostViews(paged.Posts),
+			"total":    paged.Total,
+			"page":     paged.Page,
+			"pageSize": paged.PageSize,
+			"tag":      tag,
+			"tags":     tags,
+		})
 	}); err != nil {
 		return err
 	}
