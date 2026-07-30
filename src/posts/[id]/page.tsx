@@ -72,7 +72,12 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
                 >
                     {post.authorName.slice(0, 1).toUpperCase()}
                 </span>
-                <span style={{ color: v.textSecondary, fontWeight: 550 }}>{post.authorName}</span>
+                <a
+                    href={"/author/" + post.authorName}
+                    style={{ color: v.textSecondary, fontWeight: 550, textDecoration: "none" }}
+                >
+                    {post.authorName}
+                </a>
                 <span>发布于 {formatDateTime(post.createdAt)}</span>
                 {post.updatedAt !== post.createdAt && <span>（更新于 {formatDateTime(post.updatedAt)}）</span>}
                 {post.tags.map((t) => (

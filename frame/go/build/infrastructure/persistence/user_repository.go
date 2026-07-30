@@ -22,18 +22,36 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
+// 用户查询列序（与 scanUser 一致）。
+const userSelect = "SELECT id, username, password_hash, role, bio, avatar_url, created_at FROM users"
+
+// scanUser 从行扫描用户（列序与 userSelect 一致）。
+func scanUser(row interface{ Scan(...any) error }) (*user.User, error) {
+	u := &user.User{}
+	err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.Bio, &u.AvatarURL, &u.CreatedAt)
+	return u, err
+}
+
 // FindByUsername 按用户名查找，不存在返回 user.ErrNotFound。
 func (r *UserRepository) FindByUsername(username string) (*user.User, error) {
-	u := &user.User{}
-	err := r.db.QueryRow(
-		"SELECT id, username, password_hash, role, bio, avatar_url, created_at FROM users WHERE username = ?",
-		username,
-	).Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.Bio, &u.AvatarURL, &u.CreatedAt)
+	u, err := scanUser(r.db.QueryRow(userSelect+" WHERE username = ?", username))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, user.ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("find user %q: %w", username, err)
+	}
+	return u, nil
+}
+
+// FindByID 按 ID 查找，不存在返回 user.ErrNotFound。
+func (r *UserRepository) FindByID(id int64) (*user.User, error) {
+	u, err := scanUser(r.db.QueryRow(userSelect+" WHERE id = ?", id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, user.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find user %d: %w", id, err)
 	}
 	return u, nil
 }
@@ -59,6 +77,24 @@ func (r *UserRepository) Count() (int, error) {
 	var n int
 	if err := r.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&n); err != nil {
 		return 0, fmt.Errorf("count users: %w", err)
+	}
+	return n, nil
+}
+
+// CountPosts 返回用户发布的文章数。
+func (r *UserRepository) CountPosts(userID int64) (int, error) {
+	var n int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM posts WHERE author_id = ?", userID).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count posts of user %d: %w", userID, err)
+	}
+	return n, nil
+}
+
+// CountComments 返回用户发表的评论数。
+func (r *UserRepository) CountComments(userID int64) (int, error) {
+	var n int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM comments WHERE user_id = ?", userID).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count comments of user %d: %w", userID, err)
 	}
 	return n, nil
 }

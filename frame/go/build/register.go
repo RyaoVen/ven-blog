@@ -55,6 +55,9 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterSearch(a, posts); err != nil {
 		return err
 	}
+	if err := interfaces.RegisterProfiles(a, users, posts); err != nil {
+		return err
+	}
 	if err := interfaces.RegisterAPIs(a, posts); err != nil {
 		return err
 	}

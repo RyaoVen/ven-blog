@@ -87,6 +87,11 @@ func (s *Service) Get(id int64) (*post.Post, error) {
 	return s.repo.Get(id)
 }
 
+// ListByAuthor 指定作者的文章（作者主页用，创建时间倒序）。
+func (s *Service) ListByAuthor(authorID int64) ([]*post.Post, error) {
+	return s.repo.ListByAuthor(authorID)
+}
+
 // Create 发文：领域校验 + 落库。
 func (s *Service) Create(authorID int64, in PostInput) (*post.Post, error) {
 	if msg := post.Validate(in.Title, in.Content, in.Summary, in.CoverURL); msg != "" {

@@ -108,6 +108,24 @@ ORDER BY p.created_at DESC, p.id DESC LIMIT ?`,
 	return posts, rows.Err()
 }
 
+// ListByAuthor 返回指定作者的全部文章（创建时间倒序）。
+func (r *PostRepository) ListByAuthor(authorID int64) ([]*post.Post, error) {
+	rows, err := r.db.Query(postSelect+" WHERE p.author_id = ? ORDER BY p.created_at DESC, p.id DESC", authorID)
+	if err != nil {
+		return nil, fmt.Errorf("list posts of author %d: %w", authorID, err)
+	}
+	defer func() { _ = rows.Close() }()
+	posts := make([]*post.Post, 0)
+	for rows.Next() {
+		p, err := scanPost(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan post: %w", err)
+		}
+		posts = append(posts, p)
+	}
+	return posts, rows.Err()
+}
+
 // Get 按 ID 取文章（含标签），不存在返回 post.ErrNotFound。
 func (r *PostRepository) Get(id int64) (*post.Post, error) {
 	p, err := scanPost(r.db.QueryRow(postSelect+" WHERE p.id = ?", id))
