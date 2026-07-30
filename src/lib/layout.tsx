@@ -84,6 +84,9 @@ export function Layout({ children }: { children: ReactNode }) {
                     <a href="/posts" style={styles.navLink}>
                         文章
                     </a>
+                    <a href="/moments" style={styles.navLink}>
+                        动态
+                    </a>
                     {role === "author" && (
                         <a href="/write" className="ven-btn ven-btn-primary">
                             写文章

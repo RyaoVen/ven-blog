@@ -12,8 +12,22 @@ import (
 
 // postInput 是文章创建/更新的请求体。
 type postInput struct {
-	Title   string `json:"title"`
-	Content string `json:"content"`
+	Title    string   `json:"title"`
+	Content  string   `json:"content"`
+	Summary  string   `json:"summary"`
+	CoverURL string   `json:"coverUrl"`
+	Tags     []string `json:"tags"`
+}
+
+// toServiceInput 请求体 → 用例入参。
+func (in postInput) toServiceInput() postapp.PostInput {
+	return postapp.PostInput{
+		Title:    in.Title,
+		Content:  in.Content,
+		Summary:  in.Summary,
+		CoverURL: in.CoverURL,
+		Tags:     in.Tags,
+	}
 }
 
 // currentUserID 从会话取调用者用户 ID（接口守卫已确保登录与角色，这里只做转换与兜底）。
@@ -46,7 +60,7 @@ func RegisterAPIs(a *hybrid.App, posts *postapp.Service) error {
 		if err != nil {
 			return c.Error(401, "unauthenticated")
 		}
-		p, err := posts.Create(authorID, in.Title, in.Content)
+		p, err := posts.Create(authorID, in.toServiceInput())
 		if err != nil {
 			return writePostError(c, err)
 		}
@@ -61,7 +75,7 @@ func RegisterAPIs(a *hybrid.App, posts *postapp.Service) error {
 		if err := c.Bind(&in); err != nil {
 			return c.Error(400, "bad body")
 		}
-		p, err := posts.Update(mustID(c.Param("id")), in.Title, in.Content)
+		p, err := posts.Update(mustID(c.Param("id")), in.toServiceInput())
 		if err != nil {
 			return writePostError(c, err)
 		}
@@ -94,10 +108,12 @@ func writePostError(c *hybrid.ApiCtx, err error) error {
 	}
 }
 
-// declarePostsChanged 声明文章数据变更：列表全局失效 + 单篇详情失效。
-// 永远异步立即返回；ISR 再生与 SSE 推送由事件总线在 debounce 合批后完成。
+// declarePostsChanged 声明文章数据变更：动态页缓存失效（/posts 列表与 / 首页最近文章）
+// + 单篇静态详情失效。永远异步立即返回；ISR 再生与 SSE 推送由事件总线在 debounce 合批后完成。
+// /posts 是带 ?tag=/?page= 查询串的动态页，不能走 DataChange（静态页通道，会报 static page not declared）。
 func declarePostsChanged(a *hybrid.App, id int64) {
-	_ = a.DataChange("/posts")
+	a.InvalidatePage("/posts")
+	a.InvalidatePage("/")
 	if id > 0 {
 		_ = a.DataChange("/posts/:id", strconv.FormatInt(id, 10))
 	}
