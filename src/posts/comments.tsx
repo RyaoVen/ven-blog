@@ -97,7 +97,7 @@ export function CommentsSection({
     }
 
     return (
-        <section style={{ marginTop: 40 }}>
+        <section style={{ marginTop: 24 }}>
             <h2 style={{ fontSize: 18, display: "flex", alignItems: "center", gap: 8 }}>
                 <MessageIcon size={17} />
                 评论{list.length > 0 && `（${list.length}）`}

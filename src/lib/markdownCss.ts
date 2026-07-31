@@ -22,7 +22,7 @@ export const markdownCss = `
 
 /* ===== 正文排版 ===== */
 .ven-prose { font-size: 15.5px; line-height: 1.8; }
-.ven-prose h1, .ven-prose h2, .ven-prose h3, .ven-prose h4, .ven-prose h5 { scroll-margin-top: 20px; margin: 36px 0 14px; }
+.ven-prose h1, .ven-prose h2, .ven-prose h3, .ven-prose h4, .ven-prose h5 { scroll-margin-top: 80px; margin: 36px 0 14px; }
 .ven-prose h1 { font-size: 24px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .ven-prose h2 { font-size: 20px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
 .ven-prose h3 { font-size: 17px; }

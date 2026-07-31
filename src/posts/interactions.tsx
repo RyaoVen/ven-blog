@@ -84,6 +84,7 @@ export function InteractionBar({
             <button
                 type="button"
                 className={viewer.liked ? "ven-btn ven-btn-primary" : "ven-btn"}
+                style={{ minWidth: 118, justifyContent: "center" }}
                 onClick={() => onToggle("like")}
             >
                 <HeartIcon filled={viewer.liked} />
@@ -92,6 +93,7 @@ export function InteractionBar({
             <button
                 type="button"
                 className={viewer.favorited ? "ven-btn ven-btn-primary" : "ven-btn"}
+                style={{ minWidth: 118, justifyContent: "center" }}
                 onClick={() => onToggle("favorite")}
             >
                 <BookmarkIcon filled={viewer.favorited} />

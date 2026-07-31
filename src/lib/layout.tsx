@@ -25,6 +25,10 @@ const styles = {
         flexDirection: "column",
     },
     header: {
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+        background: "var(--bg)",
         padding: "14px 0",
         borderBottom: `1px solid ${v.border}`,
         marginBottom: 32,

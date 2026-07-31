@@ -64,10 +64,10 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-/* 胶片噪点（soft-light 叠层；暗色 invert + 降 opacity） */
+/* 胶片噪点（soft-light 叠层；暗色 invert + 降 opacity）。z-index 999：压内容、让弹窗（1000） */
 body::after {
     content: "";
-    position: fixed; inset: 0; z-index: 2147483647; pointer-events: none;
+    position: fixed; inset: 0; z-index: 999; pointer-events: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     mix-blend-mode: soft-light;
     opacity: 0.2;
@@ -185,6 +185,23 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
 
 /* 玩味细节：特定区块十字准星 */
 .ven-crosshair { cursor: crosshair; }
+
+/* 主题切换纯圆按钮：icon only，悬浮展开显字 */
+.ven-theme-toggle {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    width: 32px; height: 32px; padding: 0;
+    border-radius: 999px; border: 1px solid var(--border-strong);
+    background: var(--bg); color: var(--text);
+    cursor: pointer; overflow: hidden; white-space: nowrap;
+    transition: width 0.26s var(--ease-out), padding 0.26s var(--ease-out), background 0.22s var(--ease-out), border-color 0.22s var(--ease-out);
+}
+.ven-theme-toggle:hover { width: auto; padding: 0 12px; background: var(--bg-inset); }
+.ven-theme-label {
+    font-size: 12px; font-family: inherit;
+    max-width: 0; opacity: 0; overflow: hidden;
+    transition: max-width 0.26s var(--ease-out), opacity 0.22s var(--ease-out);
+}
+.ven-theme-toggle:hover .ven-theme-label { max-width: 48px; opacity: 1; }
 
 /* hero 区布局：左文案右动态 SVG（窄屏收起 SVG） */
 .ven-hero { display: flex; align-items: center; justify-content: space-between; gap: 32px; }
