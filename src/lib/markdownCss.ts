@@ -59,8 +59,7 @@ export const markdownCss = `
 }
 .ven-prose pre code { background: transparent; border: none; padding: 0; font-size: 13px; line-height: 1.65; }
 
-/* admonition：:::warning / :::tip / :::note */
-.ven-admonition {
+/* admonition：:::warning / :::tip / :::note */.ven-admonition {
     border: 1px solid var(--border); border-left: 3px solid var(--text);
     border-radius: var(--radius-sm); background: var(--bg-subtle);
     padding: 12px 16px; margin: 0 0 16px;
@@ -88,4 +87,15 @@ export const markdownCss = `
 .hljs-symbol, .hljs-bullet, .hljs-link { color: #0550ae; }
 .hljs-emphasis { font-style: italic; }
 .hljs-strong { font-weight: 700; }
+
+/* 评论内 Markdown：紧凑排版（比正文小一号、间距收紧） */
+.ven-comment-prose { font-size: 14px; line-height: 1.7; }
+.ven-comment-prose p { margin: 0 0 8px; }
+.ven-comment-prose p:last-child { margin-bottom: 0; }
+.ven-comment-prose h1, .ven-comment-prose h2, .ven-comment-prose h3,
+.ven-comment-prose h4, .ven-comment-prose h5 { font-size: 14px; margin: 12px 0 6px; border: none; padding: 0; }
+.ven-comment-prose pre { padding: 10px 12px; margin: 0 0 8px; }
+.ven-comment-prose ul, .ven-comment-prose ol { margin: 0 0 8px; }
+.ven-comment-prose blockquote { margin: 0 0 8px; }
+.ven-comment-prose table { margin: 0 0 8px; font-size: 13px; }
 `;
