@@ -61,6 +61,9 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterHome(a, posts, moments, author); err != nil {
 		return err
 	}
+	if err := interfaces.RegisterSiteInfo(a, author); err != nil {
+		return err
+	}
 	if err := interfaces.RegisterSubscribe(a, subscribe, posts, siteURLFromEnv()); err != nil {
 		return err
 	}
