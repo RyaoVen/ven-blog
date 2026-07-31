@@ -1,14 +1,14 @@
-/** 首页：整屏板块（滚动磁吸 + 非线性跳转）——hero / 双列表 / 仪表盘 / 时间线 / 订阅 */
+/** 首页：整屏板块（固定滚动：滚轮手势一屏一切换）——hero / 双列表 / 仪表盘 / 时间线 / 订阅 */
 
-import { FormEvent, RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import type { PageAppProps } from "./app/pageApp";
-import { PulseLine, SignalWaves } from "./lib/ambient";
+import { MarchLine, PulseLine, SignalWaves } from "./lib/ambient";
 import { CountUp } from "./lib/countUp";
+import { useFixedSections } from "./lib/fixedScroll";
 import { formatDateTime } from "./lib/format";
 import { Layout } from "./lib/layout";
 import { Reveal, useInView } from "./lib/reveal";
-import { scrollToElement, scrollToNextSection } from "./lib/scrollAnim";
 import { Tilt } from "./lib/tilt";
 import { v } from "./lib/theme";
 import type { HomeState, HomeTimelineItem } from "./home/types";
@@ -27,42 +27,46 @@ export default function HomePage({ bootstrap }: PageAppProps) {
         author: { username: "author", bio: "", avatarUrl: "", github: "" },
     }) as HomeState;
     const containerRef = useRef<HTMLDivElement>(null);
-
-    // 滚动磁吸仅首页生效（离开页面解除）
-    useEffect(() => {
-        document.documentElement.classList.add("ven-home-snap");
-        return () => document.documentElement.classList.remove("ven-home-snap");
-    }, []);
+    const { index, goTo } = useFixedSections(containerRef, 5);
 
     return (
         <Layout>
             <div ref={containerRef}>
-                <Panel index={0}>
+                <Panel index={0} onNext={() => goTo(1)}>
                     <Hero state={state} />
                 </Panel>
-                <Panel index={1}>
+                <Panel index={1} onNext={() => goTo(2)}>
                     <DualLists state={state} />
                 </Panel>
-                <Panel index={2}>
+                <Panel index={2} onNext={() => goTo(3)}>
                     <Dashboard state={state} />
                 </Panel>
-                <Panel index={3}>
+                <Panel index={3} onNext={() => goTo(4)}>
                     <Timeline items={state.timeline} />
                 </Panel>
                 <Panel index={4} last>
                     <Subscribe />
                 </Panel>
             </div>
-            <PanelNav containerRef={containerRef} />
+            <PanelNav containerRef={containerRef} active={index} onSelect={goTo} />
         </Layout>
     );
 }
 
 /* ===== 整屏板块外壳（底部 chevron 非线性滚向下一屏） ===== */
-function Panel({ index, last = false, children }: { index: number; last?: boolean; children: React.ReactNode }) {
-    const ref = useRef<HTMLElement>(null);
+function Panel({
+    index,
+    last = false,
+    onNext,
+    children,
+}: {
+    index: number;
+    last?: boolean;
+    onNext?: () => void;
+    children: React.ReactNode;
+}) {
     return (
-        <section ref={ref} className="ven-panel" data-panel={index}>
+        <section className="ven-panel" data-panel={index}>
             {children}
             {!last && (
                 <button
@@ -70,7 +74,7 @@ function Panel({ index, last = false, children }: { index: number; last?: boolea
                     className="ven-panel-chevron ven-btn"
                     style={{ padding: "6px 10px" }}
                     aria-label="滚动到下一屏"
-                    onClick={() => scrollToNextSection(ref.current)}
+                    onClick={onNext}
                 >
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                         <path d="M2 5 L8 11 L14 5" stroke="currentColor" strokeWidth="1.5" />
@@ -82,25 +86,19 @@ function Panel({ index, last = false, children }: { index: number; last?: boolea
 }
 
 /* ===== 右侧圆点章节导航 ===== */
-function PanelNav({ containerRef }: { containerRef: RefObject<HTMLDivElement | null> }) {
+function PanelNav({
+    containerRef,
+    active,
+    onSelect,
+}: {
+    containerRef: React.RefObject<HTMLDivElement | null>;
+    active: number;
+    onSelect: (index: number) => void;
+}) {
     const [panels, setPanels] = useState<Element[]>([]);
-    const [active, setActive] = useState(0);
 
     useEffect(() => {
-        const els = Array.from(containerRef.current?.querySelectorAll(".ven-panel") ?? []);
-        setPanels(els);
-        const observer = new IntersectionObserver(
-            (entries) => {
-                for (const entry of entries) {
-                    if (entry.isIntersecting) {
-                        setActive(els.indexOf(entry.target));
-                    }
-                }
-            },
-            { threshold: 0.5 },
-        );
-        els.forEach((el) => observer.observe(el));
-        return () => observer.disconnect();
+        setPanels(Array.from(containerRef.current?.querySelectorAll(".ven-panel") ?? []));
     }, [containerRef]);
 
     if (panels.length === 0) {
@@ -108,7 +106,7 @@ function PanelNav({ containerRef }: { containerRef: RefObject<HTMLDivElement | n
     }
     return (
         <nav className="ven-panel-nav" aria-label="章节导航">
-            {panels.map((p, i) => (
+            {panels.map((_, i) => (
                 <a
                     key={i}
                     href={`#panel-${i}`}
@@ -116,7 +114,7 @@ function PanelNav({ containerRef }: { containerRef: RefObject<HTMLDivElement | n
                     title={PANEL_LABELS[i]}
                     onClick={(e) => {
                         e.preventDefault();
-                        scrollToElement(p);
+                        onSelect(i);
                     }}
                 />
             ))}
@@ -195,11 +193,14 @@ function Hero({ state }: { state: HomeState }) {
 function DualLists({ state }: { state: HomeState }) {
     return (
         <Reveal>
+            <div style={{ marginBottom: 28 }}>
+                <MarchLine width={220} />
+            </div>
             <div
                 style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                    gap: 40,
+                    gap: 48,
                 }}
             >
                 <div>
@@ -217,14 +218,14 @@ function DualLists({ state }: { state: HomeState }) {
                                         justifyContent: "space-between",
                                         alignItems: "baseline",
                                         gap: 16,
-                                        padding: "12px 0 12px 12px",
+                                        padding: "16px 0 16px 12px",
                                         borderBottom: `1px solid ${v.border}`,
                                     }}
                                 >
                                     <a
                                         href={`/posts/${p.id}`}
                                         style={{
-                                            fontSize: 15,
+                                            fontSize: 16,
                                             fontWeight: 550,
                                             color: v.text,
                                             textDecoration: "none",
@@ -253,7 +254,7 @@ function DualLists({ state }: { state: HomeState }) {
                                 <li
                                     key={m.id}
                                     className="ven-accent-item"
-                                    style={{ padding: "12px 0 12px 12px", borderBottom: `1px solid ${v.border}` }}
+                                    style={{ padding: "16px 0 16px 12px", borderBottom: `1px solid ${v.border}` }}
                                 >
                                     <p
                                         style={{
@@ -409,6 +410,15 @@ function Timeline({ items }: { items: HomeTimelineItem[] }) {
                 { scale: 0 },
                 { scale: 1, duration: 0.35, stagger: 0.12, ease: "back.out(2.5)", delay: 0.3 },
             );
+            gsap.to(".ven-tl-dot", {
+                opacity: 0.25,
+                duration: 1.2,
+                repeat: -1,
+                yoyo: true,
+                ease: "sine.inOut",
+                stagger: 0.5,
+                delay: 1.2,
+            });
         }, ref);
         return () => ctx.revert();
     }, [inView, ref]);
