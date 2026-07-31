@@ -1,9 +1,11 @@
 /** 动态页（ISR 静态页）：说说时间线，点击卡片弹窗看详情；数据变更由框架失效再生 + SSE 推送刷新 */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { PageAppProps } from "../app/pageApp";
 import { formatDateTime } from "../lib/format";
 import { Layout } from "../lib/layout";
+import { renderMarkdown } from "../lib/markdown";
+import { markdownCss } from "../lib/markdownCss";
 import { Modal } from "../lib/modal";
 import { v } from "../lib/theme";
 import type { Moment, MomentsState } from "./types";
@@ -14,6 +16,7 @@ export default function MomentsPage({ bootstrap }: PageAppProps) {
 
     return (
         <Layout>
+            <style>{markdownCss}</style>
             <header style={{ marginBottom: 24 }}>
                 <h1 style={{ fontSize: 28 }}>动态</h1>
                 <p className="ven-meta" style={{ margin: 0 }}>
@@ -55,18 +58,17 @@ export default function MomentsPage({ bootstrap }: PageAppProps) {
                                     <span style={{ fontWeight: 550 }}>{m.authorName}</span>
                                     <span className="ven-meta">{formatDateTime(m.createdAt)}</span>
                                 </div>
-                                <p
+                                <div
+                                    className="ven-prose ven-comment-prose"
                                     style={{
-                                        margin: 0,
-                                        whiteSpace: "pre-wrap",
                                         overflow: "hidden",
                                         display: "-webkit-box",
                                         WebkitLineClamp: 3,
                                         WebkitBoxOrient: "vertical",
                                     }}
                                 >
-                                    {m.content}
-                                </p>
+                                    <MomentBody content={m.content} />
+                                </div>
                             </button>
                         </li>
                     ))}
@@ -82,12 +84,20 @@ export default function MomentsPage({ bootstrap }: PageAppProps) {
                                 <span className="ven-meta">{formatDateTime(selected.createdAt)}</span>
                             </div>
                         </div>
-                        <p style={{ margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.8 }}>{selected.content}</p>
+                        <div className="ven-prose">
+                            <MomentBody content={selected.content} />
+                        </div>
                     </div>
                 )}
             </Modal>
         </Layout>
     );
+}
+
+/** 动态正文 Markdown 渲染（同文章管线，html:false 防 XSS） */
+function MomentBody({ content }: { content: string }) {
+    const rendered = useMemo(() => renderMarkdown(content), [content]);
+    return <div dangerouslySetInnerHTML={{ __html: rendered.html }} />;
 }
 
 /** 动态作者字母头像（方角黑底） */

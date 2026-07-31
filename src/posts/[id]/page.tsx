@@ -86,6 +86,22 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
                     </span>
                 ))}
             </div>
+            {post.coverUrl && (
+                <img
+                    src={post.coverUrl}
+                    alt={post.title}
+                    loading="lazy"
+                    style={{
+                        display: "block",
+                        width: "100%",
+                        maxHeight: 380,
+                        objectFit: "cover",
+                        border: `1px solid ${v.border}`,
+                        borderRadius: 3,
+                        marginBottom: 32,
+                    }}
+                />
+            )}
             <div className="ven-post-layout">
                 <article>
                     <div className="ven-prose" dangerouslySetInnerHTML={{ __html: rendered.html }} />
