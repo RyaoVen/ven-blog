@@ -121,7 +121,7 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 			return c.Error(400, "bad body")
 		}
 		postID := mustID(c.Param("id"))
-		cm, err := comments.Create(userID, postID, in.Content, in.ReplyTo)
+		cm, err := comments.Create(userID, comment.Target{PostID: postID}, in.Content, in.ReplyTo)
 		var vErr *commentapp.ValidationError
 		if errors.As(err, &vErr) {
 			return c.Error(400, vErr.Message)
@@ -145,7 +145,7 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 		if err != nil {
 			return c.Error(401, "unauthenticated")
 		}
-		postID, err := comments.Delete(uid, role, mustID(c.Param("id")))
+		target, err := comments.Delete(uid, role, mustID(c.Param("id")))
 		switch {
 		case errors.Is(err, comment.ErrNotFound):
 			return c.Error(404, "comment not found")
@@ -154,7 +154,59 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 		case err != nil:
 			return c.Error(500, "internal error")
 		}
-		declarePostsChanged(a, postID)
+		if target.MomentID > 0 {
+			_ = a.DataChange("/moments")
+		} else {
+			declarePostsChanged(a, target.PostID)
+		}
 		return c.JSON(200, map[string]any{"ok": true})
+	})
+}
+
+// RegisterMomentComments 注册动态评论 API（列表公开，发表需登录）。
+func RegisterMomentComments(a *hybrid.App, comments *commentapp.Service) error {
+	// 动态评论列表（公开）
+	if err := a.Get("/moments/:id/comments", nil, func(c *hybrid.ApiCtx) error {
+		list, err := comments.ListForMoment(mustID(c.Param("id")))
+		if err != nil {
+			return c.Error(500, "internal error")
+		}
+		return c.JSON(200, map[string]any{"comments": toCommentViews(list)})
+	}); err != nil {
+		return err
+	}
+
+	// 发表动态评论
+	return a.Post("/moments/:id/comments", loginRoles, func(c *hybrid.ApiCtx) error {
+		userID, err := currentUserID(c)
+		if err != nil {
+			return c.Error(401, "unauthenticated")
+		}
+		var in commentInput
+		if err := c.Bind(&in); err != nil {
+			return c.Error(400, "bad body")
+		}
+		momentID := mustID(c.Param("id"))
+		cm, err := comments.Create(userID, comment.Target{MomentID: momentID}, in.Content, in.ReplyTo)
+		var vErr *commentapp.ValidationError
+		if errors.As(err, &vErr) {
+			return c.Error(400, vErr.Message)
+		}
+		if err != nil {
+			return c.Error(500, "internal error")
+		}
+		_ = a.DataChange("/moments")
+		return c.JSON(201, toCommentView(cm))
+	})
+}
+
+// RegisterMe 注册当前用户信息接口（前端评论区等场景取 viewer 身份）。
+func RegisterMe(a *hybrid.App) error {
+	return a.Get("/me", loginRoles, func(c *hybrid.ApiCtx) error {
+		userID, role, ok := c.User()
+		if !ok {
+			return c.Error(401, "unauthenticated")
+		}
+		return c.JSON(200, map[string]any{"userId": userID, "role": role})
 	})
 }
