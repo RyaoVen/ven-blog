@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { PageAppProps } from "../../app/pageApp";
 import { formatDateTime } from "../../lib/format";
+import { TrashIcon } from "../../lib/icons";
 import { ConfirmModal } from "../../lib/modal";
 import { v } from "../../lib/theme";
 import { AdminLayout } from "../adminLayout";
@@ -77,6 +78,7 @@ export default function AdminPostsPage({ bootstrap }: PageAppProps) {
                                 style={{ padding: "3px 12px", fontSize: 12 }}
                                 onClick={() => setDeleting(p)}
                             >
+                                <TrashIcon size={12} />
                                 删除
                             </button>
                         </li>

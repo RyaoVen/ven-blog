@@ -3,6 +3,7 @@
 
 import { ReactNode, useEffect, useRef } from "react";
 import gsap from "gsap";
+import { XIcon } from "./icons";
 import { v } from "./theme";
 
 const overlayStyle = {
@@ -64,6 +65,24 @@ export function Modal({
                 style={{ width: "100%", maxWidth: width, maxHeight: "82vh", overflowY: "auto", padding: "22px 24px" }}
                 onClick={(e) => e.stopPropagation()}
             >
+                <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="关闭"
+                    style={{
+                        position: "absolute",
+                        top: 14,
+                        right: 14,
+                        border: "none",
+                        background: "none",
+                        cursor: "pointer",
+                        color: "var(--text-muted)",
+                        padding: 4,
+                        display: "inline-flex",
+                    }}
+                >
+                    <XIcon size={16} />
+                </button>
                 {children}
             </div>
         </div>

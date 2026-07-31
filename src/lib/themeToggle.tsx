@@ -1,6 +1,7 @@
 /** 深浅色切换：切换 documentElement[data-theme] + localStorage 持久化；无存储值跟随系统偏好 */
 
 import { useEffect, useState } from "react";
+import { MoonIcon, SunIcon } from "./icons";
 
 const STORAGE_KEY = "ven-theme";
 
@@ -32,7 +33,19 @@ export function ThemeToggle() {
 
     return (
         <button type="button" className="ven-btn" onClick={toggle} aria-label="切换深浅色主题">
-            {theme === null ? "主题" : theme === "dark" ? "浅色" : "深色"}
+            {theme === null ? (
+                "主题"
+            ) : theme === "dark" ? (
+                <>
+                    <SunIcon />
+                    浅色
+                </>
+            ) : (
+                <>
+                    <MoonIcon />
+                    深色
+                </>
+            )}
         </button>
     );
 }
