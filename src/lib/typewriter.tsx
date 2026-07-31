@@ -1,6 +1,8 @@
-/** 打字机轮播：逐字显示 → 停顿 → 逐字消失 → 下一句（SSR 静态显示首句全文，客户端接管轮播） */
+/** 打字机轮播：逐字显示 → 停顿 8s → 逐字消失 → 下一句。
+ * SSR 静态显示首句全文；点击卡片复制当前句到剪贴板并弹气泡提示。 */
 
 import { useEffect, useState } from "react";
+import { CheckIcon } from "./icons";
 import { v } from "./theme";
 
 export interface TypewriterItem {
@@ -12,7 +14,7 @@ export function Typewriter({
     items,
     typeMs = 70,
     eraseMs = 30,
-    holdMs = 2600,
+    holdMs = 8000,
 }: {
     items: TypewriterItem[];
     typeMs?: number;
@@ -23,6 +25,7 @@ export function Typewriter({
     // len 为 null 表示 SSR/未启动（显示全文），挂载后从 0 开始打字
     const [len, setLen] = useState<number | null>(null);
     const [erasing, setErasing] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     useEffect(() => {
         if (items.length === 0) {
@@ -53,6 +56,24 @@ export function Typewriter({
         };
     }, [len, erasing, index, items, typeMs, eraseMs, holdMs]);
 
+    async function copy() {
+        const current = items[index];
+        const payload = `${current.text} —— ${current.source}`;
+        try {
+            await navigator.clipboard.writeText(payload);
+        } catch {
+            // 剪贴板 API 不可用（非安全上下文）时回退 execCommand
+            const ta = document.createElement("textarea");
+            ta.value = payload;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+        }
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1600);
+    }
+
     if (items.length === 0) {
         return null;
     }
@@ -61,8 +82,10 @@ export function Typewriter({
 
     return (
         <blockquote
-            className="ven-card"
-            style={{ margin: 0, padding: "18px 20px", borderLeft: `2px solid ${v.accent}`, minHeight: 96 }}
+            className="ven-card ven-clickable"
+            onClick={copy}
+            title="点击复制"
+            style={{ margin: 0, padding: "18px 20px", borderLeft: `2px solid ${v.accent}`, minHeight: 96, position: "relative" }}
         >
             <p className="ven-serif" style={{ margin: "0 0 8px", fontSize: 16, lineHeight: 1.7 }}>
                 {shown}
@@ -71,6 +94,26 @@ export function Typewriter({
             <cite className="ven-meta" style={{ fontStyle: "normal" }}>
                 —— {current.source}
             </cite>
+            {copied && (
+                <span
+                    className="ven-card"
+                    style={{
+                        position: "absolute",
+                        top: -12,
+                        right: 16,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        padding: "4px 10px",
+                        fontSize: 12,
+                        color: v.accent,
+                        boxShadow: "var(--shadow-soft)",
+                    }}
+                >
+                    <CheckIcon size={12} />
+                    已复制
+                </span>
+            )}
         </blockquote>
     );
 }

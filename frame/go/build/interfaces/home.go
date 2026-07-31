@@ -72,19 +72,28 @@ func RegisterHome(a *hybrid.App, posts *postapp.Service, moments *momentapp.Serv
 				CreatedAt: p.CreatedAt,
 			})
 		}
-		// 运营天数（最早一篇文章起算）与最新文章日期
+		// 运营起点（最早一篇文章）、最新文章与其"几天前"文案
+		launchAt := ""
+		latestID := ""
+		latestAgo := ""
 		days := 0
-		latestPost := ""
 		if len(allPosts) > 0 {
 			latest := allPosts[0].CreatedAt
 			oldest := allPosts[len(allPosts)-1].CreatedAt
+			launchAt = oldest.Format(time.RFC3339)
+			latestID = strconv.FormatInt(allPosts[0].ID, 10)
 			days = int(time.Since(oldest).Hours()/24) + 1
-			latestPost = latest.Format("2006-01-02")
+			ago := int(time.Since(latest).Hours() / 24)
+			if ago <= 0 {
+				latestAgo = "今天"
+			} else {
+				latestAgo = strconv.Itoa(ago) + " 天前"
+			}
 		}
 		return c.JSON(map[string]any{
 			"recentPosts":   toPostViews(recentPosts),
 			"recentMoments": recentMoments,
-			"stats":         map[string]any{"posts": postCount, "words": totalChars, "days": days, "latestPost": latestPost},
+			"stats":         map[string]any{"posts": postCount, "words": totalChars, "days": days, "launchAt": launchAt, "latestID": latestID, "latestAgo": latestAgo},
 			"projects":      homeProjects,
 			"quotes":        homeQuotes,
 			"timeline":      timeline,

@@ -41,9 +41,8 @@ const styles = {
     },
     headerInner: {
         width: "100%",
-        maxWidth: layoutToken.container,
-        margin: "0 auto",
         padding: "14px 24px",
+        position: "relative",
     },
     side: { display: "flex", alignItems: "center", gap: 14 },
     brand: {

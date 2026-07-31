@@ -131,7 +131,9 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
     position: relative;
     background: var(--bg); border: 1px solid var(--border);
     border-radius: var(--radius-md); box-shadow: none;
+    user-select: none;
 }
+.ven-clickable { cursor: pointer; }
 .ven-card::after {
     content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
     opacity: 0; transition: opacity 0.22s var(--ease-out);
@@ -251,12 +253,12 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
     .ven-hero-art { display: none; }
 }
 
-/* 顶部导航：三段式（左品牌 / 中搜索 / 右操作），窄屏搜索折行 */
-.ven-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.ven-header-search { flex: 1; max-width: 380px; margin: 0 auto; }
+/* 顶部导航：左右组件贴窗口两侧，搜索栏绝对居中；窄屏回归流式 */
+.ven-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; position: relative; }
+.ven-header-search { position: absolute; left: 50%; transform: translateX(-50%); width: min(380px, 40vw); margin: 0; }
 .ven-header-search .ven-input { padding: 6px 12px; font-size: 13px; }
-@media (max-width: 720px) {
-    .ven-header-search { order: 3; flex-basis: 100%; max-width: none; margin: 10px 0 0; }
+@media (max-width: 900px) {
+    .ven-header-search { position: static; transform: none; width: 100%; order: 3; flex-basis: 100%; margin: 10px 0 0; }
 }
 
 /* ===== 首页整屏板块（滚动磁吸仅首页注入，离开页面解除） ===== */
