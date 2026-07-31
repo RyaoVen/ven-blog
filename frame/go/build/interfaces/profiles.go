@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"ven_hybird/build/application/guestbookapp"
 	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/application/userapp"
 	"ven_hybird/build/domain/user"
@@ -39,7 +40,7 @@ func toUserView(u *user.User) UserView {
 
 // RegisterProfiles 注册用户个人页与作者主页。
 // 个人页对任意注册用户开放；作者主页仅当目标用户是 author 时存在，其余一律 404（不暴露角色信息）。
-func RegisterProfiles(a *hybrid.App, users *userapp.Service, posts *postapp.Service) error {
+func RegisterProfiles(a *hybrid.App, users *userapp.Service, posts *postapp.Service, gb *guestbookapp.Service) error {
 	// 用户个人页：公开信息 + 文章/评论统计；isAuthor 供前端展示作者主页入口
 	if err := a.Page("/users/:name", nil, func(c *hybrid.PageCtx) error {
 		profile, err := users.GetProfile(c.Param("name"))
@@ -58,7 +59,7 @@ func RegisterProfiles(a *hybrid.App, users *userapp.Service, posts *postapp.Serv
 		return err
 	}
 
-	// 作者主页：作者信息 + 其文章列表；非 author 视同不存在
+	// 作者主页：四模块（介绍/展示柜/友链/留言板）；非 author 视同不存在
 	return a.Page("/author/:name", nil, func(c *hybrid.PageCtx) error {
 		profile, err := users.GetProfile(c.Param("name"))
 		if errors.Is(err, user.ErrNotFound) {
@@ -70,13 +71,22 @@ func RegisterProfiles(a *hybrid.App, users *userapp.Service, posts *postapp.Serv
 		if profile.User.Role != user.RoleAuthor {
 			return c.NotFound()
 		}
-		list, err := posts.ListByAuthor(profile.User.ID)
+		// 展示柜：2 最新文章 + 静态项目卡
+		latest, err := posts.ListRecent(2)
+		if err != nil {
+			return err
+		}
+		// 留言板
+		entries, err := gb.List(50)
 		if err != nil {
 			return err
 		}
 		return c.JSON(map[string]any{
-			"author": toUserView(profile.User),
-			"posts":  toPostViews(list),
+			"author":      toUserView(profile.User),
+			"intro":       map[string]any{"paragraphs": authorIntroParagraphs, "skills": authorSkills},
+			"showcase":    map[string]any{"projects": homeProjects, "articles": toPostViews(latest)},
+			"friendLinks": friendLinks,
+			"guestbook":   toGuestbookViews(entries),
 		})
 	})
 }
