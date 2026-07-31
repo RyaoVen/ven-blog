@@ -1,6 +1,6 @@
-/** 后台-动态管理：发布框 + 历史列表 + 删除 */
+/** 后台-动态管理：发布框（支持插图）+ 历史列表 + 删除 */
 
-import { FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useRef, useState } from "react";
 import type { PageAppProps } from "../../app/pageApp";
 import { formatDateTime } from "../../lib/format";
 import { TrashIcon } from "../../lib/icons";
@@ -15,8 +15,49 @@ export default function AdminMomentsPage({ bootstrap }: PageAppProps) {
     const [list, setList] = useState(state.moments);
     const [draft, setDraft] = useState("");
     const [submitting, setSubmitting] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [deleting, setDeleting] = useState<Moment | null>(null);
+    const fileRef = useRef<HTMLInputElement>(null);
+    const draftRef = useRef<HTMLTextAreaElement>(null);
+
+    // insertImage 把图片 Markdown 插到 textarea 光标处（无光标时追加末尾）
+    function insertImage(url: string) {
+        const snippet = `![](${url})`;
+        const ta = draftRef.current;
+        if (!ta) {
+            setDraft((prev) => prev + snippet);
+            return;
+        }
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        setDraft((prev) => prev.slice(0, start) + snippet + prev.slice(end));
+    }
+
+    async function onPickImage(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file) {
+            return;
+        }
+        setUploading(true);
+        setError(null);
+        try {
+            const form = new FormData();
+            form.append("file", file);
+            const resp = await fetch("/api/upload", { method: "POST", body: form });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok) {
+                setError(data?.error ?? "图片上传失败");
+                return;
+            }
+            insertImage(data.url);
+        } catch {
+            setError("网络错误，请重试");
+        } finally {
+            setUploading(false);
+        }
+    }
 
     async function onSubmit(event: FormEvent) {
         event.preventDefault();
@@ -61,19 +102,30 @@ export default function AdminMomentsPage({ bootstrap }: PageAppProps) {
         <AdminLayout route={bootstrap.route}>
             <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 32 }}>
                 <textarea
+                    ref={draftRef}
                     className="ven-input"
                     rows={3}
-                    placeholder="写点什么…（1000 字以内）"
+                    placeholder="写点什么…（1000 字以内，支持 Markdown 与图片）"
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     maxLength={1000}
                     required
                 />
                 {error && <p style={{ color: v.danger, fontSize: 13, margin: 0 }}>{error}</p>}
-                <div>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                     <button className="ven-btn ven-btn-primary" type="submit" disabled={submitting}>
                         {submitting ? "发布中…" : "发布动态"}
                     </button>
+                    <button className="ven-btn" type="button" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                        {uploading ? "上传中…" : "插入图片"}
+                    </button>
+                    <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        style={{ display: "none" }}
+                        onChange={onPickImage}
+                    />
                 </div>
             </form>
             {list.length === 0 ? (
