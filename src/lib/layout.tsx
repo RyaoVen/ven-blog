@@ -148,9 +148,14 @@ export function Layout({ children }: { children: ReactNode }) {
                 <div style={styles.side}>
                     <ThemeToggle />
                     {role === "author" && (
-                        <a href="/write" className="ven-btn ven-btn-primary">
-                            写文章
-                        </a>
+                        <>
+                            <a href="/admin" style={styles.navLink}>
+                                后台
+                            </a>
+                            <a href="/admin/posts/new" className="ven-btn ven-btn-primary">
+                                写文章
+                            </a>
+                        </>
                     )}
                     {role ? (
                         <button type="button" className="ven-btn" onClick={logout}>

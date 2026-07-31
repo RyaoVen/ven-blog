@@ -93,7 +93,7 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
                     <CommentsSection postId={post.id} comments={state.comments} viewerUserId={viewer.userId} />
                     {role === "author" && (
                         <div style={{ marginTop: 36, display: "flex", gap: 12 }}>
-                            <a href={`/write?id=${post.id}`} className="ven-btn">
+                            <a href={`/admin/posts/${post.id}/edit`} className="ven-btn">
                                 编辑
                             </a>
                             <button type="button" onClick={onDelete} className="ven-btn ven-btn-danger">
