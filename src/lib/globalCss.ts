@@ -188,6 +188,23 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
 /* 玩味细节：特定区块十字准星 */
 .ven-crosshair { cursor: crosshair; }
 
+/* 裱框卡：外框 + 内衬垫 + SVG 四角括线（hover 括线转玉青） */
+.ven-frame {
+    position: relative;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 3px; padding: 12px;
+    transition: border-color 0.22s var(--ease-out), transform 0.26s var(--ease-out), box-shadow 0.26s var(--ease-out);
+}
+.ven-frame:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--shadow-soft); }
+.ven-frame-inner {
+    border: 1px solid var(--border); border-radius: 2px;
+    background: var(--bg-subtle); padding: 18px 20px; height: 100%;
+    display: flex; flex-direction: column;
+}
+.ven-frame-corners { position: absolute; inset: 5px; width: calc(100% - 10px); height: calc(100% - 10px); pointer-events: none; }
+.ven-frame-corners path { stroke: var(--border-strong); transition: stroke 0.22s var(--ease-out); }
+.ven-frame:hover .ven-frame-corners path { stroke: var(--accent); }
+
 /* 打字机光标 */
 .ven-caret { color: var(--accent); animation: ven-blink 1s steps(1) infinite; }
 @keyframes ven-blink { 50% { opacity: 0; } }
