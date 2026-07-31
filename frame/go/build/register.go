@@ -82,7 +82,13 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterAPIs(a, posts); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterMoments(a, moments); err != nil {
+	if err := interfaces.RegisterMomentComments(a, comments); err != nil {
+		return err
+	}
+	if err := interfaces.RegisterMe(a); err != nil {
+		return err
+	}
+	if err := interfaces.RegisterMoments(a, moments, comments); err != nil {
 		return err
 	}
 	return interfaces.RegisterAdmin(a, posts, comments, interactions, moments, subscribe, users)
