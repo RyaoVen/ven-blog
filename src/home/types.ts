@@ -13,6 +13,10 @@ export interface HomeMoment {
 export interface HomeStats {
     posts: number;
     words: number;
+    /** 运营天数（最早文章起算） */
+    days: number;
+    /** 最新文章发布日期（YYYY-MM-DD，无文章为空串） */
+    latestPost: string;
 }
 
 /** 作者维护的项目 */

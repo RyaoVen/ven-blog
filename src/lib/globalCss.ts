@@ -186,10 +186,42 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
 /* 玩味细节：特定区块十字准星 */
 .ven-crosshair { cursor: crosshair; }
 
-/* 主题切换纯圆按钮：icon only，悬浮展开显字 */
+/* 打字机光标 */
+.ven-caret { color: var(--accent); animation: ven-blink 1s steps(1) infinite; }
+@keyframes ven-blink { 50% { opacity: 0; } }
+
+/* 辉光管时钟：玉青辉光 + 偶发微闪 */
+.ven-nixie {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 38px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--accent);
+    text-shadow:
+        0 0 6px rgba(20, 184, 166, 0.55),
+        0 0 18px rgba(20, 184, 166, 0.32),
+        0 0 42px rgba(20, 184, 166, 0.18);
+    animation: ven-nixie-flicker 5s infinite;
+}
+@keyframes ven-nixie-flicker {
+    0%, 100% { opacity: 1; }
+    91% { opacity: 1; }
+    92% { opacity: 0.84; }
+    93% { opacity: 1; }
+    96% { opacity: 0.93; }
+    97% { opacity: 1; }
+}
+
+/* /posts 左栏分类框响应式 */
+@media (max-width: 720px) {
+    .ven-posts-grid { grid-template-columns: 1fr !important; }
+    .ven-tagbox { position: static !important; }
+}
+
+/* 主题切换纯圆按钮：svg 居中；悬浮向左展开显字（固定容器不挤动兄弟组件） */
+.ven-theme-wrap { position: relative; width: 32px; height: 32px; flex-shrink: 0; }
 .ven-theme-toggle {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    width: 32px; height: 32px; padding: 0;
+    position: absolute; right: 0; top: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; padding: 0; gap: 0;
     border-radius: 999px; border: 1px solid var(--border-strong);
     background: var(--bg); color: var(--text);
     cursor: pointer; overflow: hidden; white-space: nowrap;
@@ -199,9 +231,19 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
 .ven-theme-label {
     font-size: 12px; font-family: inherit;
     max-width: 0; opacity: 0; overflow: hidden;
-    transition: max-width 0.26s var(--ease-out), opacity 0.22s var(--ease-out);
+    transition: max-width 0.26s var(--ease-out), opacity 0.22s var(--ease-out), margin-left 0.26s var(--ease-out);
 }
-.ven-theme-toggle:hover .ven-theme-label { max-width: 48px; opacity: 1; }
+.ven-theme-toggle:hover .ven-theme-label { max-width: 48px; opacity: 1; margin-left: 6px; }
+
+/* 弹窗遮罩毛玻璃 */
+.ven-modal-overlay {
+    background: rgba(250, 250, 249, 0.68);
+    backdrop-filter: blur(22px) saturate(132%);
+    -webkit-backdrop-filter: blur(22px) saturate(132%);
+}
+[data-theme="dark"] .ven-modal-overlay {
+    background: rgba(12, 10, 9, 0.6);
+}
 
 /* hero 区布局：左文案右动态 SVG（窄屏收起 SVG） */
 .ven-hero { display: flex; align-items: center; justify-content: space-between; gap: 32px; }
