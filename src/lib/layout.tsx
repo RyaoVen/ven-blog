@@ -182,11 +182,51 @@ export function Layout({ children }: { children: ReactNode }) {
                 e.target.classList.add("ven-img-loaded");
             }
         };
+        // 代码块交互（委托监听，SSR 结构不变）：复制 + 展开/收起
+        const onClick = (e: MouseEvent) => {
+            const target = e.target as Element | null;
+            const copyBtn = target?.closest?.(".ven-codeblock-copy");
+            if (copyBtn) {
+                const code = copyBtn.closest(".ven-codeblock")?.querySelector("code");
+                if (code) {
+                    const text = code.textContent ?? "";
+                    const done = () => {
+                        copyBtn.textContent = "已复制 ✓";
+                        window.setTimeout(() => {
+                            copyBtn.textContent = "复制";
+                        }, 1600);
+                    };
+                    if (navigator.clipboard?.writeText) {
+                        void navigator.clipboard.writeText(text).then(done, done);
+                    } else {
+                        const ta = document.createElement("textarea");
+                        ta.value = text;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(ta);
+                        done();
+                    }
+                }
+                return;
+            }
+            const toggleBtn = target?.closest?.(".ven-codeblock-toggle");
+            if (toggleBtn) {
+                const block = toggleBtn.closest(".ven-codeblock");
+                if (block) {
+                    const collapsed = block.getAttribute("data-collapsed") === "true";
+                    block.setAttribute("data-collapsed", collapsed ? "false" : "true");
+                    toggleBtn.textContent = collapsed ? "收起" : "展开";
+                }
+            }
+        };
         document.addEventListener("mousemove", onMove, { passive: true });
         document.addEventListener("load", onLoad, true);
+        document.addEventListener("click", onClick);
         return () => {
             document.removeEventListener("mousemove", onMove);
             document.removeEventListener("load", onLoad, true);
+            document.removeEventListener("click", onClick);
         };
     }, []);
 

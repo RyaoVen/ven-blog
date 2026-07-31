@@ -165,6 +165,32 @@ const md = new MarkdownIt({
     .use(headingAnchorPlugin)
     .use(admonitionPlugin);
 
+// 结构化代码块：头部（语言标识 + 复制 + 展开/收起）+ 行号栏 + 行线 + hljs 高亮，默认收起。
+// 交互（复制/切换）由 Layout 的全局委托监听处理，SSR 输出即完整结构。
+md.renderer.rules.fence = (tokens, idx) => {
+    const token = tokens[idx];
+    const info = token.info.trim();
+    const langName = (info.split(/\s+/)[0] || "text").toLowerCase();
+    const highlighted = highlight(token.content, info);
+    const trimmed = token.content.endsWith("\n") ? token.content.slice(0, -1) : token.content;
+    const lineCount = trimmed.length === 0 ? 1 : trimmed.split("\n").length;
+    const gutter = Array.from({ length: lineCount }, (_, i) => i + 1).join("\n");
+    return (
+        `<div class="ven-codeblock" data-collapsed="true">` +
+        `<div class="ven-codeblock-header">` +
+        `<span class="ven-codeblock-lang">${escapeHtml(langName)}</span>` +
+        `<span class="ven-codeblock-actions">` +
+        `<button type="button" class="ven-codeblock-copy">复制</button>` +
+        `<button type="button" class="ven-codeblock-toggle">展开</button>` +
+        `</span></div>` +
+        `<div class="ven-codeblock-body">` +
+        `<pre><span class="ven-codeblock-gutter" aria-hidden="true">${gutter}</span>` +
+        `<code class="language-${escapeHtml(langName)} hljs">${highlighted}</code></pre>` +
+        `<div class="ven-codeblock-mask"></div>` +
+        `</div></div>`
+    );
+};
+
 /** 渲染 Markdown 源码为 HTML 并提取目录（确定性：同输入同输出） */
 export function renderMarkdown(source: string): RenderedMarkdown {
     const env = {} as { toc?: TocItem[] };
