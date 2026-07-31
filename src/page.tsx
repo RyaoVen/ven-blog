@@ -1,6 +1,7 @@
 /** 首页：hero 区（工业极简：发丝线 + 排版驱动）+ 最近文章 */
 
 import type { PageAppProps } from "./app/pageApp";
+import { HeroArt } from "./lib/heroArt";
 import { Layout } from "./lib/layout";
 import { v } from "./lib/theme";
 import { PostList } from "./posts/list";
@@ -11,6 +12,7 @@ export default function HomePage({ bootstrap }: PageAppProps) {
     return (
         <Layout>
             <section
+                className="ven-hero"
                 style={{
                     borderTop: `1px solid ${v.text}`,
                     borderBottom: `1px solid ${v.border}`,
@@ -18,27 +20,32 @@ export default function HomePage({ bootstrap }: PageAppProps) {
                     marginBottom: 40,
                 }}
             >
-                <p className="ven-meta" style={{ margin: 0 }}>
-                    PERSONAL SITE / VEN-BLOG
-                </p>
-                <h1 style={{ fontSize: 44, letterSpacing: "-0.03em", margin: "14px 0 16px" }}>
-                    RyaoVen 的博客
-                </h1>
-                <p style={{ fontSize: 16, color: v.textSecondary, maxWidth: 620, marginBottom: 28 }}>
-                    记录技术与生活。本站由自研 VenHybird 框架驱动——SSR 直出、SPA 接管、ISR 物化、SSE 实时推送。
-                </p>
-                <div style={{ display: "flex", gap: 12 }}>
-                    <a href="/posts" className="ven-btn ven-btn-primary">
-                        开始阅读
-                    </a>
-                    <a
-                        href="https://github.com/RyaoVen/ven_hybird"
-                        className="ven-btn"
-                        target="_blank"
-                        rel="noreferrer"
-                    >
-                        了解框架
-                    </a>
+                <div>
+                    <p className="ven-meta" style={{ margin: 0 }}>
+                        PERSONAL SITE / VEN-BLOG
+                    </p>
+                    <h1 style={{ fontSize: 44, letterSpacing: "-0.03em", margin: "14px 0 16px" }}>
+                        RyaoVen 的博客
+                    </h1>
+                    <p style={{ fontSize: 16, color: v.textSecondary, maxWidth: 620, marginBottom: 28 }}>
+                        记录技术与生活。本站由自研 VenHybird 框架驱动——SSR 直出、SPA 接管、ISR 物化、SSE 实时推送。
+                    </p>
+                    <div style={{ display: "flex", gap: 12 }}>
+                        <a href="/posts" className="ven-btn ven-btn-primary">
+                            开始阅读
+                        </a>
+                        <a
+                            href="https://github.com/RyaoVen/ven_hybird"
+                            className="ven-btn"
+                            target="_blank"
+                            rel="noreferrer"
+                        >
+                            了解框架
+                        </a>
+                    </div>
+                </div>
+                <div className="ven-hero-art">
+                    <HeroArt />
                 </div>
             </section>
             <section>
