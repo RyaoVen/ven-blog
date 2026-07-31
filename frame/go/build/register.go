@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"ven_hybird/build/application/commentapp"
+	"ven_hybird/build/application/guestbookapp"
 	"ven_hybird/build/application/interactionapp"
 	"ven_hybird/build/application/momentapp"
 	"ven_hybird/build/application/postapp"
@@ -37,6 +38,7 @@ func Register(a *hybrid.App) error {
 	momentRepo := persistence.NewMomentRepository(db)
 	imageRepo := persistence.NewImageRepository(db)
 	subscriberRepo := persistence.NewSubscriberRepository(db)
+	guestbookRepo := persistence.NewGuestbookRepository(db)
 	if err := persistence.SeedUsers(userRepo); err != nil {
 		return fmt.Errorf("build: seed users: %w", err)
 	}
@@ -54,6 +56,7 @@ func Register(a *hybrid.App) error {
 	interactions := interactionapp.NewService(interactionRepo)
 	moments := momentapp.NewService(momentRepo)
 	subscribe := subscribeapp.NewService(subscriberRepo)
+	guestbook := guestbookapp.NewService(guestbookRepo)
 
 	// 接口层注册（发文归属经 c.User() 取调用者，框架会话已携带用户身份）
 	interfaces.RegisterAuth(a, users)
@@ -76,7 +79,10 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterSearch(a, posts); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterProfiles(a, users, posts); err != nil {
+	if err := interfaces.RegisterProfiles(a, users, posts, guestbook); err != nil {
+		return err
+	}
+	if err := interfaces.RegisterGuestbookAPI(a, guestbook); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterAPIs(a, posts); err != nil {
