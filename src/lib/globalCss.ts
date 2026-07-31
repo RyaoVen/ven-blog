@@ -119,4 +119,12 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
 @media (max-width: 720px) {
     .ven-hero-art { display: none; }
 }
+
+/* 顶部导航：三段式（左品牌 / 中搜索 / 右操作），窄屏搜索折行 */
+.ven-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.ven-header-search { flex: 1; max-width: 380px; margin: 0 auto; }
+.ven-header-search .ven-input { padding: 6px 12px; font-size: 13px; }
+@media (max-width: 720px) {
+    .ven-header-search { order: 3; flex-basis: 100%; max-width: none; margin: 10px 0 0; }
+}
 `;
