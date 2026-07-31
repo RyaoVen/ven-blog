@@ -37,3 +37,8 @@ func (s *Service) Subscribe(email string) (already bool, err error) {
 type ValidationError struct{ Message string }
 
 func (e *ValidationError) Error() string { return e.Message }
+
+// Count 订阅者总数（后台统计）。
+func (s *Service) Count() (int, error) {
+	return s.repo.Count()
+}

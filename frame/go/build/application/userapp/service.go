@@ -81,3 +81,8 @@ var ErrInvalidCredentials = errors.New("invalid credentials")
 type ValidationError struct{ Message string }
 
 func (e *ValidationError) Error() string { return e.Message }
+
+// Count 用户总数（后台统计）。
+func (s *Service) Count() (int, error) {
+	return s.repo.Count()
+}

@@ -10,6 +10,8 @@ type Repository interface {
 	IsLiked(userID int64, targetType TargetType, targetID int64) (bool, error)
 	// LikeCount 目标点赞总数。
 	LikeCount(targetType TargetType, targetID int64) (int, error)
+	// CountLikes 全站点赞总数（后台统计）。
+	CountLikes() (int, error)
 
 	// AddFavorite 收藏（已存在时幂等）。
 	AddFavorite(userID, postID int64) error
@@ -19,4 +21,6 @@ type Repository interface {
 	IsFavorited(userID, postID int64) (bool, error)
 	// FavoriteCount 文章收藏总数。
 	FavoriteCount(postID int64) (int, error)
+	// CountFavorites 全站收藏总数（后台统计）。
+	CountFavorites() (int, error)
 }

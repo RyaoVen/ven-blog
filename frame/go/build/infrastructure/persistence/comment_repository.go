@@ -94,3 +94,42 @@ func (r *CommentRepository) Delete(id int64) error {
 	}
 	return nil
 }
+
+// ListAll 返回全站评论（创建时间倒序，联表用户名与所属文章标题）。
+func (r *CommentRepository) ListAll(limit int) ([]*comment.Comment, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := r.db.Query(
+		`SELECT c.id, c.post_id, c.user_id, u.username, p.title, c.content, c.reply_to, c.created_at
+		FROM comments c
+		JOIN users u ON u.id = c.user_id
+		LEFT JOIN posts p ON p.id = c.post_id
+		ORDER BY c.created_at DESC, c.id DESC LIMIT ?`,
+		limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list all comments: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	comments := make([]*comment.Comment, 0)
+	for rows.Next() {
+		c := &comment.Comment{}
+		var title sql.NullString
+		if err := rows.Scan(&c.ID, &c.PostID, &c.UserID, &c.Username, &title, &c.Content, &c.ReplyTo, &c.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan comment: %w", err)
+		}
+		c.PostTitle = title.String
+		comments = append(comments, c)
+	}
+	return comments, rows.Err()
+}
+
+// Count 返回评论总数。
+func (r *CommentRepository) Count() (int, error) {
+	var n int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM comments").Scan(&n); err != nil {
+		return 0, fmt.Errorf("count comments: %w", err)
+	}
+	return n, nil
+}

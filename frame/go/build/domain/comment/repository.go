@@ -13,6 +13,10 @@ var (
 type Repository interface {
 	// ListByPost 返回文章下的评论（创建时间倒序，含用户名）。
 	ListByPost(postID int64) ([]*Comment, error)
+	// ListAll 返回全站评论（创建时间倒序，含用户名与所属文章标题），limit 上限。
+	ListAll(limit int) ([]*Comment, error)
+	// Count 返回评论总数。
+	Count() (int, error)
 	// Get 按 ID 取评论，不存在返回 ErrNotFound（删除前归属校验用）。
 	Get(id int64) (*Comment, error)
 	// Create 创建评论并回填 ID 与时间戳。

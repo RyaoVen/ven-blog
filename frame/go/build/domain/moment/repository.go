@@ -13,4 +13,6 @@ type Repository interface {
 	Create(m *Moment) error
 	// Delete 删除动态，不存在返回 ErrNotFound。
 	Delete(id int64) error
+	// Count 返回动态总数（后台统计）。
+	Count() (int, error)
 }

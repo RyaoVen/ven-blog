@@ -86,3 +86,21 @@ func (r *InteractionRepository) FavoriteCount(postID int64) (int, error) {
 	}
 	return n, nil
 }
+
+// CountLikes 全站点赞总数（后台统计）。
+func (r *InteractionRepository) CountLikes() (int, error) {
+	var n int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM likes").Scan(&n); err != nil {
+		return 0, fmt.Errorf("count likes: %w", err)
+	}
+	return n, nil
+}
+
+// CountFavorites 全站收藏总数（后台统计）。
+func (r *InteractionRepository) CountFavorites() (int, error) {
+	var n int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM favorites").Scan(&n); err != nil {
+		return 0, fmt.Errorf("count favorites: %w", err)
+	}
+	return n, nil
+}

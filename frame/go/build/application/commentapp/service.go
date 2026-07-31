@@ -54,3 +54,13 @@ func (s *Service) Delete(userID int64, role string, commentID int64) (int64, err
 type ValidationError struct{ Message string }
 
 func (e *ValidationError) Error() string { return e.Message }
+
+// ListAll 全站评论（后台管理用，含所属文章标题）。
+func (s *Service) ListAll(limit int) ([]*comment.Comment, error) {
+	return s.repo.ListAll(limit)
+}
+
+// Count 评论总数（后台统计）。
+func (s *Service) Count() (int, error) {
+	return s.repo.Count()
+}
