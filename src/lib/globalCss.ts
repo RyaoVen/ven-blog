@@ -254,11 +254,15 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
 }
 
 /* 顶部导航：左右组件贴窗口两侧，搜索栏绝对居中；窄屏回归流式 */
-.ven-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; position: relative; }
-.ven-header-search { position: absolute; left: 50%; transform: translateX(-50%); width: min(380px, 40vw); margin: 0; }
+/* 顶部导航：三列 grid——左右贴边、搜索真居中不重叠；≤1100px 搜索折到第二行 */
+.ven-header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; }
+.ven-header > *:first-child { justify-self: start; }
+.ven-header > *:last-child { justify-self: end; }
+.ven-header-search { width: min(380px, 36vw); justify-self: center; }
 .ven-header-search .ven-input { padding: 6px 12px; font-size: 13px; }
-@media (max-width: 900px) {
-    .ven-header-search { position: static; transform: none; width: 100%; order: 3; flex-basis: 100%; margin: 10px 0 0; }
+@media (max-width: 1100px) {
+    .ven-header { grid-template-columns: 1fr auto; }
+    .ven-header-search { grid-column: 1 / -1; order: 3; width: 100%; max-width: 380px; margin: 8px auto 0; justify-self: center; }
 }
 
 /* ===== 首页整屏板块（滚动磁吸仅首页注入，离开页面解除） ===== */
