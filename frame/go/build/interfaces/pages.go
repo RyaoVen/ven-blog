@@ -72,22 +72,8 @@ func RegisterPages(a *hybrid.App, posts *postapp.Service, comments *commentapp.S
 		return err
 	}
 
-	// 发文/编辑页：?id= 时回传被编辑文章供表单回填
-	if err := a.Page("/write", []string{"author"}, func(c *hybrid.PageCtx) error {
-		if raw := c.Query("id"); raw != "" {
-			p, err := posts.Get(mustID(raw))
-			if errors.Is(err, post.ErrNotFound) {
-				return c.NotFound()
-			}
-			if err != nil {
-				return err
-			}
-			return c.JSON(map[string]any{"post": toPostView(p)})
-		}
-		return c.JSON(map[string]any{"post": nil})
-	}); err != nil {
-		return err
-	}
+	// 发文/编辑页已迁入 /admin（src/admin/posts/new 与 [id]/edit）；
+	// 旧 /write 地址由 interfaces/admin.go 的 raw fiber 路由 301 重定向，此处不再注册。
 
 	// 登录页、注册页与 403 页：空数据页。
 	// 必须 c.JSON(nil) 而非 c.Render()——Render() 会强制 SSR 连 data-only 请求也回 HTML，
