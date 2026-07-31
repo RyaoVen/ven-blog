@@ -14,7 +14,13 @@ import (
 const defaultDSN = "root:root@tcp(127.0.0.1:3306)/ven_blog?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci"
 
 //go:embed migrations/001_init.sql
-var initMigration string
+var migration001 string
+
+//go:embed migrations/002_subscribers.sql
+var migration002 string
+
+// migrations 按序执行的迁移脚本（文件名即顺序）。
+var migrations = []string{migration001, migration002}
 
 // DSNFromEnv 读取 BLOG_MYSQL_DSN，未设置回退开发默认值。
 func DSNFromEnv() string {
@@ -46,9 +52,11 @@ func Open(dsn string) (*sql.DB, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("ping mysql: %w", err)
 	}
-	if _, err := db.Exec(initMigration); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("run migration: %w", err)
+	for _, m := range migrations {
+		if _, err := db.Exec(m); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("run migration: %w", err)
+		}
 	}
 	return db, nil
 }
