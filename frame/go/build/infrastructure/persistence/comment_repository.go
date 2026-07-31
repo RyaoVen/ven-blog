@@ -21,7 +21,7 @@ func NewCommentRepository(db *sql.DB) *CommentRepository {
 // ListByPost 返回文章下的评论（创建时间倒序，联表取用户名）。
 func (r *CommentRepository) ListByPost(postID int64) ([]*comment.Comment, error) {
 	rows, err := r.db.Query(
-		`SELECT c.id, c.post_id, c.user_id, u.username, c.content, c.created_at
+		`SELECT c.id, c.post_id, c.user_id, u.username, c.content, c.reply_to, c.created_at
 		FROM comments c JOIN users u ON u.id = c.user_id
 		WHERE c.post_id = ? ORDER BY c.created_at DESC, c.id DESC`,
 		postID,
@@ -33,7 +33,7 @@ func (r *CommentRepository) ListByPost(postID int64) ([]*comment.Comment, error)
 	comments := make([]*comment.Comment, 0)
 	for rows.Next() {
 		c := &comment.Comment{}
-		if err := rows.Scan(&c.ID, &c.PostID, &c.UserID, &c.Username, &c.Content, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.PostID, &c.UserID, &c.Username, &c.Content, &c.ReplyTo, &c.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan comment: %w", err)
 		}
 		comments = append(comments, c)
@@ -45,10 +45,10 @@ func (r *CommentRepository) ListByPost(postID int64) ([]*comment.Comment, error)
 func (r *CommentRepository) Get(id int64) (*comment.Comment, error) {
 	c := &comment.Comment{}
 	err := r.db.QueryRow(
-		`SELECT c.id, c.post_id, c.user_id, u.username, c.content, c.created_at
+		`SELECT c.id, c.post_id, c.user_id, u.username, c.content, c.reply_to, c.created_at
 		FROM comments c JOIN users u ON u.id = c.user_id WHERE c.id = ?`,
 		id,
-	).Scan(&c.ID, &c.PostID, &c.UserID, &c.Username, &c.Content, &c.CreatedAt)
+	).Scan(&c.ID, &c.PostID, &c.UserID, &c.Username, &c.Content, &c.ReplyTo, &c.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, comment.ErrNotFound
 	}
@@ -61,8 +61,8 @@ func (r *CommentRepository) Get(id int64) (*comment.Comment, error) {
 // Create 创建评论并回填 ID 与时间戳。
 func (r *CommentRepository) Create(c *comment.Comment) error {
 	res, err := r.db.Exec(
-		"INSERT INTO comments (post_id, user_id, content) VALUES (?, ?, ?)",
-		c.PostID, c.UserID, c.Content,
+		"INSERT INTO comments (post_id, user_id, content, reply_to) VALUES (?, ?, ?, ?)",
+		c.PostID, c.UserID, c.Content, c.ReplyTo,
 	)
 	if err != nil {
 		return fmt.Errorf("create comment: %w", err)

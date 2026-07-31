@@ -20,12 +20,15 @@ func (s *Service) ListForPost(postID int64) ([]*comment.Comment, error) {
 	return s.repo.ListByPost(postID)
 }
 
-// Create 发表评论。
-func (s *Service) Create(userID, postID int64, content string) (*comment.Comment, error) {
+// Create 发表评论；replyTo 为回复目标用户名（可为空串）。
+func (s *Service) Create(userID, postID int64, content, replyTo string) (*comment.Comment, error) {
 	if msg := comment.Validate(content); msg != "" {
 		return nil, &ValidationError{Message: msg}
 	}
-	c := &comment.Comment{UserID: userID, PostID: postID, Content: content}
+	if len(replyTo) > 64 {
+		return nil, &ValidationError{Message: "replyTo too long"}
+	}
+	c := &comment.Comment{UserID: userID, PostID: postID, Content: content, ReplyTo: replyTo}
 	if err := s.repo.Create(c); err != nil {
 		return nil, err
 	}

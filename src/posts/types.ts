@@ -19,6 +19,8 @@ export interface Comment {
     userId: string;
     username: string;
     content: string;
+    /** 回复目标用户名（@ 形式平铺展示，空串表示非回复） */
+    replyTo: string;
     createdAt: string;
 }
 
