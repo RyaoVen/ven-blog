@@ -8,8 +8,9 @@ export interface Moment {
     createdAt: string;
 }
 
-/** 动态页的 initialState（commentCounts 为动态 ID → 评论数映射） */
+/** 动态页的 initialState（commentCounts/likeCounts 为动态 ID → 计数映射） */
 export interface MomentsState {
     moments: Moment[];
     commentCounts: Record<string, number>;
+    likeCounts: Record<string, number>;
 }
