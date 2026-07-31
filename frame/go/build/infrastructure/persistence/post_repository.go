@@ -305,3 +305,35 @@ func (r *PostRepository) Stats() (int, int, error) {
 	}
 	return posts, totalChars, nil
 }
+
+// ListFavorites 返回某用户收藏的文章（收藏时间倒序，联表作者与标签）。
+func (r *PostRepository) ListFavorites(userID int64) ([]*post.Post, error) {
+	rows, err := r.db.Query(
+		`SELECT p.id, p.author_id, u.username, p.title, p.summary, p.content, p.cover_url, p.created_at, p.updated_at
+		FROM favorites f
+		JOIN posts p ON p.id = f.post_id
+		JOIN users u ON u.id = p.author_id
+		WHERE f.user_id = ?
+		ORDER BY f.created_at DESC`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list favorite posts of user %d: %w", userID, err)
+	}
+	defer func() { _ = rows.Close() }()
+	posts := make([]*post.Post, 0)
+	for rows.Next() {
+		p, err := scanPost(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan favorite post: %w", err)
+		}
+		posts = append(posts, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := r.fillTags(posts); err != nil {
+		return nil, err
+	}
+	return posts, nil
+}

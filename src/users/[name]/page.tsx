@@ -1,10 +1,11 @@
-/** 用户个人页（公开动态页）：头像/用户名/角色/简介/注册时间 + 文章·评论统计；作者附作者主页入口 */
+/** 用户个人页（公开动态页）：头像/用户名/角色/简介/注册时间 + 文章·评论统计；作者附作者主页入口；本人可见收藏列表 */
 
 import type { PageAppProps } from "../../app/pageApp";
 import { Layout } from "../../lib/layout";
 import { formatDateTime } from "../../lib/format";
 import { v } from "../../lib/theme";
 import { LetterAvatar } from "../../profiles/avatar";
+import { PostList } from "../../posts/list";
 import type { UserProfileState } from "../../profiles/types";
 
 export default function UserProfilePage({ bootstrap }: PageAppProps) {
@@ -59,6 +60,12 @@ export default function UserProfilePage({ bootstrap }: PageAppProps) {
                     )}
                 </div>
             </section>
+            {state.favorites && state.favorites.length > 0 && (
+                <section style={{ marginTop: 48 }}>
+                    <h2 style={{ fontSize: 20, marginBottom: 16 }}>我的收藏</h2>
+                    <PostList posts={state.favorites} />
+                </section>
+            )}
         </Layout>
     );
 }

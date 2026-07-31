@@ -3,18 +3,20 @@
 import { useMemo, useState } from "react";
 import type { PageAppProps } from "../app/pageApp";
 import { formatDateTime } from "../lib/format";
-import { MessageIcon } from "../lib/icons";
+import { HeartIcon, MessageIcon } from "../lib/icons";
 import { Layout } from "../lib/layout";
 import { renderMarkdown } from "../lib/markdown";
 import { markdownCss } from "../lib/markdownCss";
 import { Modal } from "../lib/modal";
 import { v } from "../lib/theme";
 import { CommentsSection } from "../posts/comments";
+import { useMomentLikes } from "./likes";
 import type { Moment, MomentsState } from "./types";
 
 export default function MomentsPage({ bootstrap }: PageAppProps) {
-    const state = (bootstrap.initialState ?? { moments: [], commentCounts: {} }) as MomentsState;
+    const state = (bootstrap.initialState ?? { moments: [], commentCounts: {}, likeCounts: {} }) as MomentsState;
     const [selected, setSelected] = useState<Moment | null>(null);
+    const { counts, likedIds, toggleLike } = useMomentLikes(state.likeCounts);
 
     return (
         <Layout>
@@ -40,31 +42,49 @@ export default function MomentsPage({ bootstrap }: PageAppProps) {
                 >
                     {state.moments.map((m) => (
                         <li key={m.id}>
-                            <button
-                                type="button"
+                            <div
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => setSelected(m)}
-                                className="ven-card ven-card-hover"
+                                onKeyDown={(e) => e.key === "Enter" && setSelected(m)}
+                                className="ven-card ven-card-hover ven-clickable"
                                 style={{
                                     display: "block",
                                     width: "100%",
                                     textAlign: "left",
                                     padding: "18px 22px",
-                                    border: `1px solid ${v.border}`,
-                                    background: "none",
-                                    font: "inherit",
-                                    cursor: "pointer",
                                 }}
                             >
                                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                                     <MomentAvatar name={m.authorName} />
                                     <span style={{ fontWeight: 550 }}>{m.authorName}</span>
                                     <span className="ven-meta">{formatDateTime(m.createdAt)}</span>
-                                    <span
-                                        className="ven-meta"
-                                        style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4 }}
-                                    >
-                                        <MessageIcon size={12} />
-                                        {state.commentCounts[m.id] ?? 0}
+                                    <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 14 }}>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleLike(m.id);
+                                            }}
+                                            className="ven-meta"
+                                            style={{
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: 4,
+                                                border: "none",
+                                                background: "none",
+                                                cursor: "pointer",
+                                                padding: 0,
+                                                color: likedIds.has(m.id) ? v.accent : v.textMuted,
+                                            }}
+                                        >
+                                            <HeartIcon size={12} filled={likedIds.has(m.id)} />
+                                            {counts[m.id] ?? 0}
+                                        </button>
+                                        <span className="ven-meta" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                            <MessageIcon size={12} />
+                                            {state.commentCounts[m.id] ?? 0}
+                                        </span>
                                     </span>
                                 </div>
                                 <div
@@ -78,7 +98,7 @@ export default function MomentsPage({ bootstrap }: PageAppProps) {
                                 >
                                     <MomentBody content={m.content} />
                                 </div>
-                            </button>
+                            </div>
                         </li>
                     ))}
                 </ul>

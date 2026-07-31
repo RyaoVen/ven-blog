@@ -104,3 +104,43 @@ func (r *InteractionRepository) CountFavorites() (int, error) {
 	}
 	return n, nil
 }
+
+// MomentLikeCounts 各动态点赞数分组统计。
+func (r *InteractionRepository) MomentLikeCounts() (map[int64]int, error) {
+	rows, err := r.db.Query("SELECT target_id, COUNT(*) FROM likes WHERE target_type = 'moment' GROUP BY target_id")
+	if err != nil {
+		return nil, fmt.Errorf("moment like counts: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	counts := make(map[int64]int)
+	for rows.Next() {
+		var id int64
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, fmt.Errorf("scan moment like count: %w", err)
+		}
+		counts[id] = n
+	}
+	return counts, rows.Err()
+}
+
+// LikedTargetIDs 某用户点赞过的目标 ID 列表。
+func (r *InteractionRepository) LikedTargetIDs(userID int64, targetType interaction.TargetType) ([]int64, error) {
+	rows, err := r.db.Query(
+		"SELECT target_id FROM likes WHERE user_id = ? AND target_type = ?",
+		userID, string(targetType),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("liked target ids: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	ids := make([]int64, 0)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan liked target id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}

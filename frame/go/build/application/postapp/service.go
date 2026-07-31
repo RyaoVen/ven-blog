@@ -132,3 +132,8 @@ func (e *ValidationError) Error() string { return e.Message }
 func (s *Service) SiteStats() (posts int, totalChars int, err error) {
 	return s.repo.Stats()
 }
+
+// ListFavorites 用户收藏的文章（个人页本人可见）。
+func (s *Service) ListFavorites(userID int64) ([]*post.Post, error) {
+	return s.repo.ListFavorites(userID)
+}

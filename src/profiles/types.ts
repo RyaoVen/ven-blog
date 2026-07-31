@@ -17,11 +17,12 @@ export interface ProfileStats {
     comments: number;
 }
 
-/** /users/:name 的 initialState */
+/** /users/:name 的 initialState（favorites 仅 viewer 为本人时下发） */
 export interface UserProfileState {
     user: ProfileUser;
     stats: ProfileStats;
     isAuthor: boolean;
+    favorites?: Post[];
 }
 
 /** /author/:name 的 initialState */

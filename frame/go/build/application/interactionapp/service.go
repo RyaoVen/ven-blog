@@ -17,26 +17,41 @@ func NewService(repo interaction.Repository) *Service {
 
 // ToggleLike 切换文章点赞状态，返回最新状态与总数。
 func (s *Service) ToggleLike(userID, postID int64) (liked bool, count int, err error) {
-	liked, err = s.repo.IsLiked(userID, interaction.TargetPost, postID)
+	return s.Toggle(userID, interaction.TargetPost, postID)
+}
+
+// Toggle 切换点赞状态（post/moment 通用），返回最新状态与总数。
+func (s *Service) Toggle(userID int64, targetType interaction.TargetType, targetID int64) (liked bool, count int, err error) {
+	liked, err = s.repo.IsLiked(userID, targetType, targetID)
 	if err != nil {
 		return false, 0, err
 	}
 	if liked {
-		if err := s.repo.RemoveLike(userID, interaction.TargetPost, postID); err != nil {
+		if err := s.repo.RemoveLike(userID, targetType, targetID); err != nil {
 			return false, 0, err
 		}
 		liked = false
 	} else {
-		if err := s.repo.AddLike(userID, interaction.TargetPost, postID); err != nil {
+		if err := s.repo.AddLike(userID, targetType, targetID); err != nil {
 			return false, 0, err
 		}
 		liked = true
 	}
-	count, err = s.repo.LikeCount(interaction.TargetPost, postID)
+	count, err = s.repo.LikeCount(targetType, targetID)
 	if err != nil {
 		return false, 0, err
 	}
 	return liked, count, nil
+}
+
+// MomentLikeCounts 各动态点赞数分组统计（/moments 页展示用）。
+func (s *Service) MomentLikeCounts() (map[int64]int, error) {
+	return s.repo.MomentLikeCounts()
+}
+
+// ViewerMomentLikes 用户点赞过的动态 ID（viewer 状态下发用）。
+func (s *Service) ViewerMomentLikes(userID int64) ([]int64, error) {
+	return s.repo.LikedTargetIDs(userID, interaction.TargetMoment)
 }
 
 // ToggleFavorite 切换文章收藏状态，返回最新状态与总数。
