@@ -46,7 +46,8 @@ type guestbookInput struct {
 }
 
 // RegisterGuestbookAPI 注册留言板 API。
-func RegisterGuestbookAPI(a *hybrid.App, gb *guestbookapp.Service) error {
+// authorName 用于发表/删除后失效作者主页（动态页缓存 + SSE 推送）。
+func RegisterGuestbookAPI(a *hybrid.App, gb *guestbookapp.Service, authorName string) error {
 	// 留言列表（公开）
 	if err := a.Get("/guestbook", nil, func(c *hybrid.ApiCtx) error {
 		list, err := gb.List(50)
@@ -76,6 +77,7 @@ func RegisterGuestbookAPI(a *hybrid.App, gb *guestbookapp.Service) error {
 		if err != nil {
 			return c.Error(500, "internal error")
 		}
+		a.InvalidatePage("/author/" + authorName)
 		return c.JSON(201, toGuestbookView(e))
 	}); err != nil {
 		return err
@@ -100,6 +102,7 @@ func RegisterGuestbookAPI(a *hybrid.App, gb *guestbookapp.Service) error {
 		case err != nil:
 			return c.Error(500, "internal error")
 		}
+		a.InvalidatePage("/author/" + authorName)
 		return c.JSON(200, map[string]any{"ok": true})
 	})
 }
