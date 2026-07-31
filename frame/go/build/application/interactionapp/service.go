@@ -97,3 +97,16 @@ func (s *Service) ViewerStatus(userID, postID int64) (*interaction.Status, error
 		FavoriteCount: favoriteCount,
 	}, nil
 }
+
+// Totals 全站点赞/收藏总数（后台统计）。
+func (s *Service) Totals() (likes int, favorites int, err error) {
+	likes, err = s.repo.CountLikes()
+	if err != nil {
+		return 0, 0, err
+	}
+	favorites, err = s.repo.CountFavorites()
+	if err != nil {
+		return 0, 0, err
+	}
+	return likes, favorites, nil
+}

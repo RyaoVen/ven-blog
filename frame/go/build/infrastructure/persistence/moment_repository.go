@@ -98,3 +98,12 @@ func (r *MomentRepository) Delete(id int64) error {
 	}
 	return nil
 }
+
+// Count 返回动态总数（后台统计）。
+func (r *MomentRepository) Count() (int, error) {
+	var n int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM moments").Scan(&n); err != nil {
+		return 0, fmt.Errorf("count moments: %w", err)
+	}
+	return n, nil
+}

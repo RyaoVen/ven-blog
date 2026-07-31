@@ -9,4 +9,6 @@ var ErrAlreadySubscribed = errors.New("already subscribed")
 type Repository interface {
 	// Create 记录订阅；邮箱已存在返回 ErrAlreadySubscribed。
 	Create(s *Subscriber) error
+	// Count 返回订阅者总数（后台统计）。
+	Count() (int, error)
 }

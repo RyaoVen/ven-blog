@@ -29,3 +29,12 @@ func (r *SubscriberRepository) Create(s *subscriber.Subscriber) error {
 	s.ID, err = res.LastInsertId()
 	return err
 }
+
+// Count 返回订阅者总数（后台统计）。
+func (r *SubscriberRepository) Count() (int, error) {
+	var n int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM subscribers").Scan(&n); err != nil {
+		return 0, fmt.Errorf("count subscribers: %w", err)
+	}
+	return n, nil
+}

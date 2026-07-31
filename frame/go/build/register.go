@@ -82,7 +82,10 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterAPIs(a, posts); err != nil {
 		return err
 	}
-	return interfaces.RegisterMoments(a, moments)
+	if err := interfaces.RegisterMoments(a, moments); err != nil {
+		return err
+	}
+	return interfaces.RegisterAdmin(a, posts, comments, interactions, moments, subscribe, users)
 }
 
 // siteURLFromEnv 返回站点对外 URL（BLOG_SITE_URL，RSS 链接拼接用；默认本地开发地址）。
