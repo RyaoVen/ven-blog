@@ -12,6 +12,10 @@ type Repository interface {
 	LikeCount(targetType TargetType, targetID int64) (int, error)
 	// CountLikes 全站点赞总数（后台统计）。
 	CountLikes() (int, error)
+	// MomentLikeCounts 各动态点赞数分组统计（target_type='moment'）。
+	MomentLikeCounts() (map[int64]int, error)
+	// LikedTargetIDs 某用户点赞过的目标 ID 列表（viewer 状态下发用）。
+	LikedTargetIDs(userID int64, targetType TargetType) ([]int64, error)
 
 	// AddFavorite 收藏（已存在时幂等）。
 	AddFavorite(userID, postID int64) error

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"ven_hybird/build/application/commentapp"
+	"ven_hybird/build/application/interactionapp"
 	"ven_hybird/build/application/momentapp"
 	"ven_hybird/build/domain/moment"
 	"ven_hybird/hybrid"
@@ -47,7 +48,7 @@ type momentInput struct {
 // RegisterMoments 注册 /moments 页面与发布/删除 API。
 // 列表是公开 ISR 静态页（物化落盘直发，DataChange 失效再生）；
 // 发布/删除仅 author，归属经 c.User() 取调用者；页面数据附带各动态评论数。
-func RegisterMoments(a *hybrid.App, moments *momentapp.Service, comments *commentapp.Service) error {
+func RegisterMoments(a *hybrid.App, moments *momentapp.Service, comments *commentapp.Service, inter *interactionapp.Service) error {
 	// 动态时间线（ISR，全站仅一页）
 	if err := a.StaticPage("/moments", 1, true, func(c *hybrid.PageCtx) error {
 		list, err := moments.List()
@@ -62,7 +63,15 @@ func RegisterMoments(a *hybrid.App, moments *momentapp.Service, comments *commen
 		for id, n := range counts {
 			countViews[strconv.FormatInt(id, 10)] = n
 		}
-		return c.JSON(map[string]any{"moments": toMomentViews(list), "commentCounts": countViews})
+		likeCounts, err := inter.MomentLikeCounts()
+		if err != nil {
+			return err
+		}
+		likeViews := make(map[string]int, len(likeCounts))
+		for id, n := range likeCounts {
+			likeViews[strconv.FormatInt(id, 10)] = n
+		}
+		return c.JSON(map[string]any{"moments": toMomentViews(list), "commentCounts": countViews, "likeCounts": likeViews})
 	}); err != nil {
 		return err
 	}

@@ -26,4 +26,6 @@ type Repository interface {
 	AllTags() ([]string, error)
 	// Stats 返回站点统计：文章总数与正文总字符数。
 	Stats() (posts int, totalChars int, err error)
+	// ListFavorites 返回某用户收藏的文章（收藏时间倒序，含作者名与标签）。
+	ListFavorites(userID int64) ([]*Post, error)
 }

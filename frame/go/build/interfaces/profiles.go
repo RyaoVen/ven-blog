@@ -41,7 +41,8 @@ func toUserView(u *user.User) UserView {
 // RegisterProfiles 注册用户个人页与作者主页。
 // 个人页对任意注册用户开放；作者主页仅当目标用户是 author 时存在，其余一律 404（不暴露角色信息）。
 func RegisterProfiles(a *hybrid.App, users *userapp.Service, posts *postapp.Service, gb *guestbookapp.Service) error {
-	// 用户个人页：公开信息 + 文章/评论统计；isAuthor 供前端展示作者主页入口
+	// 用户个人页：公开信息 + 文章/评论统计；isAuthor 供前端展示作者主页入口；
+	// viewer 即本人时附带收藏列表（仅本人可见，他人不可见）
 	if err := a.Page("/users/:name", nil, func(c *hybrid.PageCtx) error {
 		profile, err := users.GetProfile(c.Param("name"))
 		if errors.Is(err, user.ErrNotFound) {
@@ -50,11 +51,21 @@ func RegisterProfiles(a *hybrid.App, users *userapp.Service, posts *postapp.Serv
 		if err != nil {
 			return err
 		}
-		return c.JSON(map[string]any{
+		payload := map[string]any{
 			"user":     toUserView(profile.User),
 			"stats":    ProfileStats{Posts: profile.Posts, Comments: profile.Comments},
 			"isAuthor": profile.User.Role == user.RoleAuthor,
-		})
+		}
+		if viewerID, _, ok := c.User(); ok {
+			if vid, parseErr := parseID(viewerID); parseErr == nil && vid == profile.User.ID {
+				favs, favErr := posts.ListFavorites(vid)
+				if favErr != nil {
+					return favErr
+				}
+				payload["favorites"] = toPostViews(favs)
+			}
+		}
+		return c.JSON(payload)
 	}); err != nil {
 		return err
 	}

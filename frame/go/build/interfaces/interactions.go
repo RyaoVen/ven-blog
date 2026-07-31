@@ -163,6 +163,43 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 	})
 }
 
+// RegisterMomentLikes 注册动态点赞 API：切换点赞与 viewer 已赞列表。
+func RegisterMomentLikes(a *hybrid.App, inter *interactionapp.Service) error {
+	// viewer 已赞动态 ID 列表（登录用户挂载后拉取）
+	if err := a.Get("/moments/interactions", loginRoles, func(c *hybrid.ApiCtx) error {
+		userID, err := currentUserID(c)
+		if err != nil {
+			return c.Error(401, "unauthenticated")
+		}
+		ids, err := inter.ViewerMomentLikes(userID)
+		if err != nil {
+			return c.Error(500, "internal error")
+		}
+		views := make([]string, 0, len(ids))
+		for _, id := range ids {
+			views = append(views, strconv.FormatInt(id, 10))
+		}
+		return c.JSON(200, map[string]any{"liked": views})
+	}); err != nil {
+		return err
+	}
+
+	// 切换动态点赞
+	return a.Post("/moments/:id/like", loginRoles, func(c *hybrid.ApiCtx) error {
+		userID, err := currentUserID(c)
+		if err != nil {
+			return c.Error(401, "unauthenticated")
+		}
+		momentID := mustID(c.Param("id"))
+		liked, count, err := inter.Toggle(userID, "moment", momentID)
+		if err != nil {
+			return c.Error(500, "internal error")
+		}
+		_ = a.DataChange("/moments")
+		return c.JSON(200, map[string]any{"liked": liked, "likeCount": count})
+	})
+}
+
 // RegisterMomentComments 注册动态评论 API（列表公开，发表需登录）。
 func RegisterMomentComments(a *hybrid.App, comments *commentapp.Service) error {
 	// 动态评论列表（公开）
