@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { navigate } from "../app/router";
+import { SearchIcon } from "./icons";
 
 export function HeaderSearch() {
     const [kw, setKw] = useState("");
@@ -15,7 +16,18 @@ export function HeaderSearch() {
     }
 
     return (
-        <form className="ven-header-search" onSubmit={onSubmit} role="search">
+        <form className="ven-header-search" onSubmit={onSubmit} role="search" style={{ position: "relative" }}>
+            <SearchIcon
+                size={14}
+                style={{
+                    position: "absolute",
+                    left: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "var(--text-muted)",
+                    pointerEvents: "none",
+                }}
+            />
             <input
                 className="ven-input"
                 type="search"
@@ -23,6 +35,7 @@ export function HeaderSearch() {
                 value={kw}
                 onChange={(e) => setKw(e.target.value)}
                 aria-label="搜索文章"
+                style={{ paddingLeft: 30 }}
             />
         </form>
     );

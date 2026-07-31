@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import type { PageAppProps } from "../../app/pageApp";
 import { formatDateTime } from "../../lib/format";
+import { TrashIcon } from "../../lib/icons";
 import { ConfirmModal } from "../../lib/modal";
 import { v } from "../../lib/theme";
 import type { Moment } from "../../moments/types";
@@ -110,6 +111,7 @@ export default function AdminMomentsPage({ bootstrap }: PageAppProps) {
                                 style={{ padding: "3px 12px", fontSize: 12, flexShrink: 0 }}
                                 onClick={() => setDeleting(m)}
                             >
+                                <TrashIcon size={12} />
                                 删除
                             </button>
                         </li>

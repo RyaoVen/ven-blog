@@ -4,6 +4,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { formatDateTime } from "../lib/format";
+import { MessageIcon, TrashIcon } from "../lib/icons";
 import { renderMarkdown } from "../lib/markdown";
 import { ConfirmModal } from "../lib/modal";
 import { useRole } from "../lib/role";
@@ -74,7 +75,10 @@ export function CommentsSection({
 
     return (
         <section style={{ marginTop: 40 }}>
-            <h2 style={{ fontSize: 18 }}>评论{list.length > 0 && `（${list.length}）`}</h2>
+            <h2 style={{ fontSize: 18, display: "flex", alignItems: "center", gap: 8 }}>
+                <MessageIcon size={17} />
+                评论{list.length > 0 && `（${list.length}）`}
+            </h2>
             {role ? (
                 <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 10, margin: "16px 0 28px" }}>
                     {replyTo && (
@@ -179,9 +183,10 @@ function CommentItem({
                         <button
                             type="button"
                             className="ven-meta"
-                            style={{ border: "none", background: "none", cursor: "pointer", padding: 0, color: v.danger }}
+                            style={{ border: "none", background: "none", cursor: "pointer", padding: 0, color: v.danger, display: "inline-flex", alignItems: "center", gap: 4 }}
                             onClick={onDelete}
                         >
+                            <TrashIcon size={12} />
                             删除
                         </button>
                     )}

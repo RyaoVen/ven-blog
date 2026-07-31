@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { BookmarkIcon, HeartIcon } from "../lib/icons";
 import { useRole } from "../lib/role";
 
 /** viewer 互动状态 */
@@ -85,6 +86,7 @@ export function InteractionBar({
                 className={viewer.liked ? "ven-btn ven-btn-primary" : "ven-btn"}
                 onClick={() => onToggle("like")}
             >
+                <HeartIcon filled={viewer.liked} />
                 {viewer.liked ? "已点赞" : "点赞"} {viewer.likeCount}
             </button>
             <button
@@ -92,6 +94,7 @@ export function InteractionBar({
                 className={viewer.favorited ? "ven-btn ven-btn-primary" : "ven-btn"}
                 onClick={() => onToggle("favorite")}
             >
+                <BookmarkIcon filled={viewer.favorited} />
                 {viewer.favorited ? "已收藏" : "收藏"} {viewer.favoriteCount}
             </button>
         </div>

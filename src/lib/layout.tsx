@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { navigate } from "../app/router";
 import { globalCss } from "./globalCss";
 import { HeaderSearch } from "./headerSearch";
+import { GridIcon, LoginIcon, LogoutIcon, PenIcon, RssIcon, UserPlusIcon } from "./icons";
 import { PageEnter } from "./motion";
 import { useRole } from "./role";
 import { ThemeToggle } from "./themeToggle";
@@ -197,24 +198,28 @@ export function Layout({ children }: { children: ReactNode }) {
                     <ThemeToggle />
                     {role === "author" && (
                         <>
-                            <a href="/admin" style={styles.navLink}>
-                                后台
+                            <a href="/admin" style={styles.navLink} title="后台">
+                                <GridIcon style={{ verticalAlign: "-2px" }} />
                             </a>
                             <a href="/admin/posts/new" className="ven-btn ven-btn-primary">
+                                <PenIcon />
                                 写文章
                             </a>
                         </>
                     )}
                     {role ? (
                         <button type="button" className="ven-btn" onClick={logout}>
+                            <LogoutIcon />
                             注销（{role}）
                         </button>
                     ) : (
                         <>
                             <a href="/login" className="ven-btn">
+                                <LoginIcon />
                                 登录
                             </a>
                             <a href="/register" className="ven-btn ven-btn-primary">
+                                <UserPlusIcon />
                                 注册
                             </a>
                         </>
@@ -261,6 +266,7 @@ export function Layout({ children }: { children: ReactNode }) {
                         <ul style={styles.footerLinks}>
                             <li>
                                 <a href="/rss.xml" target="_blank" rel="noreferrer">
+                                    <RssIcon size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />
                                     RSS 订阅
                                 </a>
                             </li>
