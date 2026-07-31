@@ -13,10 +13,14 @@ export interface HomeMoment {
 export interface HomeStats {
     posts: number;
     words: number;
-    /** 运营天数（最早文章起算） */
+    /** 运营天数（最早文章起算，SSR 展示用） */
     days: number;
-    /** 最新文章发布日期（YYYY-MM-DD，无文章为空串） */
-    latestPost: string;
+    /** 运营起点（最早文章时间，RFC3339；客户端滚动计时用） */
+    launchAt: string;
+    /** 最新文章 ID（卡片跳转用） */
+    latestID: string;
+    /** 最新文章"几天前"文案（服务端计算，防 hydration 时钟偏差） */
+    latestAgo: string;
 }
 
 /** 作者维护的项目 */

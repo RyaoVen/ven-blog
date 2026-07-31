@@ -1,5 +1,6 @@
 /** 文章卡片列表（首页与列表页共用）；有封面时卡片顶部显示封面图（blur-up 由全局 load 监听解除） */
 
+import { navigate } from "../app/router";
 import { formatDateTime } from "../lib/format";
 import { plainText } from "../lib/markdown";
 import { v } from "../lib/theme";
@@ -18,7 +19,12 @@ export function PostList({ posts }: { posts: Post[] }) {
     return (
         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 16 }}>
             {posts.map((p) => (
-                <li key={p.id} className="ven-card ven-card-hover" style={{ overflow: "hidden" }}>
+                <li
+                    key={p.id}
+                    className="ven-card ven-card-hover ven-clickable"
+                    style={{ overflow: "hidden" }}
+                    onClick={() => navigate(`/posts/${p.id}`)}
+                >
                     {p.coverUrl && (
                         <img
                             src={p.coverUrl}
@@ -51,6 +57,7 @@ export function PostList({ posts }: { posts: Post[] }) {
                                     className="ven-chip"
                                     href={`/posts?tag=${encodeURIComponent(t)}`}
                                     style={{ textDecoration: "none" }}
+                                    onClick={(e) => e.stopPropagation()}
                                 >
                                     {t}
                                 </a>

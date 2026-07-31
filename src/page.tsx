@@ -8,6 +8,7 @@ import { CountUp } from "./lib/countUp";
 import { useFixedSections } from "./lib/fixedScroll";
 import { formatDateTime } from "./lib/format";
 import { Layout } from "./lib/layout";
+import { LiveDuration } from "./lib/duration";
 import { NixieClock } from "./lib/nixie";
 import { Reveal, useInView } from "./lib/reveal";
 import { Tilt } from "./lib/tilt";
@@ -319,9 +320,7 @@ function Dashboard({ state }: { state: HomeState }) {
                 >
                     <StatCard label="文章总数" value={state.stats.posts} unit="篇" />
                     <StatCard label="累计字数" value={state.stats.words} unit="字" />
-                    <StatCard label="运营天数" value={state.stats.days} unit="天" />
-                    <StatCard label="最新文章" text={state.stats.latestPost || "—"} />
-                    <NixieClock />
+                    <StatCard label="运营时长" durationSince={state.stats.launchAt} fallbackDays={state.stats.days} />
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 28 }}>
                     <div>
@@ -329,6 +328,21 @@ function Dashboard({ state }: { state: HomeState }) {
                             收藏的句子
                         </p>
                         <Typewriter items={state.quotes} />
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
+                            <a
+                                href={state.stats.latestID ? `/posts/${state.stats.latestID}` : "/posts"}
+                                className="ven-card ven-card-hover ven-clickable"
+                                style={{ padding: "16px 18px", textDecoration: "none", display: "block" }}
+                            >
+                                <div className="ven-meta" style={{ marginBottom: 8 }}>
+                                    最新文章
+                                </div>
+                                <div style={{ fontFamily: mono, fontSize: 17, fontWeight: 700, color: v.text }}>
+                                    更新于 {state.stats.latestAgo || "—"}
+                                </div>
+                            </a>
+                            <NixieClock />
+                        </div>
                     </div>
                     <div>
                         <p className="ven-meta" style={{ margin: "0 0 12px" }}>
@@ -336,17 +350,19 @@ function Dashboard({ state }: { state: HomeState }) {
                         </p>
                         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                             {state.projects.map((p) => (
-                                <div key={p.name} className="ven-card ven-card-hover" style={{ padding: "14px 18px" }}>
-                                    <a
-                                        href={p.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        style={{ fontWeight: 650, fontSize: 14.5, fontFamily: mono, color: v.text }}
-                                    >
+                                <a
+                                    key={p.name}
+                                    href={p.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="ven-card ven-card-hover ven-clickable"
+                                    style={{ padding: "14px 18px", textDecoration: "none", display: "block" }}
+                                >
+                                    <span style={{ fontWeight: 650, fontSize: 14.5, fontFamily: mono, color: v.text }}>
                                         {p.name} ↗
-                                    </a>
+                                    </span>
                                     <p style={{ margin: "6px 0 0", fontSize: 13, color: v.textSecondary }}>{p.desc}</p>
-                                </div>
+                                </a>
                             ))}
                         </div>
                     </div>
@@ -356,22 +372,36 @@ function Dashboard({ state }: { state: HomeState }) {
     );
 }
 
-function StatCard({ label, value, unit, text }: { label: string; value?: number; unit?: string; text?: string }) {
+function StatCard({
+    label,
+    value,
+    unit,
+    durationSince,
+    fallbackDays,
+}: {
+    label: string;
+    value?: number;
+    unit?: string;
+    durationSince?: string;
+    fallbackDays?: number;
+}) {
     return (
         <div className="ven-card" style={{ padding: "20px 22px" }}>
             <div className="ven-meta" style={{ marginBottom: 10 }}>
                 {label}
             </div>
-            <div style={{ fontFamily: mono, fontSize: text !== undefined ? 22 : 34, fontWeight: 700, letterSpacing: "-0.02em" }}>
-                {text !== undefined ? (
-                    text
-                ) : (
+            {durationSince !== undefined ? (
+                <div style={{ fontFamily: mono, fontSize: 17, fontWeight: 700, letterSpacing: "-0.01em" }}>
+                    {durationSince ? <LiveDuration since={durationSince} /> : `${fallbackDays ?? 0} 天`}
+                </div>
+            ) : (
+                <div style={{ fontFamily: mono, fontSize: 34, fontWeight: 700, letterSpacing: "-0.02em" }}>
                     <CountUp value={value ?? 0} format={(n) => (n >= 10000 ? (n / 10000).toFixed(1) + "w" : String(n))} />
-                )}
-                {unit && (
-                    <span style={{ fontSize: 13, fontWeight: 400, color: v.textMuted, marginLeft: 6 }}>{unit}</span>
-                )}
-            </div>
+                    {unit && (
+                        <span style={{ fontSize: 13, fontWeight: 400, color: v.textMuted, marginLeft: 6 }}>{unit}</span>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
