@@ -106,7 +106,7 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
                 <article>
                     <div className="ven-prose" dangerouslySetInnerHTML={{ __html: rendered.html }} />
                     <InteractionBar viewer={viewer} onToggle={toggle} />
-                    <CommentsSection postId={post.id} comments={state.comments} viewerUserId={viewer.userId} />
+                    <CommentsSection targetPath={`/posts/${post.id}`} initialComments={state.comments} />
                     {role === "author" && (
                         <div style={{ marginTop: 36, display: "flex", gap: 12 }}>
                             <a href={`/admin/posts/${post.id}/edit`} className="ven-btn">

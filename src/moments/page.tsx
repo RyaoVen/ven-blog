@@ -3,15 +3,17 @@
 import { useMemo, useState } from "react";
 import type { PageAppProps } from "../app/pageApp";
 import { formatDateTime } from "../lib/format";
+import { MessageIcon } from "../lib/icons";
 import { Layout } from "../lib/layout";
 import { renderMarkdown } from "../lib/markdown";
 import { markdownCss } from "../lib/markdownCss";
 import { Modal } from "../lib/modal";
 import { v } from "../lib/theme";
+import { CommentsSection } from "../posts/comments";
 import type { Moment, MomentsState } from "./types";
 
 export default function MomentsPage({ bootstrap }: PageAppProps) {
-    const state = (bootstrap.initialState ?? { moments: [] }) as MomentsState;
+    const state = (bootstrap.initialState ?? { moments: [], commentCounts: {} }) as MomentsState;
     const [selected, setSelected] = useState<Moment | null>(null);
 
     return (
@@ -57,6 +59,13 @@ export default function MomentsPage({ bootstrap }: PageAppProps) {
                                     <MomentAvatar name={m.authorName} />
                                     <span style={{ fontWeight: 550 }}>{m.authorName}</span>
                                     <span className="ven-meta">{formatDateTime(m.createdAt)}</span>
+                                    <span
+                                        className="ven-meta"
+                                        style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4 }}
+                                    >
+                                        <MessageIcon size={12} />
+                                        {state.commentCounts[m.id] ?? 0}
+                                    </span>
                                 </div>
                                 <div
                                     className="ven-prose ven-comment-prose"
@@ -87,6 +96,7 @@ export default function MomentsPage({ bootstrap }: PageAppProps) {
                         <div className="ven-prose">
                             <MomentBody content={selected.content} />
                         </div>
+                        <CommentsSection targetPath={`/moments/${selected.id}`} />
                     </div>
                 )}
             </Modal>

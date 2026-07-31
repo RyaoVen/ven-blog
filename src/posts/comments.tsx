@@ -1,6 +1,6 @@
-/** 评论区：@ 平铺回复 + Markdown 渲染 + 自研确认弹窗删除
- * 列表 props 经 ISR/SSE 刷新，本地状态做即时反馈。
- */
+/** 评论区（文章/动态通用）：@ 平铺回复 + Markdown 渲染 + 自研确认弹窗删除。
+ * 传 initialComments 时以 ISR/SSE 数据为准做即时反馈（文章）；
+ * 不传则挂载后向 `${targetPath}/comments` 拉取（动态弹窗等场景）。 */
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { formatDateTime } from "../lib/format";
@@ -9,19 +9,19 @@ import { renderMarkdown } from "../lib/markdown";
 import { ConfirmModal } from "../lib/modal";
 import { useRole } from "../lib/role";
 import { v } from "../lib/theme";
+import { useViewer } from "../lib/viewer";
 import type { Comment } from "./types";
 
 export function CommentsSection({
-    postId,
-    comments,
-    viewerUserId,
+    targetPath,
+    initialComments,
 }: {
-    postId: string;
-    comments: Comment[];
-    viewerUserId: string | null;
+    targetPath: string;
+    initialComments?: Comment[];
 }) {
     const role = useRole();
-    const [list, setList] = useState(comments);
+    const viewer = useViewer();
+    const [list, setList] = useState<Comment[]>(initialComments ?? []);
     const [draft, setDraft] = useState("");
     const [replyTo, setReplyTo] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -29,8 +29,31 @@ export function CommentsSection({
     const [deleting, setDeleting] = useState<Comment | null>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
 
-    // SSE 推送刷新 initialState 后同步本地列表
-    useEffect(() => setList(comments), [comments]);
+    // 文章：SSE 推送刷新 initialState 后同步本地列表
+    useEffect(() => {
+        if (initialComments !== undefined) {
+            setList(initialComments);
+        }
+    }, [initialComments]);
+
+    // 动态等场景：挂载后拉取评论
+    useEffect(() => {
+        if (initialComments !== undefined) {
+            return;
+        }
+        let cancelled = false;
+        fetch(`/api${targetPath}/comments`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+                if (!cancelled && data) {
+                    setList(data.comments ?? []);
+                }
+            })
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, [targetPath, initialComments]);
 
     function startReply(username: string) {
         setReplyTo(username);
@@ -42,7 +65,7 @@ export function CommentsSection({
         setSubmitting(true);
         setError(null);
         try {
-            const resp = await fetch(`/api/posts/${postId}/comments`, {
+            const resp = await fetch(`/api${targetPath}/comments`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ content: draft, replyTo: replyTo ?? "" }),
@@ -113,7 +136,7 @@ export function CommentsSection({
                 </form>
             ) : (
                 <p style={{ fontSize: 14, color: v.textSecondary }}>
-                    <a href={`/login?next=/posts/${postId}`}>登录</a> 后参与评论。
+                    <a href={`/login?next=${targetPath}`}>登录</a> 后参与评论。
                 </p>
             )}
             {list.length === 0 ? (
@@ -124,7 +147,7 @@ export function CommentsSection({
                         <CommentItem
                             key={c.id}
                             comment={c}
-                            canDelete={viewerUserId === c.userId || role === "author"}
+                            canDelete={viewer?.userId === c.userId || role === "author"}
                             canReply={role !== null}
                             onReply={() => startReply(c.username)}
                             onDelete={() => setDeleting(c)}
