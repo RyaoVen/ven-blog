@@ -100,14 +100,16 @@ func RegisterPages(a *hybrid.App, posts *postapp.Service, comments *commentapp.S
 		return err
 	}
 
-	// 登录页、注册页与 403 页：空数据渲染
-	if err := a.Page("/login", nil, func(c *hybrid.PageCtx) error { return c.Render() }); err != nil {
+	// 登录页、注册页与 403 页：空数据页。
+	// 必须 c.JSON(nil) 而非 c.Render()——Render() 会强制 SSR 连 data-only 请求也回 HTML，
+	// SPA router 取数拿到 HTML 解析失败卡死（直接访问与 SPA 跳转都须正常）。
+	if err := a.Page("/login", nil, func(c *hybrid.PageCtx) error { return c.JSON(nil) }); err != nil {
 		return err
 	}
-	if err := a.Page("/register", nil, func(c *hybrid.PageCtx) error { return c.Render() }); err != nil {
+	if err := a.Page("/register", nil, func(c *hybrid.PageCtx) error { return c.JSON(nil) }); err != nil {
 		return err
 	}
-	return a.Page("/403", nil, func(c *hybrid.PageCtx) error { return c.Render() })
+	return a.Page("/403", nil, func(c *hybrid.PageCtx) error { return c.JSON(nil) })
 }
 
 // mustID 解析路径/查询参数中的 ID；非法输入归一为 0（必然 miss，走 NotFound）。
