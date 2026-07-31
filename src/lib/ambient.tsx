@@ -32,8 +32,39 @@ export function PulseLine({ width = 120, height = 28 }: { width?: number; height
     );
 }
 
-/** RSS 同心波（三弧错峰呼吸） */
-export function SignalWaves({ size = 44 }: { size?: number }) {
+/** 行军线（虚线行进循环装饰线，板块点缀） */
+export function MarchLine({ width = 160 }: { width?: number }) {
+    const ref = useRef<SVGSVGElement>(null);
+
+    useEffect(() => {
+        const ctx = gsap.context(() => {
+            gsap.to(".ven-march-line", {
+                strokeDashoffset: -28,
+                duration: 1.8,
+                repeat: -1,
+                ease: "none",
+            });
+        }, ref);
+        return () => ctx.revert();
+    }, []);
+
+    return (
+        <svg ref={ref} width={width} height="8" viewBox="0 0 160 8" fill="none" aria-hidden="true">
+            <line
+                className="ven-march-line"
+                x1="0"
+                y1="4"
+                x2="160"
+                y2="4"
+                stroke="var(--border-strong)"
+                strokeWidth="1.5"
+                strokeDasharray="10 18"
+            />
+        </svg>
+    );
+}
+
+/** RSS 同心波（三弧错峰呼吸） */export function SignalWaves({ size = 44 }: { size?: number }) {
     const ref = useRef<SVGSVGElement>(null);
 
     useEffect(() => {
