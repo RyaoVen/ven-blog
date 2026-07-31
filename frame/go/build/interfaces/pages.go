@@ -20,17 +20,6 @@ import (
 // /write 是 author 专属动态页；/login 与 /403 是框架守卫要求的公开空数据页。
 // 详情 initialState 只放公开数据（文章/计数/评论列表）；viewer 个性化状态由 /api 互动接口下发。
 func RegisterPages(a *hybrid.App, posts *postapp.Service, comments *commentapp.Service, inter *interactionapp.Service) error {
-	// 首页：最近 5 篇文章
-	if err := a.Page("/", nil, func(c *hybrid.PageCtx) error {
-		list, err := posts.ListRecent(5)
-		if err != nil {
-			return err
-		}
-		return c.JSON(map[string]any{"posts": toPostViews(list)})
-	}); err != nil {
-		return err
-	}
-
 	// 文章列表：?tag= 标签筛选 + ?page= 分页，tags 为全量标签（筛选条用）
 	if err := a.Page("/posts", nil, func(c *hybrid.PageCtx) error {
 		page, _ := strconv.Atoi(c.Query("page"))

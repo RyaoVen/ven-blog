@@ -295,3 +295,13 @@ func (r *PostRepository) AllTags() ([]string, error) {
 	}
 	return tags, rows.Err()
 }
+
+// Stats 返回站点统计：文章总数与正文总字符数（CHAR_LENGTH 按字符而非字节）。
+func (r *PostRepository) Stats() (int, int, error) {
+	var posts, totalChars int
+	err := r.db.QueryRow("SELECT COUNT(*), COALESCE(SUM(CHAR_LENGTH(content)), 0) FROM posts").Scan(&posts, &totalChars)
+	if err != nil {
+		return 0, 0, fmt.Errorf("post stats: %w", err)
+	}
+	return posts, totalChars, nil
+}

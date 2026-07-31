@@ -5,11 +5,13 @@ package build
 
 import (
 	"fmt"
+	"os"
 
 	"ven_hybird/build/application/commentapp"
 	"ven_hybird/build/application/interactionapp"
 	"ven_hybird/build/application/momentapp"
 	"ven_hybird/build/application/postapp"
+	"ven_hybird/build/application/subscribeapp"
 	"ven_hybird/build/application/userapp"
 	"ven_hybird/build/infrastructure/persistence"
 	"ven_hybird/build/interfaces"
@@ -34,8 +36,15 @@ func Register(a *hybrid.App) error {
 	interactionRepo := persistence.NewInteractionRepository(db)
 	momentRepo := persistence.NewMomentRepository(db)
 	imageRepo := persistence.NewImageRepository(db)
+	subscriberRepo := persistence.NewSubscriberRepository(db)
 	if err := persistence.SeedUsers(userRepo); err != nil {
 		return fmt.Errorf("build: seed users: %w", err)
+	}
+
+	// 首页 hero 作者卡需要作者资料（种子 author 即本站作者）
+	author, err := userRepo.FindByUsername(persistence.AuthorUsernameFromEnv())
+	if err != nil {
+		return fmt.Errorf("build: find author: %w", err)
 	}
 
 	// 应用服务
@@ -44,10 +53,17 @@ func Register(a *hybrid.App) error {
 	comments := commentapp.NewService(commentRepo)
 	interactions := interactionapp.NewService(interactionRepo)
 	moments := momentapp.NewService(momentRepo)
+	subscribe := subscribeapp.NewService(subscriberRepo)
 
 	// 接口层注册（发文归属经 c.User() 取调用者，框架会话已携带用户身份）
 	interfaces.RegisterAuth(a, users)
 	interfaces.RegisterImages(a, imageRepo)
+	if err := interfaces.RegisterHome(a, posts, moments, author); err != nil {
+		return err
+	}
+	if err := interfaces.RegisterSubscribe(a, subscribe, posts, siteURLFromEnv()); err != nil {
+		return err
+	}
 	if err := interfaces.RegisterPages(a, posts, comments, interactions); err != nil {
 		return err
 	}
@@ -64,6 +80,14 @@ func Register(a *hybrid.App) error {
 		return err
 	}
 	return interfaces.RegisterMoments(a, moments)
+}
+
+// siteURLFromEnv 返回站点对外 URL（BLOG_SITE_URL，RSS 链接拼接用；默认本地开发地址）。
+func siteURLFromEnv() string {
+	if u := os.Getenv("BLOG_SITE_URL"); u != "" {
+		return u
+	}
+	return "http://127.0.0.1:8080"
 }
 
 // registerRoles 注册博客角色（须在页面注册前完成）。

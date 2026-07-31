@@ -24,4 +24,6 @@ type Repository interface {
 	Delete(id int64) error
 	// AllTags 返回全部标签名（字典序）。
 	AllTags() ([]string, error)
+	// Stats 返回站点统计：文章总数与正文总字符数。
+	Stats() (posts int, totalChars int, err error)
 }

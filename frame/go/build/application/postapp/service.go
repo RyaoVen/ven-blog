@@ -127,3 +127,8 @@ func (s *Service) Delete(id int64) error {
 type ValidationError struct{ Message string }
 
 func (e *ValidationError) Error() string { return e.Message }
+
+// SiteStats 站点统计（首页仪表盘用）。
+func (s *Service) SiteStats() (posts int, totalChars int, err error) {
+	return s.repo.Stats()
+}

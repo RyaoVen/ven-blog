@@ -4,19 +4,7 @@ import type { PageAppProps } from "../app/pageApp";
 import { formatDateTime } from "../lib/format";
 import { Layout } from "../lib/layout";
 import { v } from "../lib/theme";
-
-/** 一条动态（与 Go 侧 build/interfaces MomentView 的 JSON 同形） */
-interface Moment {
-    id: string;
-    content: string;
-    authorName: string;
-    createdAt: string;
-}
-
-/** 动态页的 initialState */
-interface MomentsState {
-    moments: Moment[];
-}
+import type { MomentsState } from "./types";
 
 export default function MomentsPage({ bootstrap }: PageAppProps) {
     const state = (bootstrap.initialState ?? { moments: [] }) as MomentsState;
