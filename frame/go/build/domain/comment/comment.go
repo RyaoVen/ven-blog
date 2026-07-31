@@ -13,6 +13,7 @@ type Comment struct {
 	UserID    int64
 	Username  string
 	Content   string
+	ReplyTo   string // 回复目标用户名（@ 形式平铺展示，空串表示非回复）
 	CreatedAt time.Time
 }
 

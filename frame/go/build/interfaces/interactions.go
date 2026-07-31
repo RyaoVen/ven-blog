@@ -18,6 +18,7 @@ type CommentView struct {
 	UserID    string    `json:"userId"`
 	Username  string    `json:"username"`
 	Content   string    `json:"content"`
+	ReplyTo   string    `json:"replyTo"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -28,6 +29,7 @@ func toCommentView(c *comment.Comment) CommentView {
 		UserID:    strconv.FormatInt(c.UserID, 10),
 		Username:  c.Username,
 		Content:   c.Content,
+		ReplyTo:   c.ReplyTo,
 		CreatedAt: c.CreatedAt,
 	}
 }
@@ -41,9 +43,10 @@ func toCommentViews(comments []*comment.Comment) []CommentView {
 	return views
 }
 
-// commentInput 评论请求体。
+// commentInput 评论请求体（replyTo 为回复目标用户名，可空）。
 type commentInput struct {
 	Content string `json:"content"`
+	ReplyTo string `json:"replyTo"`
 }
 
 // loginRoles 评论/点赞/收藏对全部登录用户开放（扁平角色下两个都列）。
@@ -118,7 +121,7 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 			return c.Error(400, "bad body")
 		}
 		postID := mustID(c.Param("id"))
-		cm, err := comments.Create(userID, postID, in.Content)
+		cm, err := comments.Create(userID, postID, in.Content, in.ReplyTo)
 		var vErr *commentapp.ValidationError
 		if errors.As(err, &vErr) {
 			return c.Error(400, vErr.Message)
