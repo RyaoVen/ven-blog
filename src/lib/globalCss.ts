@@ -113,4 +113,10 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
     font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
     color: var(--text-muted);
 }
+
+/* hero 区布局：左文案右动态 SVG（窄屏收起 SVG） */
+.ven-hero { display: flex; align-items: center; justify-content: space-between; gap: 32px; }
+@media (max-width: 720px) {
+    .ven-hero-art { display: none; }
+}
 `;

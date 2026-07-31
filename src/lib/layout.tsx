@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import { navigate } from "../app/router";
 import { globalCss } from "./globalCss";
+import { PageEnter } from "./motion";
 import { useRole } from "./role";
 import { layout as layoutToken, v } from "./theme";
 
@@ -108,7 +109,9 @@ export function Layout({ children }: { children: ReactNode }) {
                     )}
                 </nav>
             </header>
-            <main style={styles.main}>{children}</main>
+            <main style={styles.main}>
+                <PageEnter>{children}</PageEnter>
+            </main>
             <footer style={styles.footer} className="ven-meta">
                 <span>© 2026 RYAOVEN</span>
                 <span>POWERED BY VENHYBIRD</span>
