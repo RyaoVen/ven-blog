@@ -8,7 +8,7 @@ export function LetterAvatar({ name }: { name: string }) {
             style={{
                 width: 64,
                 height: 64,
-                borderRadius: 2,
+                borderRadius: 3,
                 background: v.text,
                 display: "inline-flex",
                 alignItems: "center",

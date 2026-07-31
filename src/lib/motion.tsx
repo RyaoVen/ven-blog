@@ -27,14 +27,15 @@ export function PageEnter({ children }: { children: ReactNode }) {
         const ctx = gsap.context(() => {
             gsap.fromTo(
                 ref.current!.children,
-                { opacity: 0, y: 16 },
+                { opacity: 0, y: 16, filter: "blur(4px)" },
                 {
                     opacity: 1,
                     y: 0,
+                    filter: "blur(0px)",
                     duration: 0.5,
                     stagger: 0.07,
                     ease: "power2.out",
-                    clearProps: "opacity,transform",
+                    clearProps: "opacity,transform,filter",
                 },
             );
         }, ref);
