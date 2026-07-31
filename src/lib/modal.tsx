@@ -9,7 +9,6 @@ import { v } from "./theme";
 const overlayStyle = {
     position: "fixed",
     inset: 0,
-    background: "rgba(0, 0, 0, 0.35)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -42,10 +41,11 @@ export function Modal({
         document.addEventListener("keydown", onKey);
         document.body.style.overflow = "hidden";
         if (cardRef.current) {
+            // 注意：clearProps 只能清动画属性——"all" 会连卡片的 width/maxHeight/padding 一起清掉
             gsap.fromTo(
                 cardRef.current,
                 { opacity: 0, y: 14, scale: 0.98 },
-                { opacity: 1, y: 0, scale: 1, duration: 0.22, ease: "power2.out", clearProps: "all" },
+                { opacity: 1, y: 0, scale: 1, duration: 0.22, ease: "power2.out", clearProps: "opacity,transform" },
             );
         }
         return () => {
@@ -58,7 +58,7 @@ export function Modal({
         return null;
     }
     return (
-        <div style={overlayStyle} onClick={onClose} role="dialog" aria-modal="true">
+        <div className="ven-modal-overlay" style={overlayStyle} onClick={onClose} role="dialog" aria-modal="true">
             <div
                 ref={cardRef}
                 className="ven-card"

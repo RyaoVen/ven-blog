@@ -5,6 +5,8 @@ import { navigate } from "../app/router";
 import { globalCss } from "./globalCss";
 import { HeaderSearch } from "./headerSearch";
 import { GridIcon, LoginIcon, LogoutIcon, PenIcon, RssIcon, UserPlusIcon } from "./icons";
+import { LoginForm, RegisterForm } from "./authForms";
+import { Modal } from "./modal";
 import { PageEnter } from "./motion";
 import { useRole } from "./role";
 import { ThemeToggle } from "./themeToggle";
@@ -17,10 +19,16 @@ export function GlobalStyle() {
 
 const styles = {
     page: {
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+    },
+    container: {
+        width: "100%",
         maxWidth: layoutToken.container,
         margin: "0 auto",
         padding: "0 24px 64px",
-        minHeight: "100vh",
+        flex: 1,
         display: "flex",
         flexDirection: "column",
     },
@@ -29,9 +37,13 @@ const styles = {
         top: 0,
         zIndex: 100,
         background: "var(--bg)",
-        padding: "14px 0",
         borderBottom: `1px solid ${v.border}`,
-        marginBottom: 32,
+    },
+    headerInner: {
+        width: "100%",
+        maxWidth: layoutToken.container,
+        margin: "0 auto",
+        padding: "14px 24px",
     },
     side: { display: "flex", alignItems: "center", gap: 14 },
     brand: {
@@ -152,6 +164,7 @@ async function logout() {
 
 export function Layout({ children }: { children: ReactNode }) {
     const role = useRole();
+    const [authView, setAuthView] = useState<"login" | "register" | null>(null);
 
     // 卡片鼠标跟随光斑（委托监听，仅设置 CSS 变量）+ 大图 blur-up（捕获 load 事件）
     useEffect(() => {
@@ -181,7 +194,8 @@ export function Layout({ children }: { children: ReactNode }) {
     return (
         <div style={styles.page}>
             <GlobalStyle />
-            <header className="ven-header" style={styles.header}>
+            <header style={styles.header}>
+                <div className="ven-header" style={styles.headerInner}>
                 <div style={styles.side}>
                     <a href="/" style={styles.brand}>
                         <span style={styles.brandDot}>V</span>
@@ -199,7 +213,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 </div>
                 <HeaderSearch />
                 <div style={styles.side}>
-                    <ThemeToggle />
+                    <div className="ven-theme-wrap"><ThemeToggle /></div>
                     {role === "author" && (
                         <>
                             <a href="/admin" style={styles.navLink} title="后台">
@@ -218,18 +232,20 @@ export function Layout({ children }: { children: ReactNode }) {
                         </button>
                     ) : (
                         <>
-                            <a href="/login" className="ven-btn">
+                            <button type="button" className="ven-btn" onClick={() => setAuthView("login")}>
                                 <LoginIcon />
                                 登录
-                            </a>
-                            <a href="/register" className="ven-btn ven-btn-primary">
+                            </button>
+                            <button type="button" className="ven-btn ven-btn-primary" onClick={() => setAuthView("register")}>
                                 <UserPlusIcon />
                                 注册
-                            </a>
+                            </button>
                         </>
                     )}
                 </div>
+                </div>
             </header>
+            <div style={styles.container}>
             <main style={styles.main}>
                 <PageEnter>{children}</PageEnter>
             </main>
@@ -297,6 +313,46 @@ export function Layout({ children }: { children: ReactNode }) {
                     <span>POWERED BY VENHYBIRD · SSR + SPA + ISR + SSE</span>
                 </div>
             </footer>
+            </div>
+            <Modal open={authView !== null} onClose={() => setAuthView(null)} width={400}>
+                {authView === "login" ? (
+                    <div>
+                        <p className="ven-meta" style={{ margin: "0 0 6px" }}>
+                            SIGN IN
+                        </p>
+                        <h2 style={{ fontSize: 20, marginBottom: 16 }}>登录</h2>
+                        <LoginForm onSuccess={() => window.location.reload()} />
+                        <p style={{ fontSize: 13, color: v.textSecondary, margin: "14px 0 0" }}>
+                            没有账号？
+                            <button
+                                type="button"
+                                onClick={() => setAuthView("register")}
+                                style={{ border: "none", background: "none", padding: 0, cursor: "pointer", color: v.accent, font: "inherit", fontSize: 13 }}
+                            >
+                                去注册
+                            </button>
+                        </p>
+                    </div>
+                ) : (
+                    <div>
+                        <p className="ven-meta" style={{ margin: "0 0 6px" }}>
+                            SIGN UP
+                        </p>
+                        <h2 style={{ fontSize: 20, marginBottom: 16 }}>注册</h2>
+                        <RegisterForm onSuccess={() => window.location.reload()} />
+                        <p style={{ fontSize: 13, color: v.textSecondary, margin: "14px 0 0" }}>
+                            已有账号？
+                            <button
+                                type="button"
+                                onClick={() => setAuthView("login")}
+                                style={{ border: "none", background: "none", padding: 0, cursor: "pointer", color: v.accent, font: "inherit", fontSize: 13 }}
+                            >
+                                去登录
+                            </button>
+                        </p>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 }

@@ -8,8 +8,10 @@ import { CountUp } from "./lib/countUp";
 import { useFixedSections } from "./lib/fixedScroll";
 import { formatDateTime } from "./lib/format";
 import { Layout } from "./lib/layout";
+import { NixieClock } from "./lib/nixie";
 import { Reveal, useInView } from "./lib/reveal";
 import { Tilt } from "./lib/tilt";
+import { Typewriter } from "./lib/typewriter";
 import { v } from "./lib/theme";
 import type { HomeState, HomeTimelineItem } from "./home/types";
 
@@ -310,33 +312,23 @@ function Dashboard({ state }: { state: HomeState }) {
                 <div
                     style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
                         gap: 16,
                         marginBottom: 36,
                     }}
                 >
                     <StatCard label="文章总数" value={state.stats.posts} unit="篇" />
                     <StatCard label="累计字数" value={state.stats.words} unit="字" />
+                    <StatCard label="运营天数" value={state.stats.days} unit="天" />
+                    <StatCard label="最新文章" text={state.stats.latestPost || "—"} />
+                    <NixieClock />
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 28 }}>
                     <div>
                         <p className="ven-meta" style={{ margin: "0 0 12px" }}>
                             收藏的句子
                         </p>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                            {state.quotes.map((q, i) => (
-                                <blockquote
-                                    key={i}
-                                    className="ven-card"
-                                    style={{ margin: 0, padding: "14px 18px", borderLeft: `2px solid ${v.text}` }}
-                                >
-                                    <p style={{ margin: "0 0 6px", fontSize: 14 }}>{q.text}</p>
-                                    <cite className="ven-meta" style={{ fontStyle: "normal" }}>
-                                        —— {q.source}
-                                    </cite>
-                                </blockquote>
-                            ))}
-                        </div>
+                        <Typewriter items={state.quotes} />
                     </div>
                     <div>
                         <p className="ven-meta" style={{ margin: "0 0 12px" }}>
@@ -364,15 +356,21 @@ function Dashboard({ state }: { state: HomeState }) {
     );
 }
 
-function StatCard({ label, value, unit }: { label: string; value: number; unit: string }) {
+function StatCard({ label, value, unit, text }: { label: string; value?: number; unit?: string; text?: string }) {
     return (
         <div className="ven-card" style={{ padding: "20px 22px" }}>
             <div className="ven-meta" style={{ marginBottom: 10 }}>
                 {label}
             </div>
-            <div style={{ fontFamily: mono, fontSize: 34, fontWeight: 700, letterSpacing: "-0.02em" }}>
-                <CountUp value={value} format={(n) => (n >= 10000 ? (n / 10000).toFixed(1) + "w" : String(n))} />
-                <span style={{ fontSize: 13, fontWeight: 400, color: v.textMuted, marginLeft: 6 }}>{unit}</span>
+            <div style={{ fontFamily: mono, fontSize: text !== undefined ? 22 : 34, fontWeight: 700, letterSpacing: "-0.02em" }}>
+                {text !== undefined ? (
+                    text
+                ) : (
+                    <CountUp value={value ?? 0} format={(n) => (n >= 10000 ? (n / 10000).toFixed(1) + "w" : String(n))} />
+                )}
+                {unit && (
+                    <span style={{ fontSize: 13, fontWeight: 400, color: v.textMuted, marginLeft: 6 }}>{unit}</span>
+                )}
             </div>
         </div>
     );
@@ -402,8 +400,8 @@ function Timeline({ items }: { items: HomeTimelineItem[] }) {
         const ctx = gsap.context(() => {
             gsap.fromTo(
                 ".ven-tl-line",
-                { scaleY: 0, transformOrigin: "top" },
-                { scaleY: 1, duration: 0.9, ease: "power2.out" },
+                { scaleX: 0, transformOrigin: "left" },
+                { scaleX: 1, duration: 0.9, ease: "power2.out" },
             );
             gsap.fromTo(
                 ".ven-tl-dot",
@@ -429,37 +427,44 @@ function Timeline({ items }: { items: HomeTimelineItem[] }) {
     return (
         <div ref={ref}>
             <ListHeader title="文章时间线" moreHref="/posts" />
-            <div className="ven-tl-line" style={{ borderLeft: `1px solid ${v.borderStrong}`, marginLeft: 6, paddingLeft: 24 }}>
-                {groups.map(([month, posts]) => (
-                    <div key={month} style={{ position: "relative", paddingBottom: 26 }}>
-                        <span
-                            className="ven-tl-dot"
-                            style={{
-                                position: "absolute",
-                                left: -29,
-                                top: 6,
-                                width: 9,
-                                height: 9,
-                                background: v.text,
-                            }}
-                        />
-                        <p className="ven-meta" style={{ margin: "0 0 10px", fontWeight: 700 }}>
-                            {month}（{posts.length} 篇）
-                        </p>
-                        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                            {posts.map((p) => (
-                                <li key={p.id} style={{ display: "flex", gap: 14, alignItems: "baseline", padding: "5px 0" }}>
-                                    <span className="ven-meta" style={{ flexShrink: 0, width: 44 }}>
-                                        {p.createdAt.slice(8, 10)} 日
-                                    </span>
-                                    <a href={`/posts/${p.id}`} style={{ fontSize: 15, color: v.text, textDecoration: "none" }}>
-                                        {p.title}
-                                    </a>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                ))}
+            <div style={{ overflowX: "auto", paddingBottom: 10 }}>
+                <div style={{ display: "flex", gap: 36, position: "relative", minWidth: "max-content", paddingTop: 22 }}>
+                    <div
+                        className="ven-tl-line"
+                        style={{
+                            position: "absolute",
+                            top: 4,
+                            left: 0,
+                            right: 0,
+                            height: 1,
+                            background: v.borderStrong,
+                            transformOrigin: "left",
+                        }}
+                    />
+                    {groups.map(([month, posts]) => (
+                        <div key={month} style={{ position: "relative", minWidth: 180 }}>
+                            <span
+                                className="ven-tl-dot"
+                                style={{ position: "absolute", top: -22, left: 0, width: 9, height: 9, background: v.text }}
+                            />
+                            <p className="ven-meta" style={{ margin: "0 0 10px", fontWeight: 700 }}>
+                                {month}（{posts.length} 篇）
+                            </p>
+                            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                                {posts.map((p) => (
+                                    <li key={p.id} style={{ padding: "5px 0" }}>
+                                        <div className="ven-meta" style={{ marginBottom: 2 }}>
+                                            {p.createdAt.slice(8, 10)} 日
+                                        </div>
+                                        <a href={`/posts/${p.id}`} style={{ fontSize: 15, color: v.text, textDecoration: "none" }}>
+                                            {p.title}
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
