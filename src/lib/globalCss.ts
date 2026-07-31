@@ -127,4 +127,38 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
 @media (max-width: 720px) {
     .ven-header-search { order: 3; flex-basis: 100%; max-width: none; margin: 10px 0 0; }
 }
+
+/* ===== 首页整屏板块（滚动磁吸仅首页注入，离开页面解除） ===== */
+html.ven-home-snap { scroll-snap-type: y proximity; }
+.ven-panel {
+    min-height: calc(100vh - 96px);
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+}
+.ven-panel-chevron {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    animation: ven-bob 1.8s ease-in-out infinite;
+}
+@keyframes ven-bob {
+    0%, 100% { transform: translate(-50%, 0); }
+    50% { transform: translate(-50%, 6px); }
+}
+.ven-panel-nav {
+    position: fixed; right: 20px; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 12px; z-index: 50;
+}
+.ven-panel-nav a {
+    width: 8px; height: 8px; background: var(--border-strong);
+    transition: background 0.15s, transform 0.15s;
+}
+.ven-panel-nav a:hover { background: var(--text); }
+.ven-panel-nav a.active { background: var(--text); transform: scale(1.35); }
+@media (max-width: 900px) {
+    .ven-panel-nav { display: none; }
+    .ven-panel { min-height: auto; padding: 48px 0; }
+    .ven-panel-chevron { display: none; }
+}
 `;

@@ -1,14 +1,20 @@
-/** 首页：hero（介绍 + 3D 作者卡）/ 双短列表 / 仪表盘 / 文章时间线 / 订阅区 */
+/** 首页：整屏板块（滚动磁吸 + 非线性跳转）——hero / 双列表 / 仪表盘 / 时间线 / 订阅 */
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, RefObject, useEffect, useMemo, useRef, useState } from "react";
+import gsap from "gsap";
 import type { PageAppProps } from "./app/pageApp";
+import { PulseLine, SignalWaves } from "./lib/ambient";
+import { CountUp } from "./lib/countUp";
 import { formatDateTime } from "./lib/format";
 import { Layout } from "./lib/layout";
+import { Reveal, useInView } from "./lib/reveal";
+import { scrollToElement, scrollToNextSection } from "./lib/scrollAnim";
 import { Tilt } from "./lib/tilt";
 import { v } from "./lib/theme";
 import type { HomeState, HomeTimelineItem } from "./home/types";
 
 const mono = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+const PANEL_LABELS = ["首页", "列表", "仪表盘", "时间线", "订阅"];
 
 export default function HomePage({ bootstrap }: PageAppProps) {
     const state = (bootstrap.initialState ?? {
@@ -20,15 +26,101 @@ export default function HomePage({ bootstrap }: PageAppProps) {
         timeline: [],
         author: { username: "author", bio: "", avatarUrl: "", github: "" },
     }) as HomeState;
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // 滚动磁吸仅首页生效（离开页面解除）
+    useEffect(() => {
+        document.documentElement.classList.add("ven-home-snap");
+        return () => document.documentElement.classList.remove("ven-home-snap");
+    }, []);
 
     return (
         <Layout>
-            <Hero state={state} />
-            <DualLists state={state} />
-            <Dashboard state={state} />
-            <Timeline items={state.timeline} />
-            <Subscribe />
+            <div ref={containerRef}>
+                <Panel index={0}>
+                    <Hero state={state} />
+                </Panel>
+                <Panel index={1}>
+                    <DualLists state={state} />
+                </Panel>
+                <Panel index={2}>
+                    <Dashboard state={state} />
+                </Panel>
+                <Panel index={3}>
+                    <Timeline items={state.timeline} />
+                </Panel>
+                <Panel index={4} last>
+                    <Subscribe />
+                </Panel>
+            </div>
+            <PanelNav containerRef={containerRef} />
         </Layout>
+    );
+}
+
+/* ===== 整屏板块外壳（底部 chevron 非线性滚向下一屏） ===== */
+function Panel({ index, last = false, children }: { index: number; last?: boolean; children: React.ReactNode }) {
+    const ref = useRef<HTMLElement>(null);
+    return (
+        <section ref={ref} className="ven-panel" data-panel={index}>
+            {children}
+            {!last && (
+                <button
+                    type="button"
+                    className="ven-panel-chevron ven-btn"
+                    style={{ padding: "6px 10px" }}
+                    aria-label="滚动到下一屏"
+                    onClick={() => scrollToNextSection(ref.current)}
+                >
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M2 5 L8 11 L14 5" stroke="currentColor" strokeWidth="1.5" />
+                    </svg>
+                </button>
+            )}
+        </section>
+    );
+}
+
+/* ===== 右侧圆点章节导航 ===== */
+function PanelNav({ containerRef }: { containerRef: RefObject<HTMLDivElement | null> }) {
+    const [panels, setPanels] = useState<Element[]>([]);
+    const [active, setActive] = useState(0);
+
+    useEffect(() => {
+        const els = Array.from(containerRef.current?.querySelectorAll(".ven-panel") ?? []);
+        setPanels(els);
+        const observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) {
+                        setActive(els.indexOf(entry.target));
+                    }
+                }
+            },
+            { threshold: 0.5 },
+        );
+        els.forEach((el) => observer.observe(el));
+        return () => observer.disconnect();
+    }, [containerRef]);
+
+    if (panels.length === 0) {
+        return null;
+    }
+    return (
+        <nav className="ven-panel-nav" aria-label="章节导航">
+            {panels.map((p, i) => (
+                <a
+                    key={i}
+                    href={`#panel-${i}`}
+                    className={active === i ? "active" : ""}
+                    title={PANEL_LABELS[i]}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        scrollToElement(p);
+                    }}
+                />
+            ))}
+        </nav>
     );
 }
 
@@ -36,23 +128,15 @@ export default function HomePage({ bootstrap }: PageAppProps) {
 function Hero({ state }: { state: HomeState }) {
     const { author } = state;
     return (
-        <section
-            className="ven-hero"
-            style={{
-                borderTop: `1px solid ${v.text}`,
-                borderBottom: `1px solid ${v.border}`,
-                padding: "48px 0 40px",
-                marginBottom: 40,
-            }}
-        >
+        <div className="ven-hero">
             <div>
                 <p className="ven-meta" style={{ margin: 0 }}>
                     PERSONAL SITE / VEN-BLOG
                 </p>
-                <h1 style={{ fontSize: 40, letterSpacing: "-0.03em", margin: "14px 0 16px" }}>
+                <h1 style={{ fontSize: 52, letterSpacing: "-0.03em", margin: "16px 0 18px" }}>
                     RyaoVen 的博客
                 </h1>
-                <p style={{ fontSize: 15.5, color: v.textSecondary, maxWidth: 520, marginBottom: 24 }}>
+                <p style={{ fontSize: 16, color: v.textSecondary, maxWidth: 520, marginBottom: 28 }}>
                     记录技术与生活。聊聊框架设计、后端工程与渲染链路，本站由自研 VenHybird
                     框架驱动——SSR 直出、SPA 接管、ISR 物化、SSE 实时推送。
                 </p>
@@ -103,94 +187,88 @@ function Hero({ state }: { state: HomeState }) {
                     </div>
                 </div>
             </Tilt>
-        </section>
+        </div>
     );
 }
 
 /* ===== 板块二：双短列表 ===== */
 function DualLists({ state }: { state: HomeState }) {
     return (
-        <section
-            style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                gap: 32,
-                marginBottom: 48,
-            }}
-        >
-            <div>
-                <ListHeader title="最近文章" moreHref="/posts" />
-                {state.recentPosts.length === 0 ? (
-                    <p style={{ color: v.textMuted, fontSize: 14 }}>还没有文章。</p>
-                ) : (
-                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                        {state.recentPosts.map((p) => (
-                            <li
-                                key={p.id}
-                                style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "baseline",
-                                    gap: 16,
-                                    padding: "10px 0",
-                                    borderBottom: `1px solid ${v.border}`,
-                                }}
-                            >
-                                <a
-                                    href={`/posts/${p.id}`}
+        <Reveal>
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                    gap: 40,
+                }}
+            >
+                <div>
+                    <ListHeader title="最近文章" moreHref="/posts" />
+                    {state.recentPosts.length === 0 ? (
+                        <p style={{ color: v.textMuted, fontSize: 14 }}>还没有文章。</p>
+                    ) : (
+                        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                            {state.recentPosts.map((p) => (
+                                <li
+                                    key={p.id}
                                     style={{
-                                        fontSize: 14.5,
-                                        fontWeight: 550,
-                                        color: v.text,
-                                        textDecoration: "none",
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        whiteSpace: "nowrap",
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "baseline",
+                                        gap: 16,
+                                        padding: "12px 0",
+                                        borderBottom: `1px solid ${v.border}`,
                                     }}
                                 >
-                                    {p.title}
-                                </a>
-                                <span className="ven-meta" style={{ flexShrink: 0 }}>
-                                    {p.createdAt.slice(0, 10)}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
+                                    <a
+                                        href={`/posts/${p.id}`}
+                                        style={{
+                                            fontSize: 15,
+                                            fontWeight: 550,
+                                            color: v.text,
+                                            textDecoration: "none",
+                                            overflow: "hidden",
+                                            textOverflow: "ellipsis",
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {p.title}
+                                    </a>
+                                    <span className="ven-meta" style={{ flexShrink: 0 }}>
+                                        {p.createdAt.slice(0, 10)}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+                <div>
+                    <ListHeader title="最近动态" moreHref="/moments" />
+                    {state.recentMoments.length === 0 ? (
+                        <p style={{ color: v.textMuted, fontSize: 14 }}>还没有动态。</p>
+                    ) : (
+                        <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                            {state.recentMoments.map((m) => (
+                                <li key={m.id} style={{ padding: "12px 0", borderBottom: `1px solid ${v.border}` }}>
+                                    <p
+                                        style={{
+                                            margin: "0 0 4px",
+                                            fontSize: 14.5,
+                                            overflow: "hidden",
+                                            textOverflow: "ellipsis",
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {m.content}
+                                    </p>
+                                    <span className="ven-meta">{formatDateTime(m.createdAt)}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
             </div>
-            <div>
-                <ListHeader title="最近动态" moreHref="/moments" />
-                {state.recentMoments.length === 0 ? (
-                    <p style={{ color: v.textMuted, fontSize: 14 }}>还没有动态。</p>
-                ) : (
-                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                        {state.recentMoments.map((m) => (
-                            <li
-                                key={m.id}
-                                style={{
-                                    padding: "10px 0",
-                                    borderBottom: `1px solid ${v.border}`,
-                                }}
-                            >
-                                <p
-                                    style={{
-                                        margin: "0 0 4px",
-                                        fontSize: 14,
-                                        color: v.text,
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        whiteSpace: "nowrap",
-                                    }}
-                                >
-                                    {m.content}
-                                </p>
-                                <span className="ven-meta">{formatDateTime(m.createdAt)}</span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </div>
-        </section>
+        </Reveal>
     );
 }
 
@@ -201,12 +279,12 @@ function ListHeader({ title, moreHref }: { title: string; moreHref: string }) {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "baseline",
-                paddingBottom: 10,
-                marginBottom: 4,
+                paddingBottom: 12,
+                marginBottom: 6,
                 borderBottom: `1px solid ${v.text}`,
             }}
         >
-            <h2 style={{ fontSize: 18, margin: 0 }}>{title}</h2>
+            <h2 style={{ fontSize: 20, margin: 0 }}>{title}</h2>
             <a href={moreHref} className="ven-meta" style={{ textDecoration: "none" }}>
                 更多 →
             </a>
@@ -217,93 +295,88 @@ function ListHeader({ title, moreHref }: { title: string; moreHref: string }) {
 /* ===== 板块三：仪表盘 ===== */
 function Dashboard({ state }: { state: HomeState }) {
     return (
-        <section style={{ marginBottom: 48 }}>
-            <ListHeader title="仪表盘" moreHref="/rss.xml" />
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-                    gap: 16,
-                    margin: "20px 0 28px",
-                }}
-            >
-                <StatCard label="文章总数" value={String(state.stats.posts)} unit="篇" />
-                <StatCard label="累计字数" value={formatWords(state.stats.words)} unit="字" />
+        <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+                <ListHeader title="仪表盘" moreHref="/rss.xml" />
+                <PulseLine />
             </div>
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-                    gap: 24,
-                }}
-            >
-                <div>
-                    <p className="ven-meta" style={{ margin: "0 0 12px" }}>
-                        收藏的句子
-                    </p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        {state.quotes.map((q, i) => (
-                            <blockquote
-                                key={i}
-                                className="ven-card"
-                                style={{ margin: 0, padding: "14px 18px", borderLeft: `2px solid ${v.text}` }}
-                            >
-                                <p style={{ margin: "0 0 6px", fontSize: 14 }}>{q.text}</p>
-                                <cite className="ven-meta" style={{ fontStyle: "normal" }}>
-                                    —— {q.source}
-                                </cite>
-                            </blockquote>
-                        ))}
-                    </div>
+            <Reveal>
+                <div
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                        gap: 16,
+                        marginBottom: 36,
+                    }}
+                >
+                    <StatCard label="文章总数" value={state.stats.posts} unit="篇" />
+                    <StatCard label="累计字数" value={state.stats.words} unit="字" />
                 </div>
-                <div>
-                    <p className="ven-meta" style={{ margin: "0 0 12px" }}>
-                        维护的项目
-                    </p>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        {state.projects.map((p) => (
-                            <div key={p.name} className="ven-card ven-card-hover" style={{ padding: "14px 18px" }}>
-                                <a
-                                    href={p.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    style={{ fontWeight: 650, fontSize: 14.5, fontFamily: mono, color: v.text }}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 28 }}>
+                    <div>
+                        <p className="ven-meta" style={{ margin: "0 0 12px" }}>
+                            收藏的句子
+                        </p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            {state.quotes.map((q, i) => (
+                                <blockquote
+                                    key={i}
+                                    className="ven-card"
+                                    style={{ margin: 0, padding: "14px 18px", borderLeft: `2px solid ${v.text}` }}
                                 >
-                                    {p.name} ↗
-                                </a>
-                                <p style={{ margin: "6px 0 0", fontSize: 13, color: v.textSecondary }}>{p.desc}</p>
-                            </div>
-                        ))}
+                                    <p style={{ margin: "0 0 6px", fontSize: 14 }}>{q.text}</p>
+                                    <cite className="ven-meta" style={{ fontStyle: "normal" }}>
+                                        —— {q.source}
+                                    </cite>
+                                </blockquote>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <p className="ven-meta" style={{ margin: "0 0 12px" }}>
+                            维护的项目
+                        </p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            {state.projects.map((p) => (
+                                <div key={p.name} className="ven-card ven-card-hover" style={{ padding: "14px 18px" }}>
+                                    <a
+                                        href={p.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        style={{ fontWeight: 650, fontSize: 14.5, fontFamily: mono, color: v.text }}
+                                    >
+                                        {p.name} ↗
+                                    </a>
+                                    <p style={{ margin: "6px 0 0", fontSize: 13, color: v.textSecondary }}>{p.desc}</p>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
-            </div>
-        </section>
+            </Reveal>
+        </div>
     );
 }
 
-function StatCard({ label, value, unit }: { label: string; value: string; unit: string }) {
+function StatCard({ label, value, unit }: { label: string; value: number; unit: string }) {
     return (
-        <div className="ven-card" style={{ padding: "18px 20px" }}>
-            <div className="ven-meta" style={{ marginBottom: 8 }}>
+        <div className="ven-card" style={{ padding: "20px 22px" }}>
+            <div className="ven-meta" style={{ marginBottom: 10 }}>
                 {label}
             </div>
-            <div style={{ fontFamily: mono, fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em" }}>
-                {value}
+            <div style={{ fontFamily: mono, fontSize: 34, fontWeight: 700, letterSpacing: "-0.02em" }}>
+                <CountUp value={value} format={(n) => (n >= 10000 ? (n / 10000).toFixed(1) + "w" : String(n))} />
                 <span style={{ fontSize: 13, fontWeight: 400, color: v.textMuted, marginLeft: 6 }}>{unit}</span>
             </div>
         </div>
     );
 }
 
-function formatWords(n: number): string {
-    if (n >= 10000) {
-        return (n / 10000).toFixed(1) + "w";
-    }
-    return String(n);
-}
-
-/* ===== 板块四：文章时间线 ===== */
+/* ===== 板块四：文章时间线（竖线生长 + 节点弹出） ===== */
 function Timeline({ items }: { items: HomeTimelineItem[] }) {
+    const { ref, inView } = useInView<HTMLDivElement>(0.25);
+    const played = useRef(false);
+
     const groups = useMemo(() => {
         const map = new Map<string, HomeTimelineItem[]>();
         for (const item of items) {
@@ -315,16 +388,37 @@ function Timeline({ items }: { items: HomeTimelineItem[] }) {
         return [...map.entries()];
     }, [items]);
 
+    useEffect(() => {
+        if (!inView || played.current || !ref.current) {
+            return;
+        }
+        played.current = true;
+        const ctx = gsap.context(() => {
+            gsap.fromTo(
+                ".ven-tl-line",
+                { scaleY: 0, transformOrigin: "top" },
+                { scaleY: 1, duration: 0.9, ease: "power2.out" },
+            );
+            gsap.fromTo(
+                ".ven-tl-dot",
+                { scale: 0 },
+                { scale: 1, duration: 0.35, stagger: 0.12, ease: "back.out(2.5)", delay: 0.3 },
+            );
+        }, ref);
+        return () => ctx.revert();
+    }, [inView, ref]);
+
     if (items.length === 0) {
         return null;
     }
     return (
-        <section style={{ marginBottom: 48 }}>
+        <div ref={ref}>
             <ListHeader title="文章时间线" moreHref="/posts" />
-            <div style={{ borderLeft: `1px solid ${v.borderStrong}`, marginLeft: 6, paddingLeft: 24 }}>
+            <div className="ven-tl-line" style={{ borderLeft: `1px solid ${v.borderStrong}`, marginLeft: 6, paddingLeft: 24 }}>
                 {groups.map(([month, posts]) => (
-                    <div key={month} style={{ position: "relative", paddingBottom: 24 }}>
+                    <div key={month} style={{ position: "relative", paddingBottom: 26 }}>
                         <span
+                            className="ven-tl-dot"
                             style={{
                                 position: "absolute",
                                 left: -29,
@@ -332,7 +426,6 @@ function Timeline({ items }: { items: HomeTimelineItem[] }) {
                                 width: 9,
                                 height: 9,
                                 background: v.text,
-                                borderRadius: 0,
                             }}
                         />
                         <p className="ven-meta" style={{ margin: "0 0 10px", fontWeight: 700 }}>
@@ -340,22 +433,11 @@ function Timeline({ items }: { items: HomeTimelineItem[] }) {
                         </p>
                         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                             {posts.map((p) => (
-                                <li
-                                    key={p.id}
-                                    style={{
-                                        display: "flex",
-                                        gap: 14,
-                                        alignItems: "baseline",
-                                        padding: "4px 0",
-                                    }}
-                                >
+                                <li key={p.id} style={{ display: "flex", gap: 14, alignItems: "baseline", padding: "5px 0" }}>
                                     <span className="ven-meta" style={{ flexShrink: 0, width: 44 }}>
                                         {p.createdAt.slice(8, 10)} 日
                                     </span>
-                                    <a
-                                        href={`/posts/${p.id}`}
-                                        style={{ fontSize: 14.5, color: v.text, textDecoration: "none" }}
-                                    >
+                                    <a href={`/posts/${p.id}`} style={{ fontSize: 15, color: v.text, textDecoration: "none" }}>
                                         {p.title}
                                     </a>
                                 </li>
@@ -364,7 +446,7 @@ function Timeline({ items }: { items: HomeTimelineItem[] }) {
                     </div>
                 ))}
             </div>
-        </section>
+        </div>
     );
 }
 
@@ -403,17 +485,10 @@ function Subscribe() {
     }
 
     return (
-        <section style={{ marginBottom: 16 }}>
+        <Reveal>
             <ListHeader title="订阅本站" moreHref="/rss.xml" />
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-                    gap: 24,
-                    marginTop: 20,
-                }}
-            >
-                <div className="ven-card" style={{ padding: "20px 22px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 28, marginTop: 24 }}>
+                <div className="ven-card" style={{ padding: "22px 24px" }}>
                     <p className="ven-meta" style={{ margin: "0 0 8px" }}>
                         邮箱订阅
                     </p>
@@ -437,18 +512,21 @@ function Subscribe() {
                         <p style={{ margin: "10px 0 0", fontSize: 13, color: ok ? v.text : v.danger }}>{message}</p>
                     )}
                 </div>
-                <div className="ven-card" style={{ padding: "20px 22px" }}>
-                    <p className="ven-meta" style={{ margin: "0 0 8px" }}>
-                        RSS 订阅
-                    </p>
-                    <p style={{ fontSize: 13.5, color: v.textSecondary, margin: "0 0 14px" }}>
-                        用你习惯的阅读器订阅本站 RSS，新文章自动送达。
-                    </p>
-                    <a href="/rss.xml" className="ven-btn" target="_blank" rel="noreferrer">
-                        /rss.xml ↗
-                    </a>
+                <div className="ven-card" style={{ padding: "22px 24px", display: "flex", justifyContent: "space-between", gap: 16 }}>
+                    <div>
+                        <p className="ven-meta" style={{ margin: "0 0 8px" }}>
+                            RSS 订阅
+                        </p>
+                        <p style={{ fontSize: 13.5, color: v.textSecondary, margin: "0 0 14px" }}>
+                            用你习惯的阅读器订阅本站 RSS，新文章自动送达。
+                        </p>
+                        <a href="/rss.xml" className="ven-btn" target="_blank" rel="noreferrer">
+                            /rss.xml ↗
+                        </a>
+                    </div>
+                    <SignalWaves />
                 </div>
             </div>
-        </section>
+        </Reveal>
     );
 }
