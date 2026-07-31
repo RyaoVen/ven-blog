@@ -82,7 +82,7 @@ function IntroSection({ state }: { state: AuthorHomeState }) {
     }, []);
 
     return (
-        <section style={{ marginBottom: 72, position: "relative" }}>
+        <section style={{ marginBottom: 120, position: "relative" }}>
             <div ref={dotsRef} aria-hidden="true" style={{ position: "absolute", right: 0, top: 0, display: "flex", gap: 12 }}>
                 {[0, 1, 2].map((i) => (
                     <span
@@ -132,170 +132,249 @@ function IntroSection({ state }: { state: AuthorHomeState }) {
     );
 }
 
-/* ===== 模块二：展示柜（4 固定卡位，空位敬请期待） ===== */
-function ShowcaseSection({ state }: { state: AuthorHomeState }) {
-    const slots: ("project" | "article" | "empty")[] = [];
-    const projects = state.showcase.projects.slice(0, 2);
-    const articles = state.showcase.articles.slice(0, 2);
-    for (let i = 0; i < 2; i++) {
-        slots.push(i < projects.length ? "project" : "empty");
+/* ===== 裱框卡（外框 + 内衬垫 + SVG 四角括线 + 展品签） ===== */
+function FrameCorners() {
+    return (
+        <svg className="ven-frame-corners" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M12 1 H1 V12" fill="none" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            <path d="M88 1 H99 V12" fill="none" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            <path d="M88 99 H99 V88" fill="none" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            <path d="M12 99 H1 V88" fill="none" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        </svg>
+    );
+}
+
+function FrameCard({
+    exhibit,
+    kind,
+    href,
+    external,
+    title,
+    desc,
+    meta,
+}: {
+    exhibit: number;
+    kind: string;
+    href?: string;
+    external?: boolean;
+    title: string;
+    desc: string;
+    meta?: string;
+}) {
+    const inner = (
+        <>
+            <FrameCorners />
+            <div className="ven-frame-inner">
+                <p className="ven-meta" style={{ margin: "0 0 8px" }}>
+                    {kind}
+                </p>
+                <div style={{ fontWeight: 650, fontSize: 15, color: v.text }}>{title}</div>
+                <p style={{ margin: "8px 0 0", fontSize: 13, color: v.textSecondary }}>{desc}</p>
+                <span className="ven-meta" style={{ marginTop: "auto", paddingTop: 14, alignSelf: "flex-end", fontSize: 10 }}>
+                    EXHIBIT {String(exhibit).padStart(2, "0")}
+                </span>
+            </div>
+        </>
+    );
+    const style = { display: "block", minHeight: 168, textDecoration: "none" } as const;
+    if (href) {
+        return (
+            <a href={href} className="ven-frame ven-clickable" style={style} {...(external ? { target: "_blank", rel: "noreferrer" } : {})}>
+                {inner}
+            </a>
+        );
     }
-    for (let i = 0; i < 2; i++) {
-        slots.push(i < articles.length ? "article" : "empty");
+    return (
+        <div className="ven-frame" style={style}>
+            {inner}
+        </div>
+    );
+}
+
+/** 空卡位（敬请期待） */
+function EmptyFrame({ exhibit }: { exhibit: number }) {
+    return (
+        <div className="ven-frame" style={{ borderStyle: "dashed", borderColor: v.borderStrong, display: "block", minHeight: 168 }}>
+            <FrameCorners />
+            <div
+                className="ven-frame-inner"
+                style={{ background: "transparent", borderStyle: "dashed", alignItems: "center", justifyContent: "center" }}
+            >
+                <span className="ven-meta">敬请期待 · {String(exhibit).padStart(2, "0")}</span>
+            </div>
+        </div>
+    );
+}
+
+/* ===== 模块二：展示柜（项目/文章各 4 裱框卡位，空位敬请期待） ===== */
+function ShowcaseSection({ state }: { state: AuthorHomeState }) {
+    const projects = state.showcase.projects.slice(0, 4);
+    const articles = state.showcase.articles.slice(0, 4);
+    const cells: JSX.Element[] = [];
+    for (let i = 0; i < 4; i++) {
+        const p = projects[i];
+        cells.push(
+            p ? (
+                <FrameCard
+                    key={`p-${i}`}
+                    exhibit={i + 1}
+                    kind="项目 / PROJECT"
+                    href={p.url}
+                    external
+                    title={`${p.name} ↗`}
+                    desc={p.desc}
+                />
+            ) : (
+                <EmptyFrame key={`p-${i}`} exhibit={i + 1} />
+            ),
+        );
+    }
+    for (let i = 0; i < 4; i++) {
+        const post = articles[i];
+        cells.push(
+            post ? (
+                <FrameCard
+                    key={`a-${i}`}
+                    exhibit={i + 5}
+                    kind="文章 / ARTICLE"
+                    href={`/posts/${post.id}`}
+                    title={post.title}
+                    desc={formatDateTime(post.createdAt)}
+                />
+            ) : (
+                <EmptyFrame key={`a-${i}`} exhibit={i + 5} />
+            ),
+        );
     }
 
     return (
-        <section style={{ marginBottom: 72 }}>
+        <section style={{ marginBottom: 120 }}>
             <SectionHeader title="展示柜" meta="SHOWCASE" />
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 18 }}>
-                {slots.map((kind, i) => {
-                    if (kind === "project") {
-                        const p = projects[i];
-                        return (
-                            <a
-                                key={`p-${i}`}
-                                href={p.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="ven-card ven-card-hover ven-clickable"
-                                style={{ padding: "18px 20px", textDecoration: "none", display: "block", minHeight: 120 }}
-                            >
-                                <p className="ven-meta" style={{ margin: "0 0 8px" }}>
-                                    项目
-                                </p>
-                                <div style={{ fontFamily: mono, fontWeight: 650, fontSize: 15, color: v.text }}>{p.name} ↗</div>
-                                <p style={{ margin: "8px 0 0", fontSize: 13, color: v.textSecondary }}>{p.desc}</p>
-                            </a>
-                        );
-                    }
-                    if (kind === "article") {
-                        const post = articles[i - 2];
-                        return (
-                            <a
-                                key={`a-${i}`}
-                                href={`/posts/${post.id}`}
-                                className="ven-card ven-card-hover ven-clickable"
-                                style={{ padding: "18px 20px", textDecoration: "none", display: "block", minHeight: 120 }}
-                            >
-                                <p className="ven-meta" style={{ margin: "0 0 8px" }}>
-                                    文章
-                                </p>
-                                <div style={{ fontWeight: 650, fontSize: 15, color: v.text }}>{post.title}</div>
-                                <p className="ven-meta" style={{ margin: "8px 0 0" }}>
-                                    {formatDateTime(post.createdAt)}
-                                </p>
-                            </a>
-                        );
-                    }
-                    return (
-                        <div
-                            key={`e-${i}`}
-                            style={{
-                                padding: "18px 20px",
-                                minHeight: 120,
-                                border: `1px dashed ${v.borderStrong}`,
-                                borderRadius: 3,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                            }}
-                        >
-                            <span className="ven-meta">敬请期待</span>
-                        </div>
-                    );
-                })}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 20 }}>
+                {cells}
             </div>
         </section>
     );
 }
 
-/* ===== 模块三：友链（横向条带随页面滚动横移） ===== */
+/* ===== 模块三：友链（双行磁吸横滚：段落居中 sticky 吸附，滚动驱动两行反向横移） ===== */
 function FriendLinksSection({ state }: { state: AuthorHomeState }) {
-    const trackRef = useRef<HTMLDivElement>(null);
-    const wrapRef = useRef<HTMLDivElement>(null);
+    const sectionRef = useRef<HTMLElement>(null);
+    const row1Ref = useRef<HTMLDivElement>(null);
+    const row2Ref = useRef<HTMLDivElement>(null);
+    const [runway, setRunway] = useState(0);
 
+    // 量出两行最大横移量，决定吸附行程（段落高度）
+    useEffect(() => {
+        const measure = () => {
+            const wrapW = sectionRef.current?.clientWidth ?? 0;
+            const m1 = Math.max(0, (row1Ref.current?.scrollWidth ?? 0) - wrapW);
+            const m2 = Math.max(0, (row2Ref.current?.scrollWidth ?? 0) - wrapW);
+            setRunway(Math.max(m1, m2));
+        };
+        measure();
+        window.addEventListener("resize", measure);
+        return () => window.removeEventListener("resize", measure);
+    }, [state.friendLinks.length]);
+
+    // 吸附段顶到视口正中后开始驱动：第一行左移、第二行反向右移
     useEffect(() => {
         const onScroll = () => {
-            const wrap = wrapRef.current;
-            const track = trackRef.current;
-            if (!wrap || !track) {
+            const sec = sectionRef.current;
+            if (!sec || runway <= 0) {
                 return;
             }
-            const max = track.scrollWidth - wrap.clientWidth;
-            if (max <= 0) {
-                return;
+            const vh = window.innerHeight;
+            const engageTop = vh / 2 - 170; // sticky 吸附时段落内容位于视口正中
+            const rect = sec.getBoundingClientRect();
+            const progress = Math.min(1, Math.max(0, (engageTop - rect.top) / runway));
+            const wrapW = sec.clientWidth;
+            const m1 = Math.max(0, (row1Ref.current?.scrollWidth ?? 0) - wrapW);
+            const m2 = Math.max(0, (row2Ref.current?.scrollWidth ?? 0) - wrapW);
+            if (row1Ref.current) {
+                row1Ref.current.style.transform = `translateX(${-progress * m1}px)`;
             }
-            const doc = document.documentElement;
-            const range = doc.scrollHeight - window.innerHeight;
-            const progress = range > 0 ? Math.min(1, window.scrollY / range) : 0;
-            track.style.transform = `translateX(${-progress * max}px)`;
+            if (row2Ref.current) {
+                row2Ref.current.style.transform = `translateX(${-m2 + progress * m2}px)`;
+            }
         };
         onScroll();
         window.addEventListener("scroll", onScroll, { passive: true });
         return () => window.removeEventListener("scroll", onScroll);
-    }, [state.friendLinks.length]);
+    }, [runway]);
 
     if (state.friendLinks.length === 0) {
         return null;
     }
+    const row1 = state.friendLinks.filter((_, i) => i % 2 === 0);
+    const row2 = state.friendLinks.filter((_, i) => i % 2 === 1);
+
     return (
-        <section style={{ marginBottom: 72 }}>
-            <SectionHeader title="友链" meta="LINKS" />
-            <div ref={wrapRef} style={{ overflow: "hidden" }}>
-                <div
-                    ref={trackRef}
-                    style={{
-                        display: "flex",
-                        gap: 16,
-                        width: "max-content",
-                        transition: "transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
-                    }}
-                >
-                    {state.friendLinks.map((f, i) => (
-                        <a
-                            key={i}
-                            href={f.url}
-                            target={f.url.startsWith("http") ? "_blank" : undefined}
-                            rel="noreferrer"
-                            className="ven-card ven-card-hover ven-clickable"
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 12,
-                                padding: "14px 18px",
-                                textDecoration: "none",
-                                minWidth: 220,
-                            }}
-                        >
-                            <span
-                                style={{
-                                    width: 34,
-                                    height: 34,
-                                    borderRadius: 3,
-                                    background: v.text,
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: 15,
-                                    fontWeight: 700,
-                                    fontFamily: mono,
-                                    color: v.bg,
-                                    flexShrink: 0,
-                                }}
-                            >
-                                {f.name.slice(0, 1).toUpperCase()}
-                            </span>
-                            <span>
-                                <span style={{ display: "block", fontWeight: 650, fontSize: 14, color: v.text }}>{f.name}</span>
-                                <span className="ven-meta" style={{ fontSize: 11 }}>
-                                    {f.desc}
-                                </span>
-                            </span>
-                        </a>
-                    ))}
+        <section ref={sectionRef} style={{ marginBottom: 120, height: `calc(100vh + ${runway}px)` }}>
+            <div style={{ position: "sticky", top: "calc(50vh - 170px)" }}>
+                <SectionHeader title="友链" meta="LINKS" />
+                <div style={{ overflow: "hidden", marginBottom: 18 }}>
+                    <div ref={row1Ref} style={{ display: "flex", gap: 16, width: "max-content" }}>
+                        {row1.map((f, i) => (
+                            <FriendCard key={i} link={f} />
+                        ))}
+                    </div>
+                </div>
+                <div style={{ overflow: "hidden" }}>
+                    <div ref={row2Ref} style={{ display: "flex", gap: 16, width: "max-content" }}>
+                        {row2.map((f, i) => (
+                            <FriendCard key={i} link={f} />
+                        ))}
+                    </div>
                 </div>
             </div>
         </section>
+    );
+}
+
+/** 友链卡 */
+function FriendCard({ link: f }: { link: { name: string; url: string; desc: string } }) {
+    return (
+        <a
+            href={f.url}
+            target={f.url.startsWith("http") ? "_blank" : undefined}
+            rel="noreferrer"
+            className="ven-card ven-card-hover ven-clickable"
+            style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "14px 18px",
+                textDecoration: "none",
+                minWidth: 220,
+                flexShrink: 0,
+            }}
+        >
+            <span
+                style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 3,
+                    background: v.text,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 15,
+                    fontWeight: 700,
+                    fontFamily: mono,
+                    color: v.bg,
+                    flexShrink: 0,
+                }}
+            >
+                {f.name.slice(0, 1).toUpperCase()}
+            </span>
+            <span>
+                <span style={{ display: "block", fontWeight: 650, fontSize: 14, color: v.text }}>{f.name}</span>
+                <span className="ven-meta" style={{ fontSize: 11 }}>
+                    {f.desc}
+                </span>
+            </span>
+        </a>
     );
 }
 
@@ -351,7 +430,7 @@ function GuestbookSection({ state }: { state: AuthorHomeState }) {
     }
 
     return (
-        <section style={{ marginBottom: 24 }}>
+        <section style={{ marginBottom: 48 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
                 <SectionHeader title="留言板" meta="GUESTBOOK" />
                 <PulseLine />
