@@ -15,6 +15,7 @@ export function ThemeToggle() {
     const [theme, setTheme] = useState<Theme | null>(null);
 
     useEffect(() => {
+        // SSR 与水合首帧为 null（统一渲染"主题"），挂载后按存储/系统矫正，避免 hydration mismatch
         const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
         const initial: Theme =
             stored ?? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");

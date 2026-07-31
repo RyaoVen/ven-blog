@@ -128,7 +128,7 @@ function PanelNav({ containerRef }: { containerRef: RefObject<HTMLDivElement | n
 function Hero({ state }: { state: HomeState }) {
     const { author } = state;
     return (
-        <div className="ven-hero">
+        <div className="ven-hero ven-crosshair">
             <div>
                 <p className="ven-meta" style={{ margin: 0 }}>
                     PERSONAL SITE / VEN-BLOG
@@ -156,7 +156,7 @@ function Hero({ state }: { state: HomeState }) {
                             style={{
                                 width: 52,
                                 height: 52,
-                                borderRadius: 2,
+                                borderRadius: 3,
                                 background: v.text,
                                 display: "inline-flex",
                                 alignItems: "center",
@@ -211,12 +211,13 @@ function DualLists({ state }: { state: HomeState }) {
                             {state.recentPosts.map((p) => (
                                 <li
                                     key={p.id}
+                                    className="ven-accent-item"
                                     style={{
                                         display: "flex",
                                         justifyContent: "space-between",
                                         alignItems: "baseline",
                                         gap: 16,
-                                        padding: "12px 0",
+                                        padding: "12px 0 12px 12px",
                                         borderBottom: `1px solid ${v.border}`,
                                     }}
                                 >
@@ -249,7 +250,11 @@ function DualLists({ state }: { state: HomeState }) {
                     ) : (
                         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                             {state.recentMoments.map((m) => (
-                                <li key={m.id} style={{ padding: "12px 0", borderBottom: `1px solid ${v.border}` }}>
+                                <li
+                                    key={m.id}
+                                    className="ven-accent-item"
+                                    style={{ padding: "12px 0 12px 12px", borderBottom: `1px solid ${v.border}` }}
+                                >
                                     <p
                                         style={{
                                             margin: "0 0 4px",

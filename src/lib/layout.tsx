@@ -41,7 +41,7 @@ const styles = {
     brandDot: {
         width: 24,
         height: 24,
-        borderRadius: 2,
+        borderRadius: 3,
         background: v.text,
         display: "inline-flex",
         alignItems: "center",
@@ -54,7 +54,7 @@ const styles = {
     authorAvatar: {
         width: 24,
         height: 24,
-        borderRadius: 2,
+        borderRadius: 3,
         border: `1px solid ${v.borderStrong}`,
         display: "inline-flex",
         alignItems: "center",
@@ -147,6 +147,32 @@ async function logout() {
 
 export function Layout({ children }: { children: ReactNode }) {
     const role = useRole();
+
+    // 卡片鼠标跟随光斑（委托监听，仅设置 CSS 变量）+ 大图 blur-up（捕获 load 事件）
+    useEffect(() => {
+        const onMove = (e: MouseEvent) => {
+            const card = (e.target as Element | null)?.closest?.(".ven-card");
+            if (!card) {
+                return;
+            }
+            const el = card as HTMLElement;
+            const rect = el.getBoundingClientRect();
+            el.style.setProperty("--mouse-x", `${e.clientX - rect.left}px`);
+            el.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
+        };
+        const onLoad = (e: Event) => {
+            if (e.target instanceof HTMLImageElement) {
+                e.target.classList.add("ven-img-loaded");
+            }
+        };
+        document.addEventListener("mousemove", onMove, { passive: true });
+        document.addEventListener("load", onLoad, true);
+        return () => {
+            document.removeEventListener("mousemove", onMove);
+            document.removeEventListener("load", onLoad, true);
+        };
+    }, []);
+
     return (
         <div style={styles.page}>
             <GlobalStyle />

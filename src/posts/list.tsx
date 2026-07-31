@@ -20,7 +20,8 @@ export function PostList({ posts }: { posts: Post[] }) {
                 <li key={p.id} className="ven-card ven-card-hover" style={{ padding: "18px 22px" }}>
                     <a
                         href={`/posts/${p.id}`}
-                        style={{ fontSize: 17, fontWeight: 650, color: v.text, textDecoration: "none" }}
+                        className="ven-hl"
+                        style={{ fontSize: 17, fontWeight: 650, color: v.text }}
                     >
                         {p.title}
                     </a>

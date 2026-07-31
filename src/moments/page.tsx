@@ -97,7 +97,7 @@ function MomentAvatar({ name, size = 28 }: { name: string; size?: number }) {
             style={{
                 width: size,
                 height: size,
-                borderRadius: 2,
+                borderRadius: 3,
                 background: v.text,
                 display: "inline-flex",
                 alignItems: "center",

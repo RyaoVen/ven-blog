@@ -59,7 +59,7 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
                     style={{
                         width: 28,
                         height: 28,
-                        borderRadius: 2,
+                        borderRadius: 3,
                         background: v.text,
                         display: "inline-flex",
                         alignItems: "center",
