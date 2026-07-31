@@ -70,10 +70,32 @@ const styles = {
     main: { flex: 1 },
     footer: {
         marginTop: 48,
-        paddingTop: 20,
+        borderTop: `1px solid ${v.border}`,
+        padding: "32px 0 20px",
+    },
+    footerGrid: {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+        gap: 28,
+        marginBottom: 28,
+    },
+    footerColTitle: { margin: "0 0 12px" },
+    footerLinks: {
+        listStyle: "none",
+        padding: 0,
+        margin: 0,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        fontSize: 14,
+    },
+    footerBar: {
+        paddingTop: 16,
         borderTop: `1px solid ${v.border}`,
         display: "flex",
         justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: 8,
         fontSize: 13,
         color: v.textMuted,
     },
@@ -176,9 +198,68 @@ export function Layout({ children }: { children: ReactNode }) {
             <main style={styles.main}>
                 <PageEnter>{children}</PageEnter>
             </main>
-            <footer style={styles.footer} className="ven-meta">
-                <span>© 2026 RYAOVEN</span>
-                <span>POWERED BY VENHYBIRD</span>
+            <footer style={styles.footer}>
+                <div style={styles.footerGrid}>
+                    <div>
+                        <a href="/" style={styles.brand}>
+                            <span style={styles.brandDot}>V</span>
+                            ven-blog
+                        </a>
+                        <p style={{ fontSize: 13.5, color: v.textSecondary, margin: "12px 0 0", maxWidth: 260 }}>
+                            记录技术与生活——框架设计、后端工程与渲染链路。
+                        </p>
+                    </div>
+                    <div>
+                        <p className="ven-meta" style={styles.footerColTitle}>
+                            导航
+                        </p>
+                        <ul style={styles.footerLinks}>
+                            <li>
+                                <a href="/posts">全部文章</a>
+                            </li>
+                            <li>
+                                <a href="/moments">动态</a>
+                            </li>
+                            <li>
+                                <a href="/search">搜索</a>
+                            </li>
+                            <li>
+                                <a href="/author/author">作者主页</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div>
+                        <p className="ven-meta" style={styles.footerColTitle}>
+                            订阅与联系
+                        </p>
+                        <ul style={styles.footerLinks}>
+                            <li>
+                                <a href="/rss.xml" target="_blank" rel="noreferrer">
+                                    RSS 订阅
+                                </a>
+                            </li>
+                            <li>
+                                <a href="https://github.com/RyaoVen" target="_blank" rel="noreferrer">
+                                    GitHub
+                                </a>
+                            </li>
+                            <li>
+                                <a href="https://github.com/RyaoVen/ven_hybird" target="_blank" rel="noreferrer">
+                                    VenHybird 框架
+                                </a>
+                            </li>
+                            <li>
+                                <a href="https://github.com/RyaoVen/ven-blog" target="_blank" rel="noreferrer">
+                                    本站源码
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div style={styles.footerBar} className="ven-meta">
+                    <span>© 2026 RYAOVEN</span>
+                    <span>POWERED BY VENHYBIRD · SSR + SPA + ISR + SSE</span>
+                </div>
             </footer>
         </div>
     );
