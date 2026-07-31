@@ -29,7 +29,7 @@ export const radius = {
 
 /** 布局宽度 */
 export const layout = {
-    container: 880,
+    container: 1200,
     prose: 760,
 } as const;
 

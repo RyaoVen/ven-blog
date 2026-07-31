@@ -1,4 +1,4 @@
-/** 深浅色切换：切换 documentElement[data-theme] + localStorage 持久化；无存储值跟随系统偏好 */
+/** 深浅色切换：纯圆按钮（icon only），悬浮时展开显示文字 */
 
 import { useEffect, useState } from "react";
 import { MoonIcon, SunIcon } from "./icons";
@@ -12,11 +12,10 @@ function applyTheme(theme: Theme): void {
 }
 
 export function ThemeToggle() {
-    // SSR 与水合首帧为 null（统一渲染"主题"），挂载后按存储/系统矫正，避免 hydration mismatch
+    // SSR 与水合首帧为 null（渲染默认浅色 moon 图标），挂载后按存储/系统矫正
     const [theme, setTheme] = useState<Theme | null>(null);
 
     useEffect(() => {
-        // SSR 与水合首帧为 null（统一渲染"主题"），挂载后按存储/系统矫正，避免 hydration mismatch
         const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
         const initial: Theme =
             stored ?? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
@@ -31,21 +30,11 @@ export function ThemeToggle() {
         localStorage.setItem(STORAGE_KEY, next);
     }
 
+    const dark = theme === "dark";
     return (
-        <button type="button" className="ven-btn" onClick={toggle} aria-label="切换深浅色主题">
-            {theme === null ? (
-                "主题"
-            ) : theme === "dark" ? (
-                <>
-                    <SunIcon />
-                    浅色
-                </>
-            ) : (
-                <>
-                    <MoonIcon />
-                    深色
-                </>
-            )}
+        <button type="button" className="ven-theme-toggle" onClick={toggle} aria-label="切换深浅色主题">
+            {dark ? <SunIcon size={15} /> : <MoonIcon size={15} />}
+            <span className="ven-theme-label">{dark ? "浅色" : "深色"}</span>
         </button>
     );
 }

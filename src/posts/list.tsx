@@ -1,12 +1,13 @@
 /** 文章卡片列表（首页与列表页共用）；有封面时卡片顶部显示封面图（blur-up 由全局 load 监听解除） */
 
 import { formatDateTime } from "../lib/format";
+import { plainText } from "../lib/markdown";
 import { v } from "../lib/theme";
 import type { Post } from "./types";
 
-/** 摘要：优先用显式 summary，否则取正文前 90 字符（空白归一） */
+/** 摘要：优先用显式 summary，否则取正文；先剥 Markdown 语法再截断（列表只显示纯文本） */
 function excerptOf(p: Post): string {
-    const source = (p.summary || p.content).replace(/\s+/g, " ").trim();
+    const source = plainText(p.summary || p.content);
     return source.length > 90 ? source.slice(0, 90) + "…" : source;
 }
 

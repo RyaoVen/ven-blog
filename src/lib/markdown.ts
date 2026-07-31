@@ -171,3 +171,18 @@ export function renderMarkdown(source: string): RenderedMarkdown {
     const html = md.render(source, env);
     return { html, toc: env.toc ?? [] };
 }
+
+/** Markdown 转纯文本（摘要/ excerpt 用）：渲染后剥标签、解码基础实体、空白归一 */
+export function plainText(source: string): string {
+    const html = md.render(source, {});
+    const text = html
+        .replace(/<[^>]*>/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/\s+/g, " ")
+        .trim();
+    return text;
+}

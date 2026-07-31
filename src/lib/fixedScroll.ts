@@ -50,8 +50,12 @@ export function useFixedSections(containerRef: RefObject<HTMLElement | null>, co
                 accTimer = window.setTimeout(resetAcc, 200);
             }
             if (Math.abs(acc) > WHEEL_THRESHOLD) {
-                e.preventDefault();
-                goTo(indexRef.current + (acc > 0 ? 1 : -1));
+                const next = indexRef.current + (acc > 0 ? 1 : -1);
+                if (next >= 0 && next < count) {
+                    e.preventDefault();
+                    goTo(next);
+                }
+                // 边缘屏（首屏向上/末屏向下）放行原生滚动（页脚/页眉之外区域）
                 resetAcc();
             }
         };
