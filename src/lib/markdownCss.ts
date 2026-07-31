@@ -48,17 +48,58 @@ export const markdownCss = `
 .ven-prose th, .ven-prose td { border: 1px solid var(--border-strong); padding: 6px 12px; text-align: left; }
 .ven-prose th { background: var(--bg-subtle); font-weight: 650; }
 
-/* 代码 */
+/* 行内代码 */
 .ven-prose code {
     background: var(--bg-subtle); border: 1px solid var(--border);
     border-radius: var(--radius-sm); padding: 1px 5px; font-size: 0.88em;
 }
-.ven-prose pre {
-    background: var(--bg-subtle); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); padding: 14px 16px;
-    overflow-x: auto; margin: 0 0 16px;
+
+/* ===== 结构化代码块（行号/行线/语言标识/复制/默认收起） ===== */
+.ven-codeblock {
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--bg-subtle); margin: 0 0 16px; overflow: hidden;
 }
-.ven-prose pre code { background: transparent; border: none; padding: 0; font-size: 13px; line-height: 1.65; }
+.ven-codeblock-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 12px; border-bottom: 1px solid var(--border); background: var(--bg);
+}
+.ven-codeblock-lang {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+}
+.ven-codeblock-actions { display: flex; gap: 8px; }
+.ven-codeblock-copy, .ven-codeblock-toggle {
+    font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px; padding: 2px 10px; cursor: pointer;
+    border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    background: transparent; color: var(--text-secondary);
+    transition: color 0.22s var(--ease-out), border-color 0.22s var(--ease-out);
+}
+.ven-codeblock-copy:hover, .ven-codeblock-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.ven-codeblock-body { position: relative; }
+.ven-codeblock-body pre {
+    display: flex; margin: 0; padding: 0; border: none; background: transparent; overflow-x: auto;
+}
+.ven-codeblock-gutter {
+    flex-shrink: 0; padding: 12px 10px; text-align: right; white-space: pre;
+    font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 13px; line-height: 1.65; color: var(--text-muted);
+    border-right: 1px solid var(--border); user-select: none;
+}
+.ven-codeblock-body code {
+    flex: 1; padding: 12px 14px; background: transparent; border: none;
+    font-size: 13px; line-height: 1.65;
+    /* 行线：每行一条发丝线 */
+    background-image: linear-gradient(transparent calc(1.65em - 1px), var(--border) calc(1.65em - 1px), var(--border) 1.65em);
+    background-size: 100% 1.65em;
+}
+.ven-codeblock[data-collapsed="true"] .ven-codeblock-body { max-height: 116px; overflow: hidden; }
+.ven-codeblock-mask { display: none; }
+.ven-codeblock[data-collapsed="true"] .ven-codeblock-mask {
+    display: block; position: absolute; left: 0; right: 0; bottom: 0; height: 52px;
+    background: linear-gradient(transparent, var(--bg-subtle));
+    pointer-events: none;
+}
 
 /* admonition：:::warning / :::tip / :::note */.ven-admonition {
     border: 1px solid var(--border); border-left: 3px solid var(--text);
@@ -90,6 +131,17 @@ export const markdownCss = `
 .hljs-symbol, .hljs-bullet, .hljs-link { color: #0550ae; }
 .hljs-emphasis { font-style: italic; }
 .hljs-strong { font-weight: 700; }
+
+/* ===== hljs 深色调色板（[data-theme="dark"] 覆盖，暖调） ===== */
+[data-theme="dark"] .hljs-comment, [data-theme="dark"] .hljs-quote { color: #78716c; font-style: italic; }
+[data-theme="dark"] .hljs-keyword, [data-theme="dark"] .hljs-selector-tag, [data-theme="dark"] .hljs-doctag, [data-theme="dark"] .hljs-template-tag { color: #f47067; }
+[data-theme="dark"] .hljs-string, [data-theme="dark"] .hljs-regexp, [data-theme="dark"] .hljs-meta .hljs-string { color: #96d0ff; }
+[data-theme="dark"] .hljs-number, [data-theme="dark"] .hljs-literal { color: #79c0ff; }
+[data-theme="dark"] .hljs-title, [data-theme="dark"] .hljs-title.function_, [data-theme="dark"] .hljs-section { color: #d2a8ff; }
+[data-theme="dark"] .hljs-title.class_, [data-theme="dark"] .hljs-type, [data-theme="dark"] .hljs-built_in { color: #ffa657; }
+[data-theme="dark"] .hljs-attr, [data-theme="dark"] .hljs-attribute, [data-theme="dark"] .hljs-variable, [data-theme="dark"] .hljs-template-variable { color: #e7e5e4; }
+[data-theme="dark"] .hljs-name, [data-theme="dark"] .hljs-selector-id, [data-theme="dark"] .hljs-selector-class { color: #7ee787; }
+[data-theme="dark"] .hljs-symbol, [data-theme="dark"] .hljs-bullet, [data-theme="dark"] .hljs-link { color: #79c0ff; }
 
 /* 评论内 Markdown：紧凑排版（比正文小一号、间距收紧） */
 .ven-comment-prose { font-size: 14px; line-height: 1.7; }
