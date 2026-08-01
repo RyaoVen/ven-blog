@@ -36,8 +36,12 @@ type homeAuthorView struct {
 
 // RegisterHome 注册首页（"/"）：聚合最近文章/动态、站点统计、内容配置与时间线。
 // 首页是动态页（数据杂、更新频率低，1min 页面缓存足够；文章变更时 InvalidatePage("/") 刷新）。
-func RegisterHome(a *hybrid.App, posts *postapp.Service, moments *momentapp.Service, author *user.User, settings *settingsapp.Service) error {
+func RegisterHome(a *hybrid.App, posts *postapp.Service, moments *momentapp.Service, authorFn func() (*user.User, error), settings *settingsapp.Service) error {
 	return a.Page("/", nil, func(c *hybrid.PageCtx) error {
+		author, err := authorFn()
+		if err != nil {
+			return err
+		}
 		recentPosts, err := posts.ListRecent(5)
 		if err != nil {
 			return err
@@ -113,11 +117,16 @@ func RegisterHome(a *hybrid.App, posts *postapp.Service, moments *momentapp.Serv
 }
 
 // RegisterSiteInfo 注册站点公开信息接口（导航栏作者头像等全局展示用，无需登录）。
-func RegisterSiteInfo(a *hybrid.App, author *user.User) error {
+func RegisterSiteInfo(a *hybrid.App, authorFn func() (*user.User, error)) error {
 	return a.Get("/site", nil, func(c *hybrid.ApiCtx) error {
+		author, err := authorFn()
+		if err != nil {
+			return c.Error(500, "internal error")
+		}
 		return c.JSON(200, map[string]any{
 			"name":       "ven-blog",
 			"authorName": author.Username,
+			"avatarUrl":  author.AvatarURL,
 			"github":     authorGitHub,
 		})
 	})

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 
+	"ven_hybird/build/domain/user"
+
 	"ven_hybird/build/application/commentapp"
 	"ven_hybird/build/application/guestbookapp"
 	"ven_hybird/build/application/interactionapp"
@@ -45,9 +47,11 @@ func Register(a *hybrid.App) error {
 		return fmt.Errorf("build: seed users: %w", err)
 	}
 
-	// 首页 hero 作者卡需要作者资料（种子 author 即本站作者）
-	author, err := userRepo.FindByUsername(persistence.AuthorUsernameFromEnv())
-	if err != nil {
+	// 作者资料每次请求现取（设置页改头像/简介后立即生效）
+	authorFn := func() (*user.User, error) {
+		return userRepo.FindByUsername(persistence.AuthorUsernameFromEnv())
+	}
+	if _, err := authorFn(); err != nil {
 		return fmt.Errorf("build: find author: %w", err)
 	}
 
@@ -67,10 +71,10 @@ func Register(a *hybrid.App) error {
 	// 接口层注册（发文归属经 c.User() 取调用者，框架会话已携带用户身份）
 	interfaces.RegisterAuth(a, users)
 	interfaces.RegisterImages(a, imageRepo)
-	if err := interfaces.RegisterHome(a, posts, moments, author, settings); err != nil {
+	if err := interfaces.RegisterHome(a, posts, moments, authorFn, settings); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterSiteInfo(a, author); err != nil {
+	if err := interfaces.RegisterSiteInfo(a, authorFn); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterSubscribe(a, subscribe, posts, siteURLFromEnv()); err != nil {
@@ -88,7 +92,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterProfiles(a, users, posts, guestbook, settings); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterGuestbookAPI(a, guestbook, author.Username); err != nil {
+	if err := interfaces.RegisterGuestbookAPI(a, guestbook, persistence.AuthorUsernameFromEnv()); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterAPIs(a, posts); err != nil {
