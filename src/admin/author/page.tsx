@@ -1,4 +1,4 @@
-/** 后台-个人主页编辑：介绍段落 / 技术栈 / 友链 */
+/** 后台-个人主页编辑：介绍段落 / 技术栈 / 展示柜 / 友链 */
 
 import { FormEvent, useState } from "react";
 import type { PageAppProps } from "../../app/pageApp";
@@ -18,11 +18,27 @@ interface SkillItem {
     level: string;
 }
 
+interface ProjectItem {
+    name: string;
+    desc: string;
+    url: string;
+}
+
+interface PostOption {
+    id: string;
+    title: string;
+}
+
 interface AuthorContentState {
     paragraphs: string[];
     skills: SkillItem[];
     friends: FriendItem[];
+    projects: ProjectItem[];
+    showcasePosts: number[];
+    allPosts: PostOption[];
 }
+
+const SHOWCASE_MAX = 4;
 
 function useToast() {
     const [toast, setToast] = useState<string | null>(null);
@@ -40,13 +56,34 @@ function useToast() {
 }
 
 export default function AdminAuthorPage({ bootstrap }: PageAppProps) {
-    const state = (bootstrap.initialState ?? { paragraphs: [], skills: [], friends: [] }) as AuthorContentState;
+    const state = (bootstrap.initialState ?? {
+        paragraphs: [],
+        skills: [],
+        friends: [],
+        projects: [],
+        showcasePosts: [],
+        allPosts: [],
+    }) as AuthorContentState;
     const [paragraphs, setParagraphs] = useState<string[]>(state.paragraphs);
     const [skills, setSkills] = useState<SkillItem[]>(state.skills);
     const [friends, setFriends] = useState<FriendItem[]>(state.friends);
+    const [projects, setProjects] = useState<ProjectItem[]>(state.projects);
+    const [picks, setPicks] = useState<string[]>((state.showcasePosts ?? []).map(String));
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const { show, node } = useToast();
+
+    function togglePick(id: string) {
+        setPicks((l) => {
+            if (l.includes(id)) {
+                return l.filter((x) => x !== id);
+            }
+            if (l.length >= SHOWCASE_MAX) {
+                return l;
+            }
+            return [...l, id];
+        });
+    }
 
     async function onSubmit(event: FormEvent) {
         event.preventDefault();
@@ -60,6 +97,8 @@ export default function AdminAuthorPage({ bootstrap }: PageAppProps) {
                     paragraphs: paragraphs.map((p) => p.trim()).filter(Boolean),
                     skills: skills.filter((s) => s.name.trim()),
                     friends: friends.filter((f) => f.name.trim()),
+                    projects: projects.filter((p) => p.name.trim()),
+                    showcasePosts: picks.map((x) => Number(x)),
                 }),
             });
             if (!resp.ok) {
@@ -110,6 +149,76 @@ export default function AdminAuthorPage({ bootstrap }: PageAppProps) {
                                 <option value="solid">熟练</option>
                                 <option value="know">了解</option>
                             </select>
+                        </RowShell>
+                    ))}
+                </EditorBlock>
+                <EditorBlock
+                    title={`展示柜文章（选取顺序即展示顺序，最多 ${SHOWCASE_MAX} 篇；不选则展示最新文章）`}
+                    addLabel={picks.length > 0 ? `清空选择（${picks.length}/${SHOWCASE_MAX}）` : undefined}
+                    onAdd={picks.length > 0 ? () => setPicks([]) : undefined}
+                >
+                    {state.allPosts.length === 0 ? (
+                        <p style={{ color: v.textMuted, fontSize: 13, margin: 0 }}>还没有文章。</p>
+                    ) : (
+                        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                            {state.allPosts.map((p) => {
+                                const order = picks.indexOf(p.id);
+                                const selected = order !== -1;
+                                const full = !selected && picks.length >= SHOWCASE_MAX;
+                                return (
+                                    <li key={p.id}>
+                                        <button
+                                            type="button"
+                                            onClick={() => togglePick(p.id)}
+                                            disabled={full}
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 10,
+                                                width: "100%",
+                                                textAlign: "left",
+                                                padding: "8px 12px",
+                                                fontSize: 14,
+                                                cursor: full ? "not-allowed" : "pointer",
+                                                borderRadius: 3,
+                                                border: `1px solid ${selected ? v.accent : v.border}`,
+                                                background: selected ? "var(--bg-inset)" : "transparent",
+                                                color: full ? v.textMuted : v.text,
+                                                opacity: full ? 0.55 : 1,
+                                            }}
+                                        >
+                                            <span
+                                                style={{
+                                                    width: 20,
+                                                    height: 20,
+                                                    flexShrink: 0,
+                                                    borderRadius: 3,
+                                                    border: `1px solid ${selected ? v.accent : v.borderStrong}`,
+                                                    background: selected ? v.accent : "transparent",
+                                                    color: "#fff",
+                                                    fontSize: 11,
+                                                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                }}
+                                            >
+                                                {selected ? order + 1 : ""}
+                                            </span>
+                                            {p.title}
+                                        </button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
+                </EditorBlock>
+                <EditorBlock title="展示柜项目（同时展示在首页仪表盘）" addLabel="添加项目" onAdd={() => setProjects((l) => [...l, { name: "", desc: "", url: "" }])}>
+                    {projects.map((p, i) => (
+                        <RowShell key={i} onRemove={() => setProjects((l) => l.filter((_, x) => x !== i))}>
+                            <input className="ven-input" style={{ width: 140 }} value={p.name} onChange={(e) => setProjects((l) => l.map((x, xi) => (xi === i ? { ...x, name: e.target.value } : x)))} placeholder="项目名" />
+                            <input className="ven-input" style={{ flex: 1, minWidth: 160 }} value={p.desc} onChange={(e) => setProjects((l) => l.map((x, xi) => (xi === i ? { ...x, desc: e.target.value } : x)))} placeholder="描述" />
+                            <input className="ven-input" style={{ width: 160 }} value={p.url} onChange={(e) => setProjects((l) => l.map((x, xi) => (xi === i ? { ...x, url: e.target.value } : x)))} placeholder="https://…" />
                         </RowShell>
                     ))}
                 </EditorBlock>
