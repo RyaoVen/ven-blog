@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import gsap from "gsap";
 import { navigate } from "../app/router";
+import { useCardGlow } from "./cardGlow";
 import { globalCss } from "./globalCss";
 import { HeaderSearch } from "./headerSearch";
 import { GridIcon, LoginIcon, LogoutIcon, PenIcon, RssIcon, UserPlusIcon } from "./icons";
@@ -165,19 +166,10 @@ async function logout() {
 export function Layout({ children }: { children: ReactNode }) {
     const role = useRole();
     const [authView, setAuthView] = useState<"login" | "register" | null>(null);
+    useCardGlow();
 
-    // 卡片鼠标跟随光斑（委托监听，仅设置 CSS 变量）+ 大图 blur-up（捕获 load 事件）
+    // 大图 blur-up（捕获 load 事件）+ 代码块交互（委托监听，SSR 结构不变）
     useEffect(() => {
-        const onMove = (e: MouseEvent) => {
-            const card = (e.target as Element | null)?.closest?.(".ven-card");
-            if (!card) {
-                return;
-            }
-            const el = card as HTMLElement;
-            const rect = el.getBoundingClientRect();
-            el.style.setProperty("--mouse-x", `${e.clientX - rect.left}px`);
-            el.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
-        };
         const onLoad = (e: Event) => {
             if (e.target instanceof HTMLImageElement) {
                 e.target.classList.add("ven-img-loaded");
@@ -240,11 +232,9 @@ export function Layout({ children }: { children: ReactNode }) {
                 }
             }
         };
-        document.addEventListener("mousemove", onMove, { passive: true });
         document.addEventListener("load", onLoad, true);
         document.addEventListener("click", onClick);
         return () => {
-            document.removeEventListener("mousemove", onMove);
             document.removeEventListener("load", onLoad, true);
             document.removeEventListener("click", onClick);
         };
