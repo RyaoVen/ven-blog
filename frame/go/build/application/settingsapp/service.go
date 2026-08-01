@@ -157,6 +157,31 @@ func (s *Service) Content() (*Content, error) {
 	return c, nil
 }
 
+// SetParagraphs 保存作者介绍段落。
+func (s *Service) SetParagraphs(paragraphs []string) error {
+	return s.repo.Set(setting.KeyIntroParagraphs, strings.Join(nonEmptyLines(paragraphs), "\n"))
+}
+
+// SetSkills 保存技能标签。
+func (s *Service) SetSkills(skills []Skill) error {
+	return s.repo.Set(setting.KeySkills, joinSkills(skills))
+}
+
+// SetFriends 保存友链。
+func (s *Service) SetFriends(friends []FriendLink) error {
+	return s.repo.Set(setting.KeyFriendLinks, joinTriples(friends))
+}
+
+// SetQuotes 保存收藏的句子。
+func (s *Service) SetQuotes(quotes []Quote) error {
+	return s.repo.Set(setting.KeyQuotes, joinPairs(quotes))
+}
+
+// SetProjects 保存维护的项目。
+func (s *Service) SetProjects(projects []Project) error {
+	return s.repo.Set(setting.KeyProjects, joinProjects(projects))
+}
+
 // SetContent 整体保存站点内容配置。
 func (s *Service) SetContent(c *Content) error {
 	if err := s.repo.Set(setting.KeyIntroParagraphs, strings.Join(nonEmptyLines(c.Paragraphs), "\n")); err != nil {
