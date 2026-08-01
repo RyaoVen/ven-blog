@@ -334,6 +334,9 @@ export function Layout({ children }: { children: ReactNode }) {
                                 <a href="/search">搜索</a>
                             </li>
                             <li>
+                                <a href="/admin">自留地</a>
+                            </li>
+                            <li>
                                 <a href="/author/author">作者主页</a>
                             </li>
                         </ul>

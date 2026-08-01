@@ -103,7 +103,7 @@ export default function MomentsPage({ bootstrap }: PageAppProps) {
                     ))}
                 </ul>
             )}
-            <Modal open={selected !== null} onClose={() => setSelected(null)} width={560}>
+            <Modal open={selected !== null} onClose={() => setSelected(null)} width={880}>
                 {selected && (
                     <div>
                         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
