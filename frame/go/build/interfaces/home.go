@@ -116,10 +116,14 @@ func RegisterHome(a *hybrid.App, posts *postapp.Service, moments *momentapp.Serv
 	})
 }
 
-// RegisterSiteInfo 注册站点公开信息接口（导航栏作者头像等全局展示用，无需登录）。
-func RegisterSiteInfo(a *hybrid.App, authorFn func() (*user.User, error)) error {
+// RegisterSiteInfo 注册站点公开信息接口（导航栏作者头像/站点图标等全局展示用，无需登录）。
+func RegisterSiteInfo(a *hybrid.App, authorFn func() (*user.User, error), settings *settingsapp.Service) error {
 	return a.Get("/site", nil, func(c *hybrid.ApiCtx) error {
 		author, err := authorFn()
+		if err != nil {
+			return c.Error(500, "internal error")
+		}
+		icon, err := settings.SiteIcon()
 		if err != nil {
 			return c.Error(500, "internal error")
 		}
@@ -128,6 +132,7 @@ func RegisterSiteInfo(a *hybrid.App, authorFn func() (*user.User, error)) error 
 			"authorName": author.Username,
 			"avatarUrl":  author.AvatarURL,
 			"github":     authorGitHub,
+			"icon":       icon,
 		})
 	})
 }

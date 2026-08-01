@@ -42,9 +42,11 @@ export default function AdminSettingsPage({ bootstrap }: PageAppProps) {
         categories: [],
         profile: { username: "", bio: "", avatarUrl: "" },
         email: { host: "", port: "", user: "", fromName: "", passwordSet: false, authorEmail: "" },
+        siteIcon: "",
     }) as AdminSettingsState;
     return (
         <AdminLayout route={bootstrap.route}>
+            <SiteSection siteIcon={state.siteIcon} username={state.profile.username} />
             <PasswordSection />
             <ProfileSection profile={state.profile} />
             <EmailSection config={state.email} />
@@ -52,6 +54,159 @@ export default function AdminSettingsPage({ bootstrap }: PageAppProps) {
             <CategoriesSection categories={state.categories} />
             <ModerationSection initial={state.moderation} />
         </AdminLayout>
+    );
+}
+
+/* ===== 站点与用户名 ===== */
+function SiteSection({ siteIcon, username }: { siteIcon: string; username: string }) {
+    const [icon, setIcon] = useState(siteIcon);
+    const [name, setName] = useState(username);
+    const [uploading, setUploading] = useState(false);
+    const [savingIcon, setSavingIcon] = useState(false);
+    const [savingName, setSavingName] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const fileRef = useRef<HTMLInputElement>(null);
+    const { show, node } = useToast();
+
+    async function onPickIcon(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+        event.target.value = "";
+        if (!file) {
+            return;
+        }
+        setUploading(true);
+        setError(null);
+        try {
+            const form = new FormData();
+            form.append("file", file);
+            const resp = await fetch("/api/upload", { method: "POST", body: form });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok) {
+                setError(data?.error ?? "图标上传失败");
+                return;
+            }
+            setIcon(data.url);
+        } catch {
+            setError("网络错误，请重试");
+        } finally {
+            setUploading(false);
+        }
+    }
+
+    async function saveIcon(next: string) {
+        setSavingIcon(true);
+        setError(null);
+        try {
+            const resp = await fetch("/api/admin/settings/site", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ icon: next }),
+            });
+            if (!resp.ok) {
+                setError("保存失败");
+                return;
+            }
+            setIcon(next);
+            show("站点图标已保存（刷新页面后生效）");
+        } catch {
+            setError("网络错误，请重试");
+        } finally {
+            setSavingIcon(false);
+        }
+    }
+
+    async function saveUsername(event: FormEvent) {
+        event.preventDefault();
+        if (name.trim() === username) {
+            return;
+        }
+        setSavingName(true);
+        setError(null);
+        try {
+            const resp = await fetch("/api/admin/settings/username", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username: name.trim() }),
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok) {
+                setError(
+                    data?.error === "username taken"
+                        ? "该用户名已被占用"
+                        : data?.error === "username must be 2-32 characters"
+                          ? "用户名需 2-32 个字符"
+                          : "修改失败",
+                );
+                return;
+            }
+            show(`用户名已改为「${data?.username}」（作者主页地址已同步变更）`);
+        } catch {
+            setError("网络错误，请重试");
+        } finally {
+            setSavingName(false);
+        }
+    }
+
+    return (
+        <section className="ven-card" style={sectionStyle}>
+            <SectionTitle>站点与用户名</SectionTitle>
+            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18 }}>
+                {icon ? (
+                    <img src={icon} alt="站点图标" style={{ width: 44, height: 44, borderRadius: 3, objectFit: "cover", border: `1px solid ${v.border}` }} />
+                ) : (
+                    <span
+                        style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 3,
+                            background: v.text,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 18,
+                            fontWeight: 700,
+                            color: v.bg,
+                        }}
+                    >
+                        V
+                    </span>
+                )}
+                <div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                        <button className="ven-btn" type="button" disabled={uploading || savingIcon} onClick={() => fileRef.current?.click()}>
+                            {uploading ? "上传中…" : "选择图标"}
+                        </button>
+                        {icon && (
+                            <button className="ven-btn" type="button" disabled={savingIcon} onClick={() => saveIcon("")}>
+                                移除
+                            </button>
+                        )}
+                    </div>
+                    <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" style={{ display: "none" }} onChange={onPickIcon} />
+                    <p className="ven-meta" style={{ margin: "8px 0 0" }}>
+                        站点图标（favicon 与导航品牌标），方形最佳
+                    </p>
+                </div>
+                {icon !== siteIcon && (
+                    <button className="ven-btn ven-btn-primary" type="button" disabled={savingIcon} onClick={() => saveIcon(icon)}>
+                        {savingIcon ? "保存中…" : "保存图标"}
+                    </button>
+                )}
+            </div>
+            <form onSubmit={saveUsername} style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 360 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+                    作者用户名（登录账号与作者主页地址 /author/&lt;用户名&gt; 随之变更）
+                    <input className="ven-input" value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={32} required />
+                </label>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <button className="ven-btn ven-btn-primary" type="submit" disabled={savingName || name.trim() === username}>
+                        {savingName ? "提交中…" : "修改用户名"}
+                    </button>
+                    {node}
+                </div>
+            </form>
+            {error && <p style={{ color: v.danger, fontSize: 13, margin: "10px 0 0" }}>{error}</p>}
+        </section>
     );
 }
 

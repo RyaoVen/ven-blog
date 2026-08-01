@@ -19,7 +19,8 @@ type authorContentInput struct {
 }
 
 // RegisterAuthorAdmin 注册个人主页后台编辑页与保存接口。
-func RegisterAuthorAdmin(a *hybrid.App, settings *settingsapp.Service, posts *postapp.Service, authorName string) error {
+// authorNameFn 现取当前作者用户名（保存后失效作者主页用，改名后旧路径不再有效）。
+func RegisterAuthorAdmin(a *hybrid.App, settings *settingsapp.Service, posts *postapp.Service, authorNameFn func() string) error {
 	admin := []string{"author"}
 
 	// 编辑页（读取当前内容 + 全部文章供展示柜选取）
@@ -77,7 +78,7 @@ func RegisterAuthorAdmin(a *hybrid.App, settings *settingsapp.Service, posts *po
 		if err := settings.SetShowcasePosts(in.ShowcasePosts); err != nil {
 			return c.Error(500, "internal error")
 		}
-		a.InvalidatePage("/author/" + authorName)
+		a.InvalidatePage("/author/" + authorNameFn())
 		a.InvalidatePage("/")
 		return c.JSON(200, map[string]any{"ok": true})
 	}); err != nil {
