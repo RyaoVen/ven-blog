@@ -249,6 +249,19 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
     97% { opacity: 1; }
 }
 
+/* 后台侧边栏：窄屏折叠为顶栏 */
+@media (max-width: 900px) {
+    .ven-admin-side {
+        position: static !important; width: 100% !important; bottom: auto !important;
+        flex-direction: row !important; align-items: center !important; flex-wrap: wrap !important;
+        border-right: none !important; border-bottom: 1px solid var(--border);
+        padding: 10px 16px !important;
+    }
+    .ven-admin-side nav { flex-direction: row !important; flex: 1 !important; }
+    .ven-admin-side > div:last-child { flex-direction: row !important; border-top: none !important; padding-top: 0 !important; }
+    .ven-admin-main { margin-left: 0 !important; padding: 24px 20px 48px !important; }
+}
+
 /* /posts 左栏分类框响应式 */
 @media (max-width: 720px) {
     .ven-posts-grid { grid-template-columns: 1fr !important; }

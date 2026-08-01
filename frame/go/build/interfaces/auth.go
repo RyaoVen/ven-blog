@@ -20,7 +20,9 @@ type credentialsInput struct {
 
 // RegisterAuth 注册认证接口。
 func RegisterAuth(a *hybrid.App, users *userapp.Service) {
-	a.SetLoginRedirect("/login")
+	// 全站受 role 守卫的页面仅 /admin/*（博客页面均公开，登录走导航弹窗与 /login 落地页），
+	// 故 401 跳转统一指向后台独立登入页
+	a.SetLoginRedirect("/admin/login")
 
 	server := a.Server()
 	server.App().Post("/auth/login", func(ctx *fiber.Ctx) error {
