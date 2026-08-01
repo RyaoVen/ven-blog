@@ -9,6 +9,7 @@ import (
 	"ven_hybird/build/application/commentapp"
 	"ven_hybird/build/application/emailauth"
 	"ven_hybird/build/application/interactionapp"
+	"ven_hybird/build/application/userapp"
 	"ven_hybird/build/domain/comment"
 	"ven_hybird/hybrid"
 )
@@ -272,13 +273,20 @@ func excerptOf(content string) string {
 	return string(runes[:80]) + "…"
 }
 
-// RegisterMe 注册当前用户信息接口（前端评论区等场景取 viewer 身份）。
-func RegisterMe(a *hybrid.App) error {
+// RegisterMe 注册当前用户信息接口（前端评论区/导航栏个人页入口取 viewer 身份）。
+func RegisterMe(a *hybrid.App, users *userapp.Service) error {
 	return a.Get("/me", loginRoles, func(c *hybrid.ApiCtx) error {
 		userID, role, ok := c.User()
 		if !ok {
 			return c.Error(401, "unauthenticated")
 		}
-		return c.JSON(200, map[string]any{"userId": userID, "role": role})
+		payload := map[string]any{"userId": userID, "role": role}
+		if uid, err := strconv.ParseInt(userID, 10, 64); err == nil {
+			if u, findErr := users.FindByID(uid); findErr == nil {
+				payload["username"] = u.Username
+				payload["avatarUrl"] = u.AvatarURL
+			}
+		}
+		return c.JSON(200, payload)
 	})
 }
