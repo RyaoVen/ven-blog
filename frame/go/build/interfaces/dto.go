@@ -13,6 +13,7 @@ import (
 type PostView struct {
 	ID         string    `json:"id"`
 	Title      string    `json:"title"`
+	Category   string    `json:"category"`
 	Summary    string    `json:"summary"`
 	Content    string    `json:"content"`
 	CoverURL   string    `json:"coverUrl"`
@@ -31,6 +32,7 @@ func toPostView(p *post.Post) PostView {
 	return PostView{
 		ID:         strconv.FormatInt(p.ID, 10),
 		Title:      p.Title,
+		Category:   p.Category,
 		Summary:    p.Summary,
 		Content:    p.Content,
 		CoverURL:   p.CoverURL,

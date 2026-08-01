@@ -23,6 +23,7 @@ type Post struct {
 	AuthorID   int64
 	AuthorName string
 	Title      string
+	Category   string // 分类（必选，设置页可维护分类列表）
 	Summary    string
 	Content    string
 	CoverURL   string
@@ -56,9 +57,12 @@ func NormalizeTags(tags []string) []string {
 }
 
 // Validate 校验文章字段，返回错误消息（空串表示通过）。
-func Validate(title, content, summary, coverURL string) string {
+func Validate(title, category, content, summary, coverURL string) string {
 	if strings.TrimSpace(title) == "" {
 		return "title is required"
+	}
+	if strings.TrimSpace(category) == "" {
+		return "category is required"
 	}
 	if strings.TrimSpace(content) == "" {
 		return "content is required"
@@ -72,9 +76,10 @@ func Validate(title, content, summary, coverURL string) string {
 	return ""
 }
 
-// Apply 应用编辑：更新标题/摘要/正文/封面与标签（时间戳由仓储层维护）。
-func (p *Post) Apply(title, content, summary, coverURL string, tags []string) {
+// Apply 应用编辑：更新标题/分类/摘要/正文/封面与标签（时间戳由仓储层维护）。
+func (p *Post) Apply(title, category, content, summary, coverURL string, tags []string) {
 	p.Title = strings.TrimSpace(title)
+	p.Category = strings.TrimSpace(category)
 	p.Summary = strings.TrimSpace(summary)
 	p.Content = content
 	p.CoverURL = strings.TrimSpace(coverURL)

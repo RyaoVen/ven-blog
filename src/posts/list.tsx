@@ -49,6 +49,9 @@ export function PostList({ posts }: { posts: Post[] }) {
                         </a>
                         <p style={{ margin: "8px 0 12px", fontSize: 14, color: v.textSecondary }}>{excerptOf(p)}</p>
                         <div className="ven-meta" style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                            <span className="ven-chip" style={{ color: v.accent, borderColor: v.accent }}>
+                                {p.category}
+                            </span>
                             <span>{p.authorName}</span>
                             <span>{formatDateTime(p.createdAt)}</span>
                             {p.tags.map((t) => (

@@ -20,13 +20,13 @@ func NewPostRepository(db *sql.DB) *PostRepository {
 }
 
 // 列表/详情查询联表 users 取作者名；标签经 post_tags/tags 表单独批量填充。
-const postSelect = `SELECT p.id, p.author_id, u.username, p.title, p.summary, p.content, p.cover_url, p.created_at, p.updated_at
+const postSelect = `SELECT p.id, p.author_id, u.username, p.title, p.category, p.summary, p.content, p.cover_url, p.created_at, p.updated_at
 FROM posts p JOIN users u ON u.id = p.author_id`
 
 // scanPost 从行扫描文章（列序与 postSelect 一致）。
 func scanPost(row interface{ Scan(...any) error }) (*post.Post, error) {
 	p := &post.Post{}
-	err := row.Scan(&p.ID, &p.AuthorID, &p.AuthorName, &p.Title, &p.Summary, &p.Content, &p.CoverURL, &p.CreatedAt, &p.UpdatedAt)
+	err := row.Scan(&p.ID, &p.AuthorID, &p.AuthorName, &p.Title, &p.Category, &p.Summary, &p.Content, &p.CoverURL, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
 }
 
@@ -208,8 +208,8 @@ func (r *PostRepository) Create(p *post.Post) error {
 	}
 	defer func() { _ = tx.Rollback() }()
 	res, err := tx.Exec(
-		"INSERT INTO posts (author_id, title, summary, content, cover_url) VALUES (?, ?, ?, ?, ?)",
-		p.AuthorID, p.Title, p.Summary, p.Content, p.CoverURL,
+		"INSERT INTO posts (author_id, title, category, summary, content, cover_url) VALUES (?, ?, ?, ?, ?, ?)",
+		p.AuthorID, p.Title, p.Category, p.Summary, p.Content, p.CoverURL,
 	)
 	if err != nil {
 		return fmt.Errorf("create post: %w", err)
@@ -240,8 +240,8 @@ func (r *PostRepository) Update(p *post.Post) error {
 	}
 	defer func() { _ = tx.Rollback() }()
 	res, err := tx.Exec(
-		"UPDATE posts SET title = ?, summary = ?, content = ?, cover_url = ? WHERE id = ?",
-		p.Title, p.Summary, p.Content, p.CoverURL, p.ID,
+		"UPDATE posts SET title = ?, category = ?, summary = ?, content = ?, cover_url = ? WHERE id = ?",
+		p.Title, p.Category, p.Summary, p.Content, p.CoverURL, p.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update post %d: %w", p.ID, err)
@@ -309,7 +309,7 @@ func (r *PostRepository) Stats() (int, int, error) {
 // ListFavorites 返回某用户收藏的文章（收藏时间倒序，联表作者与标签）。
 func (r *PostRepository) ListFavorites(userID int64) ([]*post.Post, error) {
 	rows, err := r.db.Query(
-		`SELECT p.id, p.author_id, u.username, p.title, p.summary, p.content, p.cover_url, p.created_at, p.updated_at
+		`SELECT p.id, p.author_id, u.username, p.title, p.category, p.summary, p.content, p.cover_url, p.created_at, p.updated_at
 		FROM favorites f
 		JOIN posts p ON p.id = f.post_id
 		JOIN users u ON u.id = p.author_id
