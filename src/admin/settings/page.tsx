@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, ReactNode, useRef, useState } from "react";
 import type { PageAppProps } from "../../app/pageApp";
 import { CheckIcon } from "../../lib/icons";
+import { Modal } from "../../lib/modal";
 import { v } from "../../lib/theme";
 import { AdminLayout } from "../adminLayout";
 import type { AdminSettingsState, SettingsContent } from "../settingsTypes";
@@ -460,53 +461,187 @@ function RowShell({ onRemove, children }: { onRemove: () => void; children: Reac
     );
 }
 
-/* ===== 文章分类（结构化表单行） ===== */
+/* ===== 文章分类（管理器：新增/改名/删除迁移） ===== */
 function CategoriesSection({ categories }: { categories: string[] }) {
     const [items, setItems] = useState<string[]>(categories);
-    const [submitting, setSubmitting] = useState(false);
+    const [newName, setNewName] = useState("");
+    const [editing, setEditing] = useState<{ old: string; next: string } | null>(null);
+    const [deleting, setDeleting] = useState<{ name: string; count: number } | null>(null);
+    const [migrateTo, setMigrateTo] = useState("");
+    const [error, setError] = useState<string | null>(null);
     const { show, node } = useToast();
 
-    async function onSubmit(event: FormEvent) {
-        event.preventDefault();
-        setSubmitting(true);
-        try {
-            const resp = await fetch("/api/admin/settings/categories", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ categories: items.map((x) => x.trim()).filter(Boolean) }),
-            });
-            if (resp.ok) {
-                show("分类已保存");
-            }
-        } finally {
-            setSubmitting(false);
+    async function add() {
+        const name = newName.trim();
+        if (!name) {
+            return;
+        }
+        setError(null);
+        const resp = await fetch("/api/admin/categories", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name }),
+        });
+        if (resp.ok) {
+            setItems((l) => [...l, name]);
+            setNewName("");
+            show(`已添加「${name}」`);
+        } else {
+            const data = await resp.json().catch(() => null);
+            setError(data?.error === "category exists" ? "分类已存在" : "添加失败");
+        }
+    }
+
+    async function rename() {
+        if (!editing) {
+            return;
+        }
+        const next = editing.next.trim();
+        if (!next || next === editing.old) {
+            setEditing(null);
+            return;
+        }
+        setError(null);
+        const resp = await fetch(`/api/admin/categories/${encodeURIComponent(editing.old)}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: next }),
+        });
+        if (resp.ok) {
+            setItems((l) => l.map((x) => (x === editing.old ? next : x)));
+            show(`已改名为「${next}」（该分类文章已同步迁移）`);
+        } else {
+            const data = await resp.json().catch(() => null);
+            setError(data?.error === "category exists" ? "目标名已存在" : (data?.error ?? "改名失败"));
+        }
+        setEditing(null);
+    }
+
+    async function remove(name: string) {
+        setError(null);
+        const resp = await fetch(`/api/admin/categories/${encodeURIComponent(name)}`, { method: "DELETE" });
+        if (resp.status === 409) {
+            const data = await resp.json().catch(() => null);
+            setDeleting({ name, count: data?.count ?? 0 });
+            setMigrateTo(items.find((x) => x !== name) ?? "");
+            return;
+        }
+        if (resp.ok) {
+            setItems((l) => l.filter((x) => x !== name));
+            show(`已删除「${name}」`);
+        }
+    }
+
+    async function confirmMigrate() {
+        if (!deleting) {
+            return;
+        }
+        const resp = await fetch(
+            `/api/admin/categories/${encodeURIComponent(deleting.name)}?migrateTo=${encodeURIComponent(migrateTo)}`,
+            { method: "DELETE" },
+        );
+        if (resp.ok) {
+            const data = await resp.json().catch(() => null);
+            setItems((l) => l.filter((x) => x !== deleting.name));
+            show(`已迁移 ${data?.migrated ?? 0} 篇到「${migrateTo}」并删除「${deleting.name}」`);
+            setDeleting(null);
+        } else {
+            const data = await resp.json().catch(() => null);
+            setError(data?.error ?? "迁移删除失败");
+            setDeleting(null);
         }
     }
 
     return (
         <section className="ven-card" style={sectionStyle}>
-            <SectionTitle>文章分类（编辑器必选其一）</SectionTitle>
-            <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <EditorBlock title="" addLabel="添加分类" onAdd={() => setItems((l) => [...l, ""])}>
-                    {items.map((c, i) => (
-                        <RowShell key={i} onRemove={() => setItems((l) => l.filter((_, x) => x !== i))}>
-                            <input
-                                className="ven-input"
-                                style={{ maxWidth: 240 }}
-                                value={c}
-                                onChange={(e) => setItems((l) => l.map((x, xi) => (xi === i ? e.target.value : x)))}
-                                placeholder="分类名"
-                            />
-                        </RowShell>
+            <SectionTitle>文章分类</SectionTitle>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                <input
+                    className="ven-input"
+                    style={{ maxWidth: 240 }}
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), add())}
+                    placeholder="新分类名（回车添加）"
+                />
+                <button className="ven-btn ven-btn-primary" type="button" onClick={add}>
+                    添加
+                </button>
+            </div>
+            {items.length === 0 ? (
+                <p style={{ color: v.textMuted, fontSize: 14 }}>暂无分类。</p>
+            ) : (
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                    {items.map((c) => (
+                        <li key={c} style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${v.border}` }}>
+                            {editing?.old === c ? (
+                                <>
+                                    <input
+                                        className="ven-input"
+                                        style={{ maxWidth: 240 }}
+                                        value={editing.next}
+                                        onChange={(e) => setEditing({ old: c, next: e.target.value })}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                rename();
+                                            }
+                                            if (e.key === "Escape") {
+                                                setEditing(null);
+                                            }
+                                        }}
+                                        autoFocus
+                                    />
+                                    <button className="ven-btn ven-btn-primary" type="button" style={{ padding: "3px 12px", fontSize: 12 }} onClick={rename}>
+                                        保存
+                                    </button>
+                                    <button className="ven-btn" type="button" style={{ padding: "3px 12px", fontSize: 12 }} onClick={() => setEditing(null)}>
+                                        取消
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <span style={{ fontSize: 14, fontWeight: 550 }}>{c}</span>
+                                    <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                                        <button className="ven-btn" type="button" style={{ padding: "3px 12px", fontSize: 12 }} onClick={() => setEditing({ old: c, next: c })}>
+                                            改名
+                                        </button>
+                                        <button className="ven-btn ven-btn-danger" type="button" style={{ padding: "3px 12px", fontSize: 12 }} onClick={() => remove(c)}>
+                                            删除
+                                        </button>
+                                    </span>
+                                </>
+                            )}
+                        </li>
                     ))}
-                </EditorBlock>
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                    <button className="ven-btn ven-btn-primary" type="submit" disabled={submitting}>
-                        {submitting ? "保存中…" : "保存分类"}
+                </ul>
+            )}
+            {error && <p style={{ color: v.danger, fontSize: 13, margin: "10px 0 0" }}>{error}</p>}
+            <div style={{ marginTop: 10 }}>{node}</div>
+            <Modal open={deleting !== null} onClose={() => setDeleting(null)} width={420}>
+                <h3 style={{ margin: "0 0 10px", fontSize: 16 }}>删除分类「{deleting?.name}」</h3>
+                <p style={{ fontSize: 14, color: v.textSecondary, margin: "0 0 14px" }}>
+                    该分类下还有 <strong>{deleting?.count}</strong> 篇文章。删除前请选择一个目标分类，文章将一键迁移过去。
+                </p>
+                <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14, marginBottom: 16 }}>
+                    迁移到
+                    <select className="ven-input" value={migrateTo} onChange={(e) => setMigrateTo(e.target.value)}>
+                        {items.filter((x) => x !== deleting?.name).map((x) => (
+                            <option key={x} value={x}>
+                                {x}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                    <button className="ven-btn" type="button" onClick={() => setDeleting(null)}>
+                        取消
                     </button>
-                    {node}
+                    <button className="ven-btn ven-btn-primary" type="button" onClick={confirmMigrate} disabled={!migrateTo}>
+                        迁移并删除
+                    </button>
                 </div>
-            </form>
+            </Modal>
         </section>
     );
 }

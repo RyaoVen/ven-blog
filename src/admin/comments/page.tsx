@@ -1,12 +1,13 @@
 /** 后台-评论管理：待审核区（通过/删除）+ 全站评论列表 */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { PageAppProps } from "../../app/pageApp";
 import { formatDateTime } from "../../lib/format";
 import { CheckIcon, TrashIcon } from "../../lib/icons";
 import { ConfirmModal } from "../../lib/modal";
 import { v } from "../../lib/theme";
 import { AdminLayout } from "../adminLayout";
+import { FilterSelect, SearchBar } from "../searchBar";
 import type { AdminComment, AdminCommentsState } from "../types";
 
 export default function AdminCommentsPage({ bootstrap }: PageAppProps) {
@@ -14,6 +15,20 @@ export default function AdminCommentsPage({ bootstrap }: PageAppProps) {
     const [list, setList] = useState(state.comments);
     const [pending, setPending] = useState(state.pending);
     const [deleting, setDeleting] = useState<AdminComment | null>(null);
+    const [keyword, setKeyword] = useState("");
+    const [status, setStatus] = useState("");
+
+    const filtered = useMemo(
+        () =>
+            list.filter(
+                (c) =>
+                    (!keyword ||
+                        c.content.toLowerCase().includes(keyword.toLowerCase()) ||
+                        c.username.toLowerCase().includes(keyword.toLowerCase())) &&
+                    (!status || c.status === status),
+            ),
+        [list, keyword, status],
+    );
 
     async function approve(c: AdminComment) {
         const resp = await fetch(`/api/comments/${c.id}/approve`, { method: "POST" });
@@ -67,14 +82,25 @@ export default function AdminCommentsPage({ bootstrap }: PageAppProps) {
                     </ul>
                 </section>
             )}
+            <SearchBar keyword={keyword} onKeyword={setKeyword} placeholder="搜索内容 / 用户名…">
+                <FilterSelect
+                    value={status}
+                    onChange={setStatus}
+                    options={[
+                        { value: "", label: "全部状态" },
+                        { value: "approved", label: "已通过" },
+                        { value: "pending", label: "待审核" },
+                    ]}
+                />
+            </SearchBar>
             <p className="ven-meta" style={{ margin: "0 0 20px" }}>
-                共 {list.length} 条
+                共 {filtered.length} / {list.length} 条
             </p>
-            {list.length === 0 ? (
-                <p style={{ color: v.textMuted, fontSize: 14 }}>还没有评论。</p>
+            {filtered.length === 0 ? (
+                <p style={{ color: v.textMuted, fontSize: 14 }}>没有匹配的评论。</p>
             ) : (
                 <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                    {list.map((c) => (
+                    {filtered.map((c) => (
                         <li
                             key={c.id}
                             style={{

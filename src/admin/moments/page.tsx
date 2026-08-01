@@ -1,6 +1,6 @@
 /** 后台-动态管理：发布框（支持插图）+ 历史列表 + 删除 */
 
-import { ChangeEvent, FormEvent, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useMemo, useRef, useState } from "react";
 import type { PageAppProps } from "../../app/pageApp";
 import { formatDateTime } from "../../lib/format";
 import { TrashIcon } from "../../lib/icons";
@@ -8,6 +8,7 @@ import { ConfirmModal } from "../../lib/modal";
 import { v } from "../../lib/theme";
 import type { Moment } from "../../moments/types";
 import { AdminLayout } from "../adminLayout";
+import { SearchBar } from "../searchBar";
 import type { AdminMomentsState } from "../types";
 
 export default function AdminMomentsPage({ bootstrap }: PageAppProps) {
@@ -18,7 +19,13 @@ export default function AdminMomentsPage({ bootstrap }: PageAppProps) {
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [deleting, setDeleting] = useState<Moment | null>(null);
+    const [keyword, setKeyword] = useState("");
     const fileRef = useRef<HTMLInputElement>(null);
+
+    const filtered = useMemo(
+        () => list.filter((m) => !keyword || m.content.toLowerCase().includes(keyword.toLowerCase())),
+        [list, keyword],
+    );
     const draftRef = useRef<HTMLTextAreaElement>(null);
 
     // insertImage 把图片 Markdown 插到 textarea 光标处（无光标时追加末尾）
@@ -128,11 +135,12 @@ export default function AdminMomentsPage({ bootstrap }: PageAppProps) {
                     />
                 </div>
             </form>
-            {list.length === 0 ? (
-                <p style={{ color: v.textMuted, fontSize: 14 }}>还没有动态。</p>
+            <SearchBar keyword={keyword} onKeyword={setKeyword} placeholder="搜索动态内容…" />
+            {filtered.length === 0 ? (
+                <p style={{ color: v.textMuted, fontSize: 14 }}>没有匹配的动态。</p>
             ) : (
                 <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                    {list.map((m) => (
+                    {filtered.map((m) => (
                         <li
                             key={m.id}
                             style={{
