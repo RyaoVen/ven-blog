@@ -2,6 +2,7 @@
 package settingsapp
 
 import (
+	"strconv"
 	"strings"
 
 	"ven_hybird/build/domain/setting"
@@ -180,6 +181,39 @@ func (s *Service) SetQuotes(quotes []Quote) error {
 // SetProjects 保存维护的项目。
 func (s *Service) SetProjects(projects []Project) error {
 	return s.repo.Set(setting.KeyProjects, joinProjects(projects))
+}
+
+// ShowcasePostsMax 展示柜文章位数（与作者主页裱框卡位一致）。
+const ShowcasePostsMax = 4
+
+// ShowcasePosts 展示柜文章 ID（有序；空表示未配置，页面回退最新文章）。
+func (s *Service) ShowcasePosts() ([]int64, error) {
+	raw, err := s.repo.Get(setting.KeyShowcasePosts)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int64, 0, ShowcasePostsMax)
+	for _, line := range splitLines(raw) {
+		id, parseErr := strconv.ParseInt(line, 10, 64)
+		if parseErr == nil && id > 0 {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
+// SetShowcasePosts 保存展示柜文章 ID（超出位数的截断）。
+func (s *Service) SetShowcasePosts(ids []int64) error {
+	if len(ids) > ShowcasePostsMax {
+		ids = ids[:ShowcasePostsMax]
+	}
+	lines := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id > 0 {
+			lines = append(lines, strconv.FormatInt(id, 10))
+		}
+	}
+	return s.repo.Set(setting.KeyShowcasePosts, strings.Join(lines, "\n"))
 }
 
 // SetContent 整体保存站点内容配置。

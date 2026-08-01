@@ -294,10 +294,9 @@ function ProfileSection({ profile }: { profile: AdminSettingsState["profile"] })
     );
 }
 
-/* ===== 内容配置（句子/项目；作者介绍与友链移至 /admin/author 编辑） ===== */
+/* ===== 内容配置（首页句子；项目与展示柜移至 /admin/author 编辑） ===== */
 function ContentSection({ content }: { content: SettingsContent }) {
     const [quotes, setQuotes] = useState(content.quotes);
-    const [projects, setProjects] = useState(content.projects);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const { show, node } = useToast();
@@ -312,7 +311,6 @@ function ContentSection({ content }: { content: SettingsContent }) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     quotes: quotes.filter((q) => q.text.trim()),
-                    projects: projects.filter((p) => p.name.trim()),
                 }),
             });
             if (!resp.ok) {
@@ -329,22 +327,13 @@ function ContentSection({ content }: { content: SettingsContent }) {
 
     return (
         <section className="ven-card" style={sectionStyle}>
-            <SectionTitle>内容配置（首页句子与项目）</SectionTitle>
+            <SectionTitle>内容配置（首页句子）</SectionTitle>
             <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 22 }}>
                 <EditorBlock title="收藏的句子" addLabel="添加句子" onAdd={() => setQuotes((l) => [...l, { text: "", source: "" }])}>
                     {quotes.map((q, i) => (
                         <RowShell key={i} onRemove={() => setQuotes((l) => l.filter((_, x) => x !== i))}>
                             <input className="ven-input" style={{ flex: 1, minWidth: 200 }} value={q.text} onChange={(e) => setQuotes((l) => l.map((x, xi) => (xi === i ? { ...x, text: e.target.value } : x)))} placeholder="句子" />
                             <input className="ven-input" style={{ width: 160 }} value={q.source} onChange={(e) => setQuotes((l) => l.map((x, xi) => (xi === i ? { ...x, source: e.target.value } : x)))} placeholder="出处" />
-                        </RowShell>
-                    ))}
-                </EditorBlock>
-                <EditorBlock title="维护的项目" addLabel="添加项目" onAdd={() => setProjects((l) => [...l, { name: "", desc: "", url: "" }])}>
-                    {projects.map((p, i) => (
-                        <RowShell key={i} onRemove={() => setProjects((l) => l.filter((_, x) => x !== i))}>
-                            <input className="ven-input" style={{ width: 140 }} value={p.name} onChange={(e) => setProjects((l) => l.map((x, xi) => (xi === i ? { ...x, name: e.target.value } : x)))} placeholder="项目名" />
-                            <input className="ven-input" style={{ flex: 1, minWidth: 160 }} value={p.desc} onChange={(e) => setProjects((l) => l.map((x, xi) => (xi === i ? { ...x, desc: e.target.value } : x)))} placeholder="描述" />
-                            <input className="ven-input" style={{ width: 160 }} value={p.url} onChange={(e) => setProjects((l) => l.map((x, xi) => (xi === i ? { ...x, url: e.target.value } : x)))} placeholder="https://…" />
                         </RowShell>
                     ))}
                 </EditorBlock>

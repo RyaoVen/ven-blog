@@ -60,19 +60,15 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		return err
 	}
 
-	// 保存内容配置（句子/项目；作者介绍与友链移至 /admin/author 编辑）
+	// 保存内容配置（首页句子；项目与展示柜移至 /admin/author 编辑）
 	if err := a.Put("/admin/settings/content", admin, func(c *hybrid.ApiCtx) error {
 		var in struct {
-			Quotes   []settingsapp.Quote   `json:"quotes"`
-			Projects []settingsapp.Project `json:"projects"`
+			Quotes []settingsapp.Quote `json:"quotes"`
 		}
 		if err := c.Bind(&in); err != nil {
 			return c.Error(400, "bad body")
 		}
 		if err := settings.SetQuotes(in.Quotes); err != nil {
-			return c.Error(500, "internal error")
-		}
-		if err := settings.SetProjects(in.Projects); err != nil {
 			return c.Error(500, "internal error")
 		}
 		a.InvalidatePage("/")

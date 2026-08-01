@@ -112,7 +112,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterCategories(a, posts, settings); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterAuthorAdmin(a, settings, persistence.AuthorUsernameFromEnv()); err != nil {
+	if err := interfaces.RegisterAuthorAdmin(a, settings, posts, persistence.AuthorUsernameFromEnv()); err != nil {
 		return err
 	}
 	interfaces.RegisterEmailAuth(a, emailAuth, users)

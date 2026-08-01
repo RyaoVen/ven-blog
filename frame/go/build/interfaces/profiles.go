@@ -9,6 +9,7 @@ import (
 	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/userapp"
+	"ven_hybird/build/domain/post"
 	"ven_hybird/build/domain/user"
 	"ven_hybird/hybrid"
 )
@@ -84,10 +85,28 @@ func RegisterProfiles(a *hybrid.App, users *userapp.Service, posts *postapp.Serv
 		if profile.User.Role != user.RoleAuthor {
 			return c.NotFound()
 		}
-		// 展示柜：2 最新文章 + 静态项目卡
-		latest, err := posts.ListRecent(2)
+		// 展示柜：配置的文章（有序，跳过已删除）+ 静态项目卡；未配置时回退最新文章
+		ids, err := settings.ShowcasePosts()
 		if err != nil {
 			return err
+		}
+		var latest []*post.Post
+		if len(ids) > 0 {
+			for _, id := range ids {
+				p, getErr := posts.Get(id)
+				if errors.Is(getErr, post.ErrNotFound) {
+					continue
+				}
+				if getErr != nil {
+					return getErr
+				}
+				latest = append(latest, p)
+			}
+		} else {
+			latest, err = posts.ListRecent(settingsapp.ShowcasePostsMax)
+			if err != nil {
+				return err
+			}
 		}
 		// 留言板
 		entries, err := gb.List(50)

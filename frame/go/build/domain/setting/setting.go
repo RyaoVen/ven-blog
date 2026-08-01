@@ -10,6 +10,7 @@ const (
 	KeyFriendLinks       = "friend_links"        // 友链（行：name|url|desc）
 	KeyQuotes            = "quotes"              // 收藏的句子（行：text|source）
 	KeyProjects          = "projects"            // 维护的项目（行：name|desc|url）
+	KeyShowcasePosts     = "showcase_posts"      // 展示柜文章 ID（行列表，有序，最多 4 个）
 	KeySMTPHost          = "smtp_host"           // SMTP 主机
 	KeySMTPPort          = "smtp_port"           // SMTP 端口（465/587/25）
 	KeySMTPUser          = "smtp_user"           // SMTP 账号（即发件地址）

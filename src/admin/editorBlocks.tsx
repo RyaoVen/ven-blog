@@ -3,7 +3,7 @@
 import { ReactNode } from "react";
 import { v } from "../lib/theme";
 
-/** 编辑器块：标题 + 添加按钮 + 行列表 */
+/** 编辑器块：标题 + 添加按钮（可选）+ 行列表 */
 export function EditorBlock({
     title,
     addLabel,
@@ -11,20 +11,22 @@ export function EditorBlock({
     children,
 }: {
     title: string;
-    addLabel: string;
-    onAdd: () => void;
+    addLabel?: string;
+    onAdd?: () => void;
     children: ReactNode;
 }) {
     return (
         <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
                 <span style={{ fontSize: 14, fontWeight: 650 }}>{title}</span>
-                <button type="button" className="ven-btn" style={{ padding: "3px 12px", fontSize: 12 }} onClick={onAdd}>
-                    {addLabel}
-                </button>
+                {addLabel && onAdd && (
+                    <button type="button" className="ven-btn" style={{ padding: "3px 12px", fontSize: 12 }} onClick={onAdd}>
+                        {addLabel}
+                    </button>
+                )}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {children.length === 0 ? (
+                {children.length === 0 && addLabel ? (
                     <p style={{ color: v.textMuted, fontSize: 13, margin: 0 }}>暂无条目，点击右上「{addLabel}」。</p>
                 ) : (
                     children
