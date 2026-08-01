@@ -26,10 +26,34 @@ export interface AdminComment {
     createdAt: string;
 }
 
+/** 用户增长（折线 + 增量） */
+export interface UserGrowth {
+    d7: { date: string; count: number }[];
+    d30: { date: string; count: number }[];
+    d365: { date: string; count: number }[];
+    deltas: { yesterday: number; week: number; month: number };
+}
+
+/** 日历热力图日数据 */
+export interface HeatDay {
+    date: string;
+    posts: number;
+    chars: number;
+}
+
+/** 分类计数 */
+export interface CategoryCount {
+    category: string;
+    count: number;
+}
+
 /** 数据面板 initialState */
 export interface AdminDashboardState {
     stats: AdminStats;
     recentComments: AdminComment[];
+    userGrowth: UserGrowth;
+    heatmap: HeatDay[];
+    categoryCounts: CategoryCount[];
 }
 
 /** 文章管理 initialState */
