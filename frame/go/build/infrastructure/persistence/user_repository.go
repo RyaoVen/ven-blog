@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	mysqldriver "github.com/go-sql-driver/mysql"
 	"golang.org/x/crypto/bcrypt"
@@ -58,7 +59,7 @@ func (r *UserRepository) FindByID(id int64) (*user.User, error) {
 	return u, nil
 }
 
-// Create 创建用户并回填 ID；用户名冲突返回 user.ErrUsernameTaken。
+// Create 创建用户并回填 ID；用户名冲突返回 user.ErrUsernameTaken，邮箱冲突返回 user.ErrEmailTaken。
 func (r *UserRepository) Create(u *user.User) error {
 	res, err := r.db.Exec(
 		"INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, ?, NULLIF(?, ''))",
@@ -66,6 +67,9 @@ func (r *UserRepository) Create(u *user.User) error {
 	)
 	if err != nil {
 		if isDuplicateEntry(err) {
+			if duplicateOnEmail(err) {
+				return user.ErrEmailTaken
+			}
 			return user.ErrUsernameTaken
 		}
 		return fmt.Errorf("create user %q: %w", u.Username, err)
@@ -190,4 +194,11 @@ func (r *UserRepository) UpdateEmail(userID int64, email string) error {
 		return fmt.Errorf("update email of user %d: %w", userID, err)
 	}
 	return nil
+}
+
+// duplicateOnEmail 判定 1062 冲突是否落在 email 唯一键上（错误消息含键名）。
+func duplicateOnEmail(err error) bool {
+	var mysqlErr *mysqldriver.MySQLError
+	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 &&
+		(strings.Contains(mysqlErr.Message, "email") || strings.Contains(mysqlErr.Message, "uk_users_email"))
 }
