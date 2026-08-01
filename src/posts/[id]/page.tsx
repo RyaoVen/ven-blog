@@ -1,11 +1,12 @@
 /** 文章详情页（ISR 静态页）：信息头 + Markdown 正文 + TOC 侧栏 + 互动条 + 评论区；编辑/删除仅 author 客户端可见 */
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import type { PageAppProps } from "../../app/pageApp";
 import { navigate } from "../../app/router";
 import { Layout } from "../../lib/layout";
 import { formatDateTime } from "../../lib/format";
 import { renderMarkdown } from "../../lib/markdown";
+import { ReadingProgress } from "../../lib/readingProgress";
 import { markdownCss } from "../../lib/markdownCss";
 import { useRole } from "../../lib/role";
 import { v } from "../../lib/theme";
@@ -20,6 +21,7 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
     const role = useRole();
     const rendered = useMemo(() => (post ? renderMarkdown(post.content) : null), [post]);
     const { viewer, toggle } = usePostViewer(post?.id ?? "0", state.likeCount, state.favoriteCount);
+    const articleRef = useRef<HTMLElement>(null);
 
     if (!post || !rendered) {
         return (
@@ -41,6 +43,7 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
 
     return (
         <Layout>
+            <ReadingProgress articleRef={articleRef} />
             <style>{markdownCss}</style>
             <h1 style={{ fontSize: 30, marginBottom: 12 }}>{post.title}</h1>
             <div
@@ -103,7 +106,7 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
                 />
             )}
             <div className="ven-post-layout">
-                <article>
+                <article ref={articleRef}>
                     <div className="ven-prose" dangerouslySetInnerHTML={{ __html: rendered.html }} />
                     <InteractionBar viewer={viewer} onToggle={toggle} />
                     <CommentsSection targetPath={`/posts/${post.id}`} initialComments={state.comments} />

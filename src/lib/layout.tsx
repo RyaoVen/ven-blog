@@ -1,6 +1,7 @@
 /** 站点通用布局：全局样式注入 + 顶部导航（左品牌与作者头像 / 中搜索 / 右主题与账户）+ 页脚 */
 
 import { ReactNode, useEffect, useState } from "react";
+import gsap from "gsap";
 import { navigate } from "../app/router";
 import { globalCss } from "./globalCss";
 import { HeaderSearch } from "./headerSearch";
@@ -213,10 +214,29 @@ export function Layout({ children }: { children: ReactNode }) {
             const toggleBtn = target?.closest?.(".ven-codeblock-toggle");
             if (toggleBtn) {
                 const block = toggleBtn.closest(".ven-codeblock");
-                if (block) {
+                const body = block?.querySelector(".ven-codeblock-body") as HTMLElement | null;
+                const mask = block?.querySelector(".ven-codeblock-mask") as HTMLElement | null;
+                if (block && body) {
                     const collapsed = block.getAttribute("data-collapsed") === "true";
-                    block.setAttribute("data-collapsed", collapsed ? "false" : "true");
-                    toggleBtn.textContent = collapsed ? "收起" : "展开";
+                    // 展开/收起高度动画（遮罩淡入淡出），完成后清理内联样式
+                    if (collapsed) {
+                        block.setAttribute("data-collapsed", "false");
+                        toggleBtn.textContent = "收起";
+                        const full = body.scrollHeight;
+                        gsap.fromTo(body, { maxHeight: 116, overflow: "hidden" }, {
+                            maxHeight: full, duration: 0.45, ease: "power2.inOut",
+                            onComplete: () => gsap.set(body, { clearProps: "maxHeight,overflow" }),
+                        });
+                        if (mask) gsap.to(mask, { opacity: 0, duration: 0.3 });
+                    } else {
+                        block.setAttribute("data-collapsed", "true");
+                        toggleBtn.textContent = "展开";
+                        gsap.fromTo(body, { maxHeight: body.scrollHeight, overflow: "hidden" }, {
+                            maxHeight: 116, duration: 0.4, ease: "power2.inOut",
+                            onComplete: () => gsap.set(body, { clearProps: "maxHeight,overflow" }),
+                        });
+                        if (mask) gsap.to(mask, { opacity: 1, duration: 0.3, delay: 0.15 });
+                    }
                 }
             }
         };
@@ -242,10 +262,10 @@ export function Layout({ children }: { children: ReactNode }) {
                     </a>
                     <AuthorAvatar />
                     <nav style={styles.nav}>
-                        <a href="/posts" style={styles.navLink}>
+                        <a href="/posts" style={styles.navLink} className="ven-nav-link">
                             文章
                         </a>
-                        <a href="/moments" style={styles.navLink}>
+                        <a href="/moments" style={styles.navLink} className="ven-nav-link">
                             动态
                         </a>
                     </nav>
