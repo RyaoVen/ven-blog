@@ -88,7 +88,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterSubscribe(a, subscribe, posts, siteURLFromEnv()); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterPages(a, posts, comments, interactions); err != nil {
+	if err := interfaces.RegisterPages(a, posts, comments, interactions, settings); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterInteractions(a, comments, interactions, emailAuth, siteURLFromEnv()); err != nil {

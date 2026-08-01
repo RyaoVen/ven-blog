@@ -32,16 +32,16 @@ export interface PostListState {
     posts: Post[];
 }
 
-/** /posts 列表页（标签筛选 + 分页）的 initialState */
+/** /posts 列表页（分类筛选 + 分页）的 initialState */
 export interface PagedPostsState {
     posts: Post[];
     total: number;
     page: number;
     pageSize: number;
-    /** 当前筛选标签（空串表示全部） */
-    tag: string;
-    /** 全量标签（筛选条用） */
-    tags: string[];
+    /** 当前筛选分类（空串表示全部） */
+    category: string;
+    /** 设置中的分类列表（筛选框用） */
+    categories: string[];
 }
 
 /** 编辑类页面的 initialState（categories 为编辑器分类下拉的列表） */

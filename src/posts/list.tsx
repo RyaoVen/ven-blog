@@ -49,21 +49,20 @@ export function PostList({ posts }: { posts: Post[] }) {
                         </a>
                         <p style={{ margin: "8px 0 12px", fontSize: 14, color: v.textSecondary }}>{excerptOf(p)}</p>
                         <div className="ven-meta" style={{ display: "flex", gap: 14, alignItems: "center" }}>
-                            <span className="ven-chip" style={{ color: v.accent, borderColor: v.accent }}>
+                            <a
+                                className="ven-chip"
+                                href={`/posts?category=${encodeURIComponent(p.category)}`}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ color: v.accent, borderColor: v.accent, textDecoration: "none" }}
+                            >
                                 {p.category}
-                            </span>
+                            </a>
                             <span>{p.authorName}</span>
                             <span>{formatDateTime(p.createdAt)}</span>
                             {p.tags.map((t) => (
-                                <a
-                                    key={t}
-                                    className="ven-chip"
-                                    href={`/posts?tag=${encodeURIComponent(t)}`}
-                                    style={{ textDecoration: "none" }}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
+                                <span key={t} className="ven-chip">
                                     {t}
-                                </a>
+                                </span>
                             ))}
                         </div>
                     </div>

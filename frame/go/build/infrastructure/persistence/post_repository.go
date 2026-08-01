@@ -32,14 +32,13 @@ func scanPost(row interface{ Scan(...any) error }) (*post.Post, error) {
 }
 
 // ListPaged 分页返回文章（创建时间倒序）与符合过滤条件的总数；
-// tag 非空时用 EXISTS 子查询按标签过滤，pageSize <= 0 表示不分页（返回全部）。
-func (r *PostRepository) ListPaged(tag string, page, pageSize int) ([]*post.Post, int, error) {
+// category 非空时按分类过滤，pageSize <= 0 表示不分页（返回全部）。
+func (r *PostRepository) ListPaged(category string, page, pageSize int) ([]*post.Post, int, error) {
 	where := ""
 	args := make([]any, 0, 3)
-	if tag != "" {
-		where = ` WHERE EXISTS (SELECT 1 FROM post_tags pt JOIN tags t ON t.id = pt.tag_id
-			WHERE pt.post_id = p.id AND t.name = ?)`
-		args = append(args, tag)
+	if category != "" {
+		where = " WHERE p.category = ?"
+		args = append(args, category)
 	}
 
 	var total int
