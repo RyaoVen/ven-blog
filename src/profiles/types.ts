@@ -22,6 +22,8 @@ export interface UserProfileState {
     user: ProfileUser;
     stats: ProfileStats;
     isAuthor: boolean;
+    /** 邮箱（仅 viewer 为本人时下发） */
+    email?: string;
     favorites?: Post[];
 }
 

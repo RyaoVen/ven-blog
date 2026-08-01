@@ -39,15 +39,89 @@ export default function AdminSettingsPage({ bootstrap }: PageAppProps) {
         moderation: false,
         categories: [],
         profile: { username: "", bio: "", avatarUrl: "" },
+        email: { host: "", port: "", user: "", fromName: "", passwordSet: false, authorEmail: "" },
     }) as AdminSettingsState;
     return (
         <AdminLayout route={bootstrap.route}>
             <PasswordSection />
             <ProfileSection profile={state.profile} />
+            <EmailSection config={state.email} />
             <ContentSection content={state.content} />
             <CategoriesSection categories={state.categories} />
             <ModerationSection initial={state.moderation} />
         </AdminLayout>
+    );
+}
+
+/* ===== 邮箱配置 ===== */
+function EmailSection({ config }: { config: AdminSettingsState["email"] }) {
+    const [host, setHost] = useState(config.host);
+    const [port, setPort] = useState(config.port);
+    const [user, setUser] = useState(config.user);
+    const [password, setPassword] = useState("");
+    const [fromName, setFromName] = useState(config.fromName);
+    const [authorEmail, setAuthorEmail] = useState(config.authorEmail);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const { show, node } = useToast();
+
+    async function onSubmit(event: FormEvent) {
+        event.preventDefault();
+        setSubmitting(true);
+        setError(null);
+        try {
+            const resp = await fetch("/api/admin/settings/email", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ host, port, user, password, fromName, authorEmail }),
+            });
+            if (!resp.ok) {
+                const data = await resp.json().catch(() => null);
+                setError(data?.error === "invalid email" ? "作者邮箱格式不正确" : (data?.error ?? "保存失败"));
+                return;
+            }
+            show("邮箱配置已保存（立即可用）");
+        } catch {
+            setError("网络错误，请重试");
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    return (
+        <section className="ven-card" style={sectionStyle}>
+            <SectionTitle>邮箱配置</SectionTitle>
+            <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <p className="ven-meta" style={{ margin: 0 }}>
+                    网站发件邮箱（SMTP 代理，用于发送验证码与 @ 通知）
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
+                    <input className="ven-input" placeholder="SMTP 主机（如 smtp.qq.com）" value={host} onChange={(e) => setHost(e.target.value)} />
+                    <input className="ven-input" placeholder="端口（465/587）" value={port} onChange={(e) => setPort(e.target.value)} />
+                </div>
+                <input className="ven-input" placeholder="SMTP 账号（即发件地址）" value={user} onChange={(e) => setUser(e.target.value)} />
+                <input
+                    className="ven-input"
+                    type="password"
+                    placeholder={config.passwordSet ? "密码/授权码（已设置，留空保持不变）" : "密码/授权码"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="new-password"
+                />
+                <input className="ven-input" placeholder="发件人名称（可选，如 ven-blog）" value={fromName} onChange={(e) => setFromName(e.target.value)} />
+                <p className="ven-meta" style={{ margin: "8px 0 0" }}>
+                    作者个人邮箱（接收 @ 通知，也可用于验证码登录；会同步绑定到 author 账号）
+                </p>
+                <input className="ven-input" type="email" placeholder="you@example.com" value={authorEmail} onChange={(e) => setAuthorEmail(e.target.value)} />
+                {error && <p style={{ color: v.danger, fontSize: 13, margin: 0 }}>{error}</p>}
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <button className="ven-btn ven-btn-primary" type="submit" disabled={submitting}>
+                        {submitting ? "保存中…" : "保存邮箱配置"}
+                    </button>
+                    {node}
+                </div>
+            </form>
+        </section>
     );
 }
 
