@@ -13,6 +13,7 @@ import { PageEnter } from "./motion";
 import { useRole } from "./role";
 import { ThemeToggle } from "./themeToggle";
 import { layout as layoutToken, v } from "./theme";
+import { useViewer } from "./viewer";
 
 /** 全局样式注入（SSR/客户端同构输出，React 会原样渲染） */
 export function GlobalStyle() {
@@ -203,6 +204,41 @@ async function logout() {
     navigate("/posts");
 }
 
+/** 个人主页入口（登录态）：头像/字母标 + 用户名，链到 /users/<username> */
+function ProfileEntry() {
+    const viewer = useViewer();
+    if (!viewer || !viewer.username) {
+        return null;
+    }
+    return (
+        <a
+            href={`/users/${viewer.username}`}
+            title="个人主页"
+            aria-label="个人主页"
+            style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                textDecoration: "none",
+                color: v.text,
+                fontSize: 14,
+                fontWeight: 550,
+            }}
+        >
+            {viewer.avatarUrl ? (
+                <img
+                    src={viewer.avatarUrl}
+                    alt=""
+                    style={{ width: 24, height: 24, borderRadius: 3, objectFit: "cover", border: `1px solid ${v.borderStrong}` }}
+                />
+            ) : (
+                <span style={styles.authorAvatar}>{viewer.username.slice(0, 1).toUpperCase()}</span>
+            )}
+            {viewer.username}
+        </a>
+    );
+}
+
 export function Layout({ children }: { children: ReactNode }) {
     const role = useRole();
     const [authView, setAuthView] = useState<"login" | "register" | null>(null);
@@ -315,10 +351,13 @@ export function Layout({ children }: { children: ReactNode }) {
                         </>
                     )}
                     {role ? (
-                        <button type="button" className="ven-btn" onClick={logout}>
-                            <LogoutIcon />
-                            注销（{role}）
-                        </button>
+                        <>
+                            <ProfileEntry />
+                            <button type="button" className="ven-btn" onClick={logout}>
+                                <LogoutIcon />
+                                注销（{role}）
+                            </button>
+                        </>
                     ) : (
                         <>
                             <button type="button" className="ven-btn" onClick={() => setAuthView("login")}>

@@ -133,7 +133,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterMomentLikes(a, interactions); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterMe(a); err != nil {
+	if err := interfaces.RegisterMe(a, users); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterMoments(a, moments, comments, interactions); err != nil {
