@@ -11,6 +11,7 @@ const TABS = [
     { href: "/admin/posts", label: "文章", exact: false },
     { href: "/admin/comments", label: "评论", exact: false },
     { href: "/admin/moments", label: "动态", exact: false },
+    { href: "/admin/author", label: "个人主页", exact: false },
     { href: "/admin/settings", label: "设置", exact: false },
 ] as const;
 
