@@ -134,6 +134,7 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 			return c.Error(500, "internal error")
 		}
 		declarePostsChanged(a, postID)
+		emailAuthSvc.NotifyMentioned(in.ReplyTo, "/posts/"+strconv.FormatInt(postID, 10), excerptOf(in.Content), siteURL)
 		return c.JSON(201, toCommentView(cm))
 	}); err != nil {
 		return err
