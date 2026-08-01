@@ -37,6 +37,10 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		if err != nil {
 			return err
 		}
+		siteIcon, err := settings.SiteIcon()
+		if err != nil {
+			return err
+		}
 		profile := map[string]any{"username": "", "bio": "", "avatarUrl": ""}
 		if userID, _, ok := c.User(); ok {
 			if uid, parseErr := strconv.ParseInt(userID, 10, 64); parseErr == nil {
@@ -50,6 +54,7 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 			"moderation": moderation,
 			"categories": categories,
 			"profile":    profile,
+			"siteIcon":   siteIcon,
 			"email": map[string]any{
 				"host": host, "port": port, "user": smtpUser,
 				"fromName": fromName, "passwordSet": host != "" || smtpUser != "",
@@ -144,6 +149,56 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 			}
 		}
 		return c.JSON(200, map[string]any{"ok": true})
+	}); err != nil {
+		return err
+	}
+
+	// 保存站点图标（导航品牌标 + favicon，前端经 /api/site 现取，无需失效页面）
+	if err := a.Put("/admin/settings/site", admin, func(c *hybrid.ApiCtx) error {
+		var in struct {
+			Icon string `json:"icon"`
+		}
+		if err := c.Bind(&in); err != nil {
+			return c.Error(400, "bad body")
+		}
+		if err := settings.SetSiteIcon(in.Icon); err != nil {
+			return c.Error(500, "internal error")
+		}
+		return c.JSON(200, map[string]any{"ok": true})
+	}); err != nil {
+		return err
+	}
+
+	// 修改作者用户名（改名后新旧作者主页与首页作者卡都需失效刷新）
+	if err := a.Put("/admin/settings/username", admin, func(c *hybrid.ApiCtx) error {
+		var in struct {
+			Username string `json:"username"`
+		}
+		if err := c.Bind(&in); err != nil {
+			return c.Error(400, "bad body")
+		}
+		userID, err := currentUserID(c)
+		if err != nil {
+			return c.Error(401, "unauthenticated")
+		}
+		old, err := users.FindByID(userID)
+		if err != nil {
+			return c.Error(500, "internal error")
+		}
+		err = users.UpdateUsername(userID, in.Username)
+		var vErr *userapp.ValidationError
+		switch {
+		case errors.As(err, &vErr):
+			return c.Error(400, vErr.Message)
+		case errors.Is(err, user.ErrUsernameTaken):
+			return c.Error(409, "username taken")
+		case err != nil:
+			return c.Error(500, "internal error")
+		}
+		a.InvalidatePage("/")
+		a.InvalidatePage("/author/" + old.Username)
+		a.InvalidatePage("/author/" + in.Username)
+		return c.JSON(200, map[string]any{"ok": true, "username": in.Username})
 	}); err != nil {
 		return err
 	}

@@ -122,6 +122,16 @@ func (s *Service) AuthorEmail() (string, error) {
 	return s.repo.Get(setting.KeyAuthorEmail)
 }
 
+// SiteIcon 站点图标 URL（空表示未设置，前端回退字母标）。
+func (s *Service) SiteIcon() (string, error) {
+	return s.repo.Get(setting.KeySiteIcon)
+}
+
+// SetSiteIcon 保存站点图标 URL。
+func (s *Service) SetSiteIcon(url string) error {
+	return s.repo.Set(setting.KeySiteIcon, url)
+}
+
 // SetAuthorEmail 保存作者个人邮箱。
 func (s *Service) SetAuthorEmail(email string) error {
 	return s.repo.Set(setting.KeyAuthorEmail, email)

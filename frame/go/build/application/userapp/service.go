@@ -120,6 +120,14 @@ func (s *Service) UpdateProfile(userID int64, bio, avatarURL string) error {
 	return s.repo.UpdateProfile(userID, bio, avatarURL)
 }
 
+// UpdateUsername 修改用户名（2-32 字符；冲突返回 user.ErrUsernameTaken）。
+func (s *Service) UpdateUsername(userID int64, username string) error {
+	if len(username) < 2 || len(username) > 32 {
+		return &ValidationError{Message: "username must be 2-32 characters"}
+	}
+	return s.repo.UpdateUsername(userID, username)
+}
+
 // FindByID 按 ID 取用户。
 func (s *Service) FindByID(userID int64) (*user.User, error) {
 	return s.repo.FindByID(userID)

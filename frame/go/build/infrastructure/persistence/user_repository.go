@@ -60,6 +60,30 @@ func (r *UserRepository) FindByID(id int64) (*user.User, error) {
 	return u, nil
 }
 
+// FindByRole 按角色取第一个用户（定位 author 用，不受改名影响）；不存在返回 user.ErrNotFound。
+func (r *UserRepository) FindByRole(role user.Role) (*user.User, error) {
+	u, err := scanUser(r.db.QueryRow(userSelect+" WHERE role = ? ORDER BY id LIMIT 1", role.String()))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, user.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find user by role %q: %w", role, err)
+	}
+	return u, nil
+}
+
+// UpdateUsername 修改用户名；唯一键冲突返回 user.ErrUsernameTaken。
+func (r *UserRepository) UpdateUsername(userID int64, username string) error {
+	_, err := r.db.Exec("UPDATE users SET username = ? WHERE id = ?", username, userID)
+	if err != nil {
+		if isDuplicateEntry(err) {
+			return user.ErrUsernameTaken
+		}
+		return fmt.Errorf("update username of user %d: %w", userID, err)
+	}
+	return nil
+}
+
 // Create 创建用户并回填 ID；用户名冲突返回 user.ErrUsernameTaken，邮箱冲突返回 user.ErrEmailTaken。
 func (r *UserRepository) Create(u *user.User) error {
 	res, err := r.db.Exec(

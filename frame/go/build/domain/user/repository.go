@@ -24,6 +24,10 @@ type Repository interface {
 	FindByUsername(username string) (*User, error)
 	// FindByID 按 ID 查找，不存在返回 ErrNotFound。
 	FindByID(id int64) (*User, error)
+	// FindByRole 按角色取第一个用户（定位 author 用，不受改名影响），不存在返回 ErrNotFound。
+	FindByRole(role Role) (*User, error)
+	// UpdateUsername 修改用户名；唯一键冲突返回 ErrUsernameTaken。
+	UpdateUsername(userID int64, username string) error
 	// FindByEmail 按邮箱查找（验证码登录），不存在返回 ErrNotFound。
 	FindByEmail(email string) (*User, error)
 	// UpdateEmail 绑定/修改邮箱；唯一键冲突返回 ErrEmailTaken。

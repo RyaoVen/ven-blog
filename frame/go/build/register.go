@@ -50,12 +50,20 @@ func Register(a *hybrid.App) error {
 		return fmt.Errorf("build: seed users: %w", err)
 	}
 
-	// 作者资料每次请求现取（设置页改头像/简介后立即生效）
+	// 作者资料每次请求现取（设置页改头像/简介/用户名后立即生效；按角色定位，不受改名影响）
 	authorFn := func() (*user.User, error) {
-		return userRepo.FindByUsername(persistence.AuthorUsernameFromEnv())
+		return userRepo.FindByRole(user.RoleAuthor)
 	}
 	if _, err := authorFn(); err != nil {
 		return fmt.Errorf("build: find author: %w", err)
+	}
+	// 需要作者主页路径的失效场景现取当前用户名（改名后旧路径不再有效）
+	authorNameFn := func() string {
+		u, err := authorFn()
+		if err != nil {
+			return ""
+		}
+		return u.Username
 	}
 
 	// 应用服务
@@ -82,7 +90,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterHome(a, posts, moments, authorFn, settings); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterSiteInfo(a, authorFn); err != nil {
+	if err := interfaces.RegisterSiteInfo(a, authorFn, settings); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterSubscribe(a, subscribe, posts, siteURLFromEnv()); err != nil {
@@ -100,7 +108,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterProfiles(a, users, posts, guestbook, settings); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterGuestbookAPI(a, guestbook, persistence.AuthorUsernameFromEnv()); err != nil {
+	if err := interfaces.RegisterGuestbookAPI(a, guestbook, authorNameFn); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterAPIs(a, posts); err != nil {
@@ -112,7 +120,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterCategories(a, posts, settings); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterAuthorAdmin(a, settings, posts, persistence.AuthorUsernameFromEnv()); err != nil {
+	if err := interfaces.RegisterAuthorAdmin(a, settings, posts, authorNameFn); err != nil {
 		return err
 	}
 	interfaces.RegisterEmailAuth(a, emailAuth, users)

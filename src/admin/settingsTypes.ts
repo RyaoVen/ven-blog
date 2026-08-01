@@ -60,4 +60,5 @@ export interface AdminSettingsState {
     categories: string[];
     profile: SettingsProfile;
     email: EmailConfig;
+    siteIcon: string;
 }

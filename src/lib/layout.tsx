@@ -119,16 +119,56 @@ const styles = {
     },
 } as const;
 
-/** 站点信息（导航栏作者头像用；模块级缓存，全站只取一次） */
-let siteInfoPromise: Promise<{ authorName: string } | null> | null = null;
+/** 站点信息（导航品牌标/作者头像/favicon 用；模块级缓存，全站只取一次） */
+interface SiteInfo {
+    name: string;
+    authorName: string;
+    icon: string;
+}
 
-function fetchSiteInfo(): Promise<{ authorName: string } | null> {
+let siteInfoPromise: Promise<SiteInfo | null> | null = null;
+
+function fetchSiteInfo(): Promise<SiteInfo | null> {
     if (!siteInfoPromise) {
         siteInfoPromise = fetch("/api/site")
             .then((r) => (r.ok ? r.json() : null))
             .catch(() => null);
     }
     return siteInfoPromise;
+}
+
+/** 品牌标：站点图标（设置页可配）缺省回退字母标 */
+function BrandMark({ size = 24, fontSize = 12 }: { size?: number; fontSize?: number }) {
+    const [icon, setIcon] = useState<string | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        fetchSiteInfo().then((data) => {
+            if (!cancelled && data?.icon) {
+                setIcon(data.icon);
+                // favicon 同步（SSR 头由框架控制，这里客户端替换）
+                let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+                if (!link) {
+                    link = document.createElement("link");
+                    link.rel = "icon";
+                    document.head.appendChild(link);
+                }
+                link.href = data.icon;
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+    if (icon) {
+        return (
+            <img
+                src={icon}
+                alt=""
+                style={{ width: size, height: size, borderRadius: 3, objectFit: "cover", display: "block" }}
+            />
+        );
+    }
+    return <span style={{ ...styles.brandDot, width: size, height: size, fontSize }}>V</span>;
 }
 
 /** 作者字母头像（链到作者主页） */
@@ -247,7 +287,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <div className="ven-header" style={styles.headerInner}>
                 <div style={styles.side}>
                     <a href="/" style={styles.brand}>
-                        <span style={styles.brandDot}>V</span>
+                        <BrandMark />
                         ven-blog
                     </a>
                     <AuthorAvatar />
@@ -302,7 +342,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 <div style={styles.footerGrid}>
                     <div>
                         <a href="/" style={styles.brand}>
-                            <span style={styles.brandDot}>V</span>
+                            <BrandMark />
                             ven-blog
                         </a>
                         <p style={{ fontSize: 13.5, color: v.textSecondary, margin: "12px 0 0", maxWidth: 260 }}>
