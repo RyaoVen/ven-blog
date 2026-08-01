@@ -1,6 +1,7 @@
 /** 后台子布局：独立门户（不套博客导航/页脚）——固定侧边栏 + 主内容区 */
 
 import { ReactNode } from "react";
+import { useCardGlow } from "../lib/cardGlow";
 import { GlobalStyle } from "../lib/layout";
 import { LogoutIcon } from "../lib/icons";
 import { PageEnter } from "../lib/motion";
@@ -68,6 +69,7 @@ async function logout() {
 }
 
 export function AdminLayout({ route, children }: { route: string; children: ReactNode }) {
+    useCardGlow();
     return (
         <div style={styles.shell}>
             <GlobalStyle />
