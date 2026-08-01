@@ -3,6 +3,7 @@
 package postapp
 
 import (
+	"regexp"
 	"strings"
 
 	"ven_hybird/build/domain/post"
@@ -24,6 +25,7 @@ func NewService(repo post.Repository) *Service {
 // PostInput 是创建/更新文章的用例入参。
 type PostInput struct {
 	Title    string
+	Category string
 	Content  string
 	Summary  string
 	CoverURL string
@@ -92,26 +94,44 @@ func (s *Service) ListByAuthor(authorID int64) ([]*post.Post, error) {
 	return s.repo.ListByAuthor(authorID)
 }
 
-// Create 发文：领域校验 + 落库。
+// firstImagePattern 提取正文 markdown 第一张图片的 URL（封面留空兜底用）。
+var firstImagePattern = regexp.MustCompile(`!\[[^\]]*\]\(([^)\s]+)\)`)
+
+// firstImageOf 取正文第一张图片 URL（无图返回空串）。
+func firstImageOf(content string) string {
+	m := firstImagePattern.FindStringSubmatch(content)
+	if len(m) < 2 {
+		return ""
+	}
+	return m[1]
+}
+
+// Create 发文：领域校验 + 封面兜底（留空取正文首图）+ 落库。
 func (s *Service) Create(authorID int64, in PostInput) (*post.Post, error) {
-	if msg := post.Validate(in.Title, in.Content, in.Summary, in.CoverURL); msg != "" {
+	if msg := post.Validate(in.Title, in.Category, in.Content, in.Summary, in.CoverURL); msg != "" {
 		return nil, &ValidationError{Message: msg}
 	}
+	if in.CoverURL == "" {
+		in.CoverURL = firstImageOf(in.Content)
+	}
 	p := &post.Post{AuthorID: authorID}
-	p.Apply(in.Title, in.Content, in.Summary, in.CoverURL, in.Tags)
+	p.Apply(in.Title, in.Category, in.Content, in.Summary, in.CoverURL, in.Tags)
 	if err := s.repo.Create(p); err != nil {
 		return nil, err
 	}
 	return p, nil
 }
 
-// Update 编辑文章。
+// Update 编辑文章（封面留空同样兜底首图）。
 func (s *Service) Update(id int64, in PostInput) (*post.Post, error) {
-	if msg := post.Validate(in.Title, in.Content, in.Summary, in.CoverURL); msg != "" {
+	if msg := post.Validate(in.Title, in.Category, in.Content, in.Summary, in.CoverURL); msg != "" {
 		return nil, &ValidationError{Message: msg}
 	}
+	if in.CoverURL == "" {
+		in.CoverURL = firstImageOf(in.Content)
+	}
 	p := &post.Post{ID: id}
-	p.Apply(in.Title, in.Content, in.Summary, in.CoverURL, in.Tags)
+	p.Apply(in.Title, in.Category, in.Content, in.Summary, in.CoverURL, in.Tags)
 	if err := s.repo.Update(p); err != nil {
 		return nil, err
 	}

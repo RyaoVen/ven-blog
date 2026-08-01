@@ -11,6 +11,7 @@ import (
 	"ven_hybird/build/application/interactionapp"
 	"ven_hybird/build/application/momentapp"
 	"ven_hybird/build/application/postapp"
+	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/subscribeapp"
 	"ven_hybird/build/application/userapp"
 	"ven_hybird/build/domain/post"
@@ -37,6 +38,7 @@ func RegisterAdmin(
 	moments *momentapp.Service,
 	subscribe *subscribeapp.Service,
 	users *userapp.Service,
+	settings *settingsapp.Service,
 ) error {
 	admin := []string{"author"}
 
@@ -119,9 +121,13 @@ func RegisterAdmin(
 		return err
 	}
 
-	// 新建文章（编辑器空态）
+	// 新建文章（编辑器空态 + 分类列表）
 	if err := a.Page("/admin/posts/new", admin, func(c *hybrid.PageCtx) error {
-		return c.JSON(map[string]any{"post": nil})
+		categories, err := settings.Categories()
+		if err != nil {
+			return err
+		}
+		return c.JSON(map[string]any{"post": nil, "categories": categories})
 	}); err != nil {
 		return err
 	}
@@ -135,7 +141,11 @@ func RegisterAdmin(
 		if err != nil {
 			return err
 		}
-		return c.JSON(map[string]any{"post": toPostView(p)})
+		categories, err := settings.Categories()
+		if err != nil {
+			return err
+		}
+		return c.JSON(map[string]any{"post": toPostView(p), "categories": categories})
 	}); err != nil {
 		return err
 	}

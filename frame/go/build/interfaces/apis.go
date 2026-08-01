@@ -13,6 +13,7 @@ import (
 // postInput 是文章创建/更新的请求体。
 type postInput struct {
 	Title    string   `json:"title"`
+	Category string   `json:"category"`
 	Content  string   `json:"content"`
 	Summary  string   `json:"summary"`
 	CoverURL string   `json:"coverUrl"`
@@ -23,6 +24,7 @@ type postInput struct {
 func (in postInput) toServiceInput() postapp.PostInput {
 	return postapp.PostInput{
 		Title:    in.Title,
+		Category: in.Category,
 		Content:  in.Content,
 		Summary:  in.Summary,
 		CoverURL: in.CoverURL,
