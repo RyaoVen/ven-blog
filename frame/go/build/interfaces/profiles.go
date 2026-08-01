@@ -59,6 +59,7 @@ func RegisterProfiles(a *hybrid.App, users *userapp.Service, posts *postapp.Serv
 		}
 		if viewerID, _, ok := c.User(); ok {
 			if vid, parseErr := parseID(viewerID); parseErr == nil && vid == profile.User.ID {
+				payload["email"] = profile.User.Email
 				favs, favErr := posts.ListFavorites(vid)
 				if favErr != nil {
 					return favErr
