@@ -45,4 +45,8 @@ type Repository interface {
 	DailyPublication(days int) ([]DayPublication, error)
 	// CategoryCounts 各分类文章数（分类雷达图用）。
 	CategoryCounts() ([]CategoryCount, error)
+	// CountByCategory 某分类文章数（删除分类前检查）。
+	CountByCategory(category string) (int, error)
+	// UpdateCategory 把某分类全部文章改到目标分类（删除分类时的一键迁移）。
+	UpdateCategory(from, to string) error
 }
