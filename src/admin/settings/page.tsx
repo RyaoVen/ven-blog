@@ -1,6 +1,6 @@
 /** 后台-设置页：账号安全 / 作者资料 / 内容配置 / 文章分类 / 评论审核 */
 
-import { ChangeEvent, FormEvent, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, ReactNode, useRef, useState } from "react";
 import type { PageAppProps } from "../../app/pageApp";
 import { CheckIcon } from "../../lib/icons";
 import { v } from "../../lib/theme";
@@ -292,13 +292,13 @@ function ProfileSection({ profile }: { profile: AdminSettingsState["profile"] })
     );
 }
 
-/* ===== 内容配置 ===== */
+/* ===== 内容配置（结构化表单行） ===== */
 function ContentSection({ content }: { content: SettingsContent }) {
-    const [paragraphs, setParagraphs] = useState(content.paragraphs.join("\n"));
-    const [skills, setSkills] = useState(content.skills.map((s) => `${s.name}|${s.level}`).join("\n"));
-    const [friends, setFriends] = useState(content.friends.map((f) => `${f.name}|${f.url}|${f.desc}`).join("\n"));
-    const [quotes, setQuotes] = useState(content.quotes.map((q) => `${q.text}|${q.source}`).join("\n"));
-    const [projects, setProjects] = useState(content.projects.map((p) => `${p.name}|${p.desc}|${p.url}`).join("\n"));
+    const [paragraphs, setParagraphs] = useState<string[]>(content.paragraphs);
+    const [skills, setSkills] = useState(content.skills);
+    const [friends, setFriends] = useState(content.friends);
+    const [quotes, setQuotes] = useState(content.quotes);
+    const [projects, setProjects] = useState(content.projects);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const { show, node } = useToast();
@@ -309,23 +309,11 @@ function ContentSection({ content }: { content: SettingsContent }) {
         setError(null);
         try {
             const payload: SettingsContent = {
-                paragraphs: lines(paragraphs),
-                skills: lines(skills).map((line) => {
-                    const [name = "", level = "know"] = line.split("|");
-                    return { name: name.trim(), level: level.trim() };
-                }),
-                friends: lines(friends).map((line) => {
-                    const [name = "", url = "", desc = ""] = line.split("|");
-                    return { name: name.trim(), url: url.trim(), desc: desc.trim() };
-                }),
-                quotes: lines(quotes).map((line) => {
-                    const [text = "", source = ""] = line.split("|");
-                    return { text: text.trim(), source: source.trim() };
-                }),
-                projects: lines(projects).map((line) => {
-                    const [name = "", desc = "", url = ""] = line.split("|");
-                    return { name: name.trim(), desc: desc.trim(), url: url.trim() };
-                }),
+                paragraphs: paragraphs.map((p) => p.trim()).filter(Boolean),
+                skills: skills.filter((s) => s.name.trim()),
+                friends: friends.filter((f) => f.name.trim()),
+                quotes: quotes.filter((q) => q.text.trim()),
+                projects: projects.filter((p) => p.name.trim()),
                 github: content.github,
             };
             const resp = await fetch("/api/admin/settings/content", {
@@ -347,13 +335,70 @@ function ContentSection({ content }: { content: SettingsContent }) {
 
     return (
         <section className="ven-card" style={sectionStyle}>
-            <SectionTitle>内容配置（行格式，每行一条）</SectionTitle>
-            <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <Field label="个人介绍段落（作者主页，每行一段）" value={paragraphs} onChange={setParagraphs} rows={5} />
-                <Field label="技术栈（name|level，level ∈ deep/solid/know）" value={skills} onChange={setSkills} rows={4} />
-                <Field label="友链（name|url|desc）" value={friends} onChange={setFriends} rows={4} />
-                <Field label="收藏的句子（text|source）" value={quotes} onChange={setQuotes} rows={3} />
-                <Field label="维护的项目（name|desc|url）" value={projects} onChange={setProjects} rows={3} />
+            <SectionTitle>内容配置</SectionTitle>
+            <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+                <EditorBlock title="个人介绍段落" addLabel="添加段落" onAdd={() => setParagraphs((l) => [...l, ""])}>
+                    {paragraphs.map((p, i) => (
+                        <RowShell key={i} onRemove={() => setParagraphs((l) => l.filter((_, x) => x !== i))}>
+                            <textarea
+                                className="ven-input"
+                                rows={2}
+                                value={p}
+                                onChange={(e) => setParagraphs((l) => l.map((x, xi) => (xi === i ? e.target.value : x)))}
+                                placeholder={`第 ${i + 1} 段`}
+                            />
+                        </RowShell>
+                    ))}
+                </EditorBlock>
+                <EditorBlock title="技术栈" addLabel="添加技能" onAdd={() => setSkills((l) => [...l, { name: "", level: "know" }])}>
+                    {skills.map((s, i) => (
+                        <RowShell key={i} onRemove={() => setSkills((l) => l.filter((_, x) => x !== i))}>
+                            <input
+                                className="ven-input"
+                                style={{ flex: 1, minWidth: 140 }}
+                                value={s.name}
+                                onChange={(e) => setSkills((l) => l.map((x, xi) => (xi === i ? { ...x, name: e.target.value } : x)))}
+                                placeholder="技能名"
+                            />
+                            <select
+                                className="ven-input"
+                                style={{ width: 110, flexShrink: 0 }}
+                                value={s.level}
+                                onChange={(e) => setSkills((l) => l.map((x, xi) => (xi === i ? { ...x, level: e.target.value } : x)))}
+                            >
+                                <option value="deep">深入</option>
+                                <option value="solid">熟练</option>
+                                <option value="know">了解</option>
+                            </select>
+                        </RowShell>
+                    ))}
+                </EditorBlock>
+                <EditorBlock title="友链" addLabel="添加友链" onAdd={() => setFriends((l) => [...l, { name: "", url: "", desc: "" }])}>
+                    {friends.map((f, i) => (
+                        <RowShell key={i} onRemove={() => setFriends((l) => l.filter((_, x) => x !== i))}>
+                            <input className="ven-input" style={{ width: 120 }} value={f.name} onChange={(e) => setFriends((l) => l.map((x, xi) => (xi === i ? { ...x, name: e.target.value } : x)))} placeholder="名称" />
+                            <input className="ven-input" style={{ flex: 1, minWidth: 160 }} value={f.url} onChange={(e) => setFriends((l) => l.map((x, xi) => (xi === i ? { ...x, url: e.target.value } : x)))} placeholder="https://…" />
+                            <input className="ven-input" style={{ width: 140 }} value={f.desc} onChange={(e) => setFriends((l) => l.map((x, xi) => (xi === i ? { ...x, desc: e.target.value } : x)))} placeholder="描述" />
+                        </RowShell>
+                    ))}
+                </EditorBlock>
+                <EditorBlock title="收藏的句子" addLabel="添加句子" onAdd={() => setQuotes((l) => [...l, { text: "", source: "" }])}>
+                    {quotes.map((q, i) => (
+                        <RowShell key={i} onRemove={() => setQuotes((l) => l.filter((_, x) => x !== i))}>
+                            <input className="ven-input" style={{ flex: 1, minWidth: 200 }} value={q.text} onChange={(e) => setQuotes((l) => l.map((x, xi) => (xi === i ? { ...x, text: e.target.value } : x)))} placeholder="句子" />
+                            <input className="ven-input" style={{ width: 160 }} value={q.source} onChange={(e) => setQuotes((l) => l.map((x, xi) => (xi === i ? { ...x, source: e.target.value } : x)))} placeholder="出处" />
+                        </RowShell>
+                    ))}
+                </EditorBlock>
+                <EditorBlock title="维护的项目" addLabel="添加项目" onAdd={() => setProjects((l) => [...l, { name: "", desc: "", url: "" }])}>
+                    {projects.map((p, i) => (
+                        <RowShell key={i} onRemove={() => setProjects((l) => l.filter((_, x) => x !== i))}>
+                            <input className="ven-input" style={{ width: 140 }} value={p.name} onChange={(e) => setProjects((l) => l.map((x, xi) => (xi === i ? { ...x, name: e.target.value } : x)))} placeholder="项目名" />
+                            <input className="ven-input" style={{ flex: 1, minWidth: 160 }} value={p.desc} onChange={(e) => setProjects((l) => l.map((x, xi) => (xi === i ? { ...x, desc: e.target.value } : x)))} placeholder="描述" />
+                            <input className="ven-input" style={{ width: 160 }} value={p.url} onChange={(e) => setProjects((l) => l.map((x, xi) => (xi === i ? { ...x, url: e.target.value } : x)))} placeholder="https://…" />
+                        </RowShell>
+                    ))}
+                </EditorBlock>
                 {error && <p style={{ color: v.danger, fontSize: 13, margin: 0 }}>{error}</p>}
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                     <button className="ven-btn ven-btn-primary" type="submit" disabled={submitting}>
@@ -366,25 +411,58 @@ function ContentSection({ content }: { content: SettingsContent }) {
     );
 }
 
-function Field({ label, value, onChange, rows }: { label: string; value: string; onChange: (v: string) => void; rows: number }) {
+/** 编辑器块：标题 + 添加按钮 + 行列表 */
+function EditorBlock({
+    title,
+    addLabel,
+    onAdd,
+    children,
+}: {
+    title: string;
+    addLabel: string;
+    onAdd: () => void;
+    children: ReactNode;
+}) {
     return (
-        <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
-            {label}
-            <textarea className="ven-input" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize: 13 }} />
-        </label>
+        <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+                <span style={{ fontSize: 14, fontWeight: 650 }}>{title}</span>
+                <button type="button" className="ven-btn" style={{ padding: "3px 12px", fontSize: 12 }} onClick={onAdd}>
+                    {addLabel}
+                </button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {children.length === 0 ? (
+                    <p style={{ color: v.textMuted, fontSize: 13, margin: 0 }}>暂无条目，点击右上「{addLabel}」。</p>
+                ) : (
+                    children
+                )}
+            </div>
+        </div>
     );
 }
 
-function lines(raw: string): string[] {
-    return raw
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean);
+/** 表单行外壳（右侧移除按钮） */
+function RowShell({ onRemove, children }: { onRemove: () => void; children: React.ReactNode }) {
+    return (
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <div style={{ flex: 1, display: "flex", gap: 8, flexWrap: "wrap" }}>{children}</div>
+            <button
+                type="button"
+                onClick={onRemove}
+                className="ven-btn ven-btn-danger"
+                style={{ padding: "3px 10px", fontSize: 12, flexShrink: 0 }}
+                aria-label="移除"
+            >
+                ×
+            </button>
+        </div>
+    );
 }
 
-/* ===== 文章分类 ===== */
+/* ===== 文章分类（结构化表单行） ===== */
 function CategoriesSection({ categories }: { categories: string[] }) {
-    const [raw, setRaw] = useState(categories.join("\n"));
+    const [items, setItems] = useState<string[]>(categories);
     const [submitting, setSubmitting] = useState(false);
     const { show, node } = useToast();
 
@@ -395,7 +473,7 @@ function CategoriesSection({ categories }: { categories: string[] }) {
             const resp = await fetch("/api/admin/settings/categories", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ categories: lines(raw) }),
+                body: JSON.stringify({ categories: items.map((x) => x.trim()).filter(Boolean) }),
             });
             if (resp.ok) {
                 show("分类已保存");
@@ -409,7 +487,19 @@ function CategoriesSection({ categories }: { categories: string[] }) {
         <section className="ven-card" style={sectionStyle}>
             <SectionTitle>文章分类（编辑器必选其一）</SectionTitle>
             <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <Field label="每行一个分类名" value={raw} onChange={setRaw} rows={3} />
+                <EditorBlock title="" addLabel="添加分类" onAdd={() => setItems((l) => [...l, ""])}>
+                    {items.map((c, i) => (
+                        <RowShell key={i} onRemove={() => setItems((l) => l.filter((_, x) => x !== i))}>
+                            <input
+                                className="ven-input"
+                                style={{ maxWidth: 240 }}
+                                value={c}
+                                onChange={(e) => setItems((l) => l.map((x, xi) => (xi === i ? e.target.value : x)))}
+                                placeholder="分类名"
+                            />
+                        </RowShell>
+                    ))}
+                </EditorBlock>
                 <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                     <button className="ven-btn ven-btn-primary" type="submit" disabled={submitting}>
                         {submitting ? "保存中…" : "保存分类"}
