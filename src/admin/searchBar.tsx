@@ -1,7 +1,7 @@
 /** 管理端搜索筛选小部件：搜索输入 + 可选状态下拉 */
 
 import { ReactNode } from "react";
-import { SearchIcon } from "../../lib/icons";
+import { SearchIcon } from "../lib/icons";
 
 export function SearchBar({
     keyword,
