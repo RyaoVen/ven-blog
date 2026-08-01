@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	mysqldriver "github.com/go-sql-driver/mysql"
 	"golang.org/x/crypto/bcrypt"
@@ -201,4 +202,46 @@ func duplicateOnEmail(err error) bool {
 	var mysqlErr *mysqldriver.MySQLError
 	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 &&
 		(strings.Contains(mysqlErr.Message, "email") || strings.Contains(mysqlErr.Message, "uk_users_email"))
+}
+
+// DailyRegistrations 近 days 天每日注册数（GROUP BY DATE 聚合，Go 侧补零，日期升序）。
+func (r *UserRepository) DailyRegistrations(days int) ([]user.DayCount, error) {
+	if days <= 0 {
+		days = 30
+	}
+	rows, err := r.db.Query(
+		"SELECT DATE(created_at) AS d, COUNT(*) FROM users WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY) GROUP BY d",
+		days-1,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("daily registrations: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	counts := make(map[string]int)
+	for rows.Next() {
+		var d time.Time
+		var n int
+		if err := rows.Scan(&d, &n); err != nil {
+			return nil, fmt.Errorf("scan daily registration: %w", err)
+		}
+		counts[d.Format("2006-01-02")] = n
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	out := make([]user.DayCount, 0, days)
+	for i := days - 1; i >= 0; i-- {
+		date := time.Now().AddDate(0, 0, -i).Format("2006-01-02")
+		out = append(out, user.DayCount{Date: date, Count: counts[date]})
+	}
+	return out, nil
+}
+
+// CountSince 某时刻之后注册的用户数。
+func (r *UserRepository) CountSince(t time.Time) (int, error) {
+	var n int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM users WHERE created_at >= ?", t).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count users since: %w", err)
+	}
+	return n, nil
 }
