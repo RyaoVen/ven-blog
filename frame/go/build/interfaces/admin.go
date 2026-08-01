@@ -39,6 +39,13 @@ func RegisterAdmin(
 ) error {
 	admin := []string{"author"}
 
+	// 后台独立登入页（公开；登录成功跳 next 或 /admin）
+	if err := a.Page("/admin/login", nil, func(c *hybrid.PageCtx) error {
+		return c.JSON(nil)
+	}); err != nil {
+		return err
+	}
+
 	// /write 兼容重定向：?id= 保留到编辑页
 	a.Server().App().Get("/write", func(ctx *fiber.Ctx) error {
 		if id := ctx.Query("id"); id != "" {
