@@ -19,7 +19,7 @@ func RegisterCategories(a *hybrid.App, posts *postapp.Service, settings *setting
 	admin := []string{"author"}
 
 	// 新增分类
-	if err := a.Post("/categories", admin, func(c *hybrid.ApiCtx) error {
+	if err := a.Post("/admin/categories", admin, func(c *hybrid.ApiCtx) error {
 		var in categoryInput
 		if err := c.Bind(&in); err != nil {
 			return c.Error(400, "bad body")
@@ -46,7 +46,7 @@ func RegisterCategories(a *hybrid.App, posts *postapp.Service, settings *setting
 	}
 
 	// 改名（迁移文章 + 同步列表）
-	if err := a.Put("/categories/:name", admin, func(c *hybrid.ApiCtx) error {
+	if err := a.Put("/admin/categories/:name", admin, func(c *hybrid.ApiCtx) error {
 		oldName := strings.TrimSpace(c.Param("name"))
 		var in categoryInput
 		if err := c.Bind(&in); err != nil {
@@ -87,7 +87,7 @@ func RegisterCategories(a *hybrid.App, posts *postapp.Service, settings *setting
 	}
 
 	// 删除分类：非空且无 migrateTo 时 409 带 count；带 migrateTo 时一键迁移后删除
-	return a.Delete("/categories/:name", admin, func(c *hybrid.ApiCtx) error {
+	return a.Delete("/admin/categories/:name", admin, func(c *hybrid.ApiCtx) error {
 		name := strings.TrimSpace(c.Param("name"))
 		migrateTo := strings.TrimSpace(c.Query("migrateTo"))
 		categories, err := settings.Categories()
