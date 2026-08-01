@@ -1,12 +1,13 @@
 /** 后台-文章管理：列表 + 新建入口 + 编辑/删除 */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { PageAppProps } from "../../app/pageApp";
 import { formatDateTime } from "../../lib/format";
 import { TrashIcon } from "../../lib/icons";
 import { ConfirmModal } from "../../lib/modal";
 import { v } from "../../lib/theme";
 import { AdminLayout } from "../adminLayout";
+import { FilterSelect, SearchBar } from "../searchBar";
 import type { AdminPostsState } from "../types";
 import type { Post } from "../../posts/types";
 
@@ -14,6 +15,19 @@ export default function AdminPostsPage({ bootstrap }: PageAppProps) {
     const state = (bootstrap.initialState ?? { posts: [] }) as AdminPostsState;
     const [list, setList] = useState(state.posts);
     const [deleting, setDeleting] = useState<Post | null>(null);
+    const [keyword, setKeyword] = useState("");
+    const [category, setCategory] = useState("");
+
+    const categories = useMemo(() => [...new Set(list.map((p) => p.category).filter(Boolean))], [list]);
+    const filtered = useMemo(
+        () =>
+            list.filter(
+                (p) =>
+                    (!keyword || p.title.toLowerCase().includes(keyword.toLowerCase())) &&
+                    (!category || p.category === category),
+            ),
+        [list, keyword, category],
+    );
 
     async function confirmDelete() {
         if (!deleting) {
@@ -30,17 +44,24 @@ export default function AdminPostsPage({ bootstrap }: PageAppProps) {
         <AdminLayout route={bootstrap.route}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <p className="ven-meta" style={{ margin: 0 }}>
-                    共 {list.length} 篇
+                    共 {filtered.length} / {list.length} 篇
                 </p>
                 <a href="/admin/posts/new" className="ven-btn ven-btn-primary">
                     新建文章
                 </a>
             </div>
-            {list.length === 0 ? (
-                <p style={{ color: v.textMuted, fontSize: 14 }}>还没有文章。</p>
+            <SearchBar keyword={keyword} onKeyword={setKeyword} placeholder="搜索标题…">
+                <FilterSelect
+                    value={category}
+                    onChange={setCategory}
+                    options={[{ value: "", label: "全部分类" }, ...categories.map((c) => ({ value: c, label: c }))]}
+                />
+            </SearchBar>
+            {filtered.length === 0 ? (
+                <p style={{ color: v.textMuted, fontSize: 14 }}>没有匹配的文章。</p>
             ) : (
                 <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                    {list.map((p) => (
+                    {filtered.map((p) => (
                         <li
                             key={p.id}
                             style={{

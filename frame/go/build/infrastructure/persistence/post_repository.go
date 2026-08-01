@@ -395,3 +395,20 @@ func (r *PostRepository) CategoryCounts() ([]post.CategoryCount, error) {
 	}
 	return out, rows.Err()
 }
+
+// CountByCategory 某分类文章数。
+func (r *PostRepository) CountByCategory(category string) (int, error) {
+	var n int
+	if err := r.db.QueryRow("SELECT COUNT(*) FROM posts WHERE category = ?", category).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count posts of category %q: %w", category, err)
+	}
+	return n, nil
+}
+
+// UpdateCategory 把某分类全部文章改到目标分类。
+func (r *PostRepository) UpdateCategory(from, to string) error {
+	if _, err := r.db.Exec("UPDATE posts SET category = ? WHERE category = ?", to, from); err != nil {
+		return fmt.Errorf("migrate posts from category %q to %q: %w", from, to, err)
+	}
+	return nil
+}

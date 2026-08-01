@@ -167,3 +167,13 @@ func (s *Service) DailyPublication(days int) ([]post.DayPublication, error) {
 func (s *Service) CategoryCounts() ([]post.CategoryCount, error) {
 	return s.repo.CategoryCounts()
 }
+
+// CategoryCount 某分类文章数（删除分类前检查）。
+func (s *Service) CategoryCount(category string) (int, error) {
+	return s.repo.CountByCategory(category)
+}
+
+// MigrateCategory 把某分类全部文章迁移到目标分类（删除分类用）。
+func (s *Service) MigrateCategory(from, to string) error {
+	return s.repo.UpdateCategory(from, to)
+}
