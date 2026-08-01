@@ -90,7 +90,7 @@ func RegisterCategories(a *hybrid.App, posts *postapp.Service, settings *setting
 	// 删除分类：非空且无 migrateTo 时 409 带 count；带 migrateTo 时一键迁移后删除
 	return a.Delete("/admin/categories/:name", admin, func(c *hybrid.ApiCtx) error {
 		name := pathName(c)
-		migrateTo := strings.TrimSpace(c.Query("migrateTo"))
+		migrateTo := queryString(c, "migrateTo")
 		categories, err := settings.Categories()
 		if err != nil {
 			return c.Error(500, "internal error")
@@ -140,6 +140,15 @@ func RegisterCategories(a *hybrid.App, posts *postapp.Service, settings *setting
 func pathName(c *hybrid.ApiCtx) string {
 	raw := c.Param("name")
 	if decoded, err := url.PathUnescape(raw); err == nil {
+		raw = decoded
+	}
+	return strings.TrimSpace(raw)
+}
+
+// queryString 读取并 URL 解码查询参数（中文值经 percent-encoding 传输）。
+func queryString(c *hybrid.ApiCtx, key string) string {
+	raw := c.Query(key)
+	if decoded, err := url.QueryUnescape(raw); err == nil {
 		raw = decoded
 	}
 	return strings.TrimSpace(raw)
