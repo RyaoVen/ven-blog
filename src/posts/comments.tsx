@@ -79,7 +79,10 @@ export function CommentsSection({
             setDraft("");
             setReplyTo(null);
             setRecentId(created.id);
-            setList((l) => [created, ...l]); // 即时上屏，SSE 推送后整体校准
+            setList((l) => [created, ...l]); // 即时上屏（pending 本地可见，公开列表待审核后出现）
+            if (created.status === "pending") {
+                setError("评论已提交，待作者审核通过后公开显示");
+            }
         } catch {
             setError("网络错误，请重试");
         } finally {
@@ -194,6 +197,11 @@ function CommentItem({
                 <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 650, fontSize: 14 }}>{c.username}</span>
                     {c.replyTo && <span className="ven-chip">@{c.replyTo}</span>}
+                    {c.status === "pending" && (
+                        <span className="ven-chip" style={{ color: v.accent, borderColor: v.accent }}>
+                            待审核
+                        </span>
+                    )}
                     <span className="ven-meta">{formatDateTime(c.createdAt)}</span>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>

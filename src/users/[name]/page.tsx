@@ -21,7 +21,7 @@ export default function UserProfilePage({ bootstrap }: PageAppProps) {
     return (
         <Layout>
             <section style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
-                <LetterAvatar name={user.username} />
+                <LetterAvatar name={user.username} avatarUrl={user.avatarUrl} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <h1 style={{ fontSize: 28, margin: 0 }}>{user.username}</h1>

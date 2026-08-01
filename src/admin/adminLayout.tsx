@@ -11,6 +11,7 @@ const TABS = [
     { href: "/admin/posts", label: "文章", exact: false },
     { href: "/admin/comments", label: "评论", exact: false },
     { href: "/admin/moments", label: "动态", exact: false },
+    { href: "/admin/settings", label: "设置", exact: false },
 ] as const;
 
 const mono = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";

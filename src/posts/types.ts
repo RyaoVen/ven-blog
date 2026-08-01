@@ -21,6 +21,8 @@ export interface Comment {
     content: string;
     /** 回复目标用户名（@ 形式平铺展示，空串表示非回复） */
     replyTo: string;
+    /** 审核状态（approved | pending；pending 仅发表者提交瞬间本地展示） */
+    status: string;
     createdAt: string;
 }
 
