@@ -17,13 +17,14 @@ import (
 	"ven_hybird/hybrid"
 )
 
-// adminCommentView 后台评论管理视图（含所属文章标题）。
+// adminCommentView 后台评论管理视图（含所属文章标题与审核状态）。
 type adminCommentView struct {
 	ID        string    `json:"id"`
 	PostID    string    `json:"postId"`
 	PostTitle string    `json:"postTitle"`
 	Username  string    `json:"username"`
 	Content   string    `json:"content"`
+	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -139,7 +140,7 @@ func RegisterAdmin(
 		return err
 	}
 
-	// 评论管理
+	// 评论管理（全量 + 待审核）
 	if err := a.Page("/admin/comments", admin, func(c *hybrid.PageCtx) error {
 		list, err := comments.ListAll(100)
 		if err != nil {
@@ -153,10 +154,27 @@ func RegisterAdmin(
 				PostTitle: cm.PostTitle,
 				Username:  cm.Username,
 				Content:   cm.Content,
+				Status:    cm.Status,
 				CreatedAt: cm.CreatedAt,
 			})
 		}
-		return c.JSON(map[string]any{"comments": views})
+		pending, err := comments.ListPending()
+		if err != nil {
+			return err
+		}
+		pendingViews := make([]adminCommentView, 0, len(pending))
+		for _, cm := range pending {
+			pendingViews = append(pendingViews, adminCommentView{
+				ID:        strconv.FormatInt(cm.ID, 10),
+				PostID:    strconv.FormatInt(cm.PostID, 10),
+				PostTitle: cm.PostTitle,
+				Username:  cm.Username,
+				Content:   cm.Content,
+				Status:    cm.Status,
+				CreatedAt: cm.CreatedAt,
+			})
+		}
+		return c.JSON(map[string]any{"comments": views, "pending": pendingViews})
 	}); err != nil {
 		return err
 	}

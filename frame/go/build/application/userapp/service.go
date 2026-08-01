@@ -86,3 +86,35 @@ func (e *ValidationError) Error() string { return e.Message }
 func (s *Service) Count() (int, error) {
 	return s.repo.Count()
 }
+
+// ChangePassword 修改密码：先校验旧密码，再写入新哈希。
+func (s *Service) ChangePassword(userID int64, oldPassword, newPassword string) error {
+	if len(newPassword) < 6 {
+		return &ValidationError{Message: "password must be at least 6 characters"}
+	}
+	u, err := s.repo.FindByID(userID)
+	if err != nil {
+		return err
+	}
+	if bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(oldPassword)) != nil {
+		return &ValidationError{Message: "old password incorrect"}
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return s.repo.UpdatePassword(userID, string(hash))
+}
+
+// UpdateProfile 更新简介与头像。
+func (s *Service) UpdateProfile(userID int64, bio, avatarURL string) error {
+	if len([]rune(bio)) > 200 {
+		return &ValidationError{Message: "bio too long (max 200)"}
+	}
+	return s.repo.UpdateProfile(userID, bio, avatarURL)
+}
+
+// FindByID 按 ID 取用户。
+func (s *Service) FindByID(userID int64) (*user.User, error) {
+	return s.repo.FindByID(userID)
+}

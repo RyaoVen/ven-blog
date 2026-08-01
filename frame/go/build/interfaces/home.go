@@ -7,6 +7,7 @@ import (
 
 	"ven_hybird/build/application/momentapp"
 	"ven_hybird/build/application/postapp"
+	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/domain/user"
 	"ven_hybird/hybrid"
 )
@@ -33,9 +34,9 @@ type homeAuthorView struct {
 	GitHub    string `json:"github"`
 }
 
-// RegisterHome 注册首页（"/"）：聚合最近文章/动态、站点统计、静态策展内容与时间线。
+// RegisterHome 注册首页（"/"）：聚合最近文章/动态、站点统计、内容配置与时间线。
 // 首页是动态页（数据杂、更新频率低，1min 页面缓存足够；文章变更时 InvalidatePage("/") 刷新）。
-func RegisterHome(a *hybrid.App, posts *postapp.Service, moments *momentapp.Service, author *user.User) error {
+func RegisterHome(a *hybrid.App, posts *postapp.Service, moments *momentapp.Service, author *user.User, settings *settingsapp.Service) error {
 	return a.Page("/", nil, func(c *hybrid.PageCtx) error {
 		recentPosts, err := posts.ListRecent(5)
 		if err != nil {
@@ -90,18 +91,22 @@ func RegisterHome(a *hybrid.App, posts *postapp.Service, moments *momentapp.Serv
 				latestAgo = strconv.Itoa(ago) + " 天前"
 			}
 		}
+		content, err := settings.Content()
+		if err != nil {
+			return err
+		}
 		return c.JSON(map[string]any{
 			"recentPosts":   toPostViews(recentPosts),
 			"recentMoments": recentMoments,
 			"stats":         map[string]any{"posts": postCount, "words": totalChars, "days": days, "launchAt": launchAt, "latestID": latestID, "latestAgo": latestAgo},
-			"projects":      homeProjects,
-			"quotes":        homeQuotes,
+			"projects":      content.Projects,
+			"quotes":        content.Quotes,
 			"timeline":      timeline,
 			"author": homeAuthorView{
 				Username:  author.Username,
 				Bio:       author.Bio,
 				AvatarURL: author.AvatarURL,
-				GitHub:    authorGitHub,
+				GitHub:    content.GitHub,
 			},
 		})
 	})

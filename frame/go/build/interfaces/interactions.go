@@ -19,6 +19,7 @@ type CommentView struct {
 	Username  string    `json:"username"`
 	Content   string    `json:"content"`
 	ReplyTo   string    `json:"replyTo"`
+	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -30,6 +31,7 @@ func toCommentView(c *comment.Comment) CommentView {
 		Username:  c.Username,
 		Content:   c.Content,
 		ReplyTo:   c.ReplyTo,
+		Status:    c.Status,
 		CreatedAt: c.CreatedAt,
 	}
 }
@@ -131,6 +133,25 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 		}
 		declarePostsChanged(a, postID)
 		return c.JSON(201, toCommentView(cm))
+	}); err != nil {
+		return err
+	}
+
+	// 审核通过评论（仅 author）
+	if err := a.Post("/comments/:id/approve", []string{"author"}, func(c *hybrid.ApiCtx) error {
+		target, err := comments.Approve(mustID(c.Param("id")))
+		switch {
+		case errors.Is(err, comment.ErrNotFound):
+			return c.Error(404, "comment not found")
+		case err != nil:
+			return c.Error(500, "internal error")
+		}
+		if target.MomentID > 0 {
+			_ = a.DataChange("/moments")
+		} else {
+			declarePostsChanged(a, target.PostID)
+		}
+		return c.JSON(200, map[string]any{"ok": true})
 	}); err != nil {
 		return err
 	}

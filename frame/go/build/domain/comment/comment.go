@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+// 评论状态。
+const (
+	StatusApproved = "approved"
+	StatusPending  = "pending"
+)
+
 // Comment 评论实体。Username 与 PostTitle 是读取模型字段（仓储联表填充），写回时不持久化。
 type Comment struct {
 	ID        int64
@@ -16,6 +22,7 @@ type Comment struct {
 	PostTitle string // 所属文章标题（后台评论管理联表填充）
 	Content   string
 	ReplyTo   string // 回复目标用户名（@ 形式平铺展示，空串表示非回复）
+	Status    string // approved | pending（开启评论审核后新评论为 pending）
 	CreatedAt time.Time
 }
 
