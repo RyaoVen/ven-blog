@@ -81,6 +81,9 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
                 >
                     {post.authorName}
                 </a>
+                <span className="ven-chip" style={{ color: v.accent, borderColor: v.accent }}>
+                    {post.category}
+                </span>
                 <span>发布于 {formatDateTime(post.createdAt)}</span>
                 {post.updatedAt !== post.createdAt && <span>（更新于 {formatDateTime(post.updatedAt)}）</span>}
                 {post.tags.map((t) => (

@@ -4,6 +4,7 @@
 export interface Post {
     id: string;
     title: string;
+    category: string;
     summary: string;
     content: string;
     coverUrl: string;
@@ -43,9 +44,10 @@ export interface PagedPostsState {
     tags: string[];
 }
 
-/** 编辑类页面的 initialState */
+/** 编辑类页面的 initialState（categories 为编辑器分类下拉的列表） */
 export interface PostState {
     post: Post | null;
+    categories: string[];
 }
 
 /** 详情页的 initialState（公开数据；viewer 个性化状态走 /api 互动接口） */
