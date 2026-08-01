@@ -2,6 +2,7 @@
 package interfaces
 
 import (
+	"net/url"
 	"strings"
 
 	"ven_hybird/build/application/postapp"
@@ -47,7 +48,7 @@ func RegisterCategories(a *hybrid.App, posts *postapp.Service, settings *setting
 
 	// 改名（迁移文章 + 同步列表）
 	if err := a.Put("/admin/categories/:name", admin, func(c *hybrid.ApiCtx) error {
-		oldName := strings.TrimSpace(c.Param("name"))
+		oldName := pathName(c)
 		var in categoryInput
 		if err := c.Bind(&in); err != nil {
 			return c.Error(400, "bad body")
@@ -88,7 +89,7 @@ func RegisterCategories(a *hybrid.App, posts *postapp.Service, settings *setting
 
 	// 删除分类：非空且无 migrateTo 时 409 带 count；带 migrateTo 时一键迁移后删除
 	return a.Delete("/admin/categories/:name", admin, func(c *hybrid.ApiCtx) error {
-		name := strings.TrimSpace(c.Param("name"))
+		name := pathName(c)
 		migrateTo := strings.TrimSpace(c.Query("migrateTo"))
 		categories, err := settings.Categories()
 		if err != nil {
@@ -133,4 +134,13 @@ func RegisterCategories(a *hybrid.App, posts *postapp.Service, settings *setting
 		}
 		return c.JSON(200, map[string]any{"ok": true, "migrated": count})
 	})
+}
+
+// pathName 读取并 URL 解码路径参数（中文分类名经 percent-encoding 传输）。
+func pathName(c *hybrid.ApiCtx) string {
+	raw := c.Param("name")
+	if decoded, err := url.PathUnescape(raw); err == nil {
+		raw = decoded
+	}
+	return strings.TrimSpace(raw)
 }
