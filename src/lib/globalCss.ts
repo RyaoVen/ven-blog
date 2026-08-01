@@ -188,6 +188,26 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
 /* 玩味细节：特定区块十字准星 */
 .ven-crosshair { cursor: crosshair; }
 
+/* 评论即时上屏 slide-in */
+@keyframes ven-slide-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.ven-comment-enter { animation: ven-slide-in 0.3s var(--ease-out); }
+
+/* 导航链接 hover 下划线滑动 */
+.ven-nav-link { position: relative; }
+.ven-nav-link::after {
+    content: ""; position: absolute; left: 0; bottom: -3px; height: 1px; width: 100%;
+    background: var(--accent); transform: scaleX(0); transform-origin: left;
+    transition: transform 0.26s var(--ease-out);
+}
+.ven-nav-link:hover::after { transform: scaleX(1); }
+
+/* 文章卡片封面 hover 轻微放大 */
+.ven-card-hover > img { transition: transform 0.4s var(--ease-out); }
+.ven-card-hover:hover > img { transform: scale(1.03); }
+
 /* 裱框卡：外框 + 内衬垫 + SVG 四角括线（hover 括线转玉青） */
 .ven-frame {
     position: relative;
@@ -275,7 +295,8 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
 .ven-header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; }
 .ven-header > *:first-child { justify-self: start; }
 .ven-header > *:last-child { justify-self: end; }
-.ven-header-search { width: min(380px, 36vw); justify-self: center; }
+.ven-header-search { width: min(380px, 36vw); justify-self: center; transition: width 0.26s var(--ease-out); }
+.ven-header-search:focus-within { width: min(460px, 46vw); }
 .ven-header-search .ven-input { padding: 6px 12px; font-size: 13px; }
 @media (max-width: 1100px) {
     .ven-header { grid-template-columns: 1fr auto; }

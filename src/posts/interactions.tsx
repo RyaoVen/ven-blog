@@ -3,7 +3,8 @@
  * 切换后本地即时更新（SSE 推送随后校准）。
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import gsap from "gsap";
 import { BookmarkIcon, HeartIcon } from "../lib/icons";
 import { useRole } from "../lib/role";
 
@@ -79,6 +80,25 @@ export function InteractionBar({
     viewer: ViewerState;
     onToggle: (kind: "like" | "favorite") => void;
 }) {
+    const likeIconRef = useRef<HTMLSpanElement>(null);
+    const favIconRef = useRef<HTMLSpanElement>(null);
+    const prevLiked = useRef(viewer.liked);
+    const prevFav = useRef(viewer.favorited);
+
+    // 状态翻转瞬间图标弹性缩放 pop
+    useEffect(() => {
+        if (prevLiked.current !== viewer.liked && likeIconRef.current) {
+            gsap.fromTo(likeIconRef.current, { scale: 0.5 }, { scale: 1, duration: 0.4, ease: "back.out(3)" });
+        }
+        prevLiked.current = viewer.liked;
+    }, [viewer.liked]);
+    useEffect(() => {
+        if (prevFav.current !== viewer.favorited && favIconRef.current) {
+            gsap.fromTo(favIconRef.current, { scale: 0.5 }, { scale: 1, duration: 0.4, ease: "back.out(3)" });
+        }
+        prevFav.current = viewer.favorited;
+    }, [viewer.favorited]);
+
     return (
         <div style={{ display: "flex", gap: 12, margin: "36px 0 8px" }}>
             <button
@@ -87,7 +107,9 @@ export function InteractionBar({
                 style={{ minWidth: 118, justifyContent: "center" }}
                 onClick={() => onToggle("like")}
             >
-                <HeartIcon filled={viewer.liked} />
+                <span ref={likeIconRef} style={{ display: "inline-flex" }}>
+                    <HeartIcon filled={viewer.liked} />
+                </span>
                 {viewer.liked ? "已点赞" : "点赞"} {viewer.likeCount}
             </button>
             <button
@@ -96,7 +118,9 @@ export function InteractionBar({
                 style={{ minWidth: 118, justifyContent: "center" }}
                 onClick={() => onToggle("favorite")}
             >
-                <BookmarkIcon filled={viewer.favorited} />
+                <span ref={favIconRef} style={{ display: "inline-flex" }}>
+                    <BookmarkIcon filled={viewer.favorited} />
+                </span>
                 {viewer.favorited ? "已收藏" : "收藏"} {viewer.favoriteCount}
             </button>
         </div>

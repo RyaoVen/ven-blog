@@ -27,6 +27,7 @@ export function CommentsSection({
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [deleting, setDeleting] = useState<Comment | null>(null);
+    const [recentId, setRecentId] = useState<string | null>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
 
     // 文章：SSE 推送刷新 initialState 后同步本地列表
@@ -77,6 +78,7 @@ export function CommentsSection({
             const created = (await resp.json()) as Comment;
             setDraft("");
             setReplyTo(null);
+            setRecentId(created.id);
             setList((l) => [created, ...l]); // 即时上屏，SSE 推送后整体校准
         } catch {
             setError("网络错误，请重试");
@@ -146,6 +148,7 @@ export function CommentsSection({
                     {list.map((c) => (
                         <CommentItem
                             key={c.id}
+                            isNew={c.id === recentId}
                             comment={c}
                             canDelete={viewer?.userId === c.userId || role === "author"}
                             canReply={role !== null}
@@ -171,12 +174,14 @@ export function CommentsSection({
 /** 单条评论（Markdown 渲染 + @ 前缀 + 回复/删除操作） */
 function CommentItem({
     comment: c,
+    isNew,
     canDelete,
     canReply,
     onReply,
     onDelete,
 }: {
     comment: Comment;
+    isNew?: boolean;
     canDelete: boolean;
     canReply: boolean;
     onReply: () => void;
@@ -184,7 +189,7 @@ function CommentItem({
 }) {
     const rendered = useMemo(() => renderMarkdown(c.content), [c.content]);
     return (
-        <li style={{ padding: "14px 0", borderTop: `1px solid ${v.border}` }}>
+        <li className={isNew ? "ven-comment-enter" : undefined} style={{ padding: "14px 0", borderTop: `1px solid ${v.border}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                 <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 650, fontSize: 14 }}>{c.username}</span>
