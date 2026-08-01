@@ -157,3 +157,13 @@ func (s *Service) SiteStats() (posts int, totalChars int, err error) {
 func (s *Service) ListFavorites(userID int64) ([]*post.Post, error) {
 	return s.repo.ListFavorites(userID)
 }
+
+// DailyPublication 近 days 天每日发布篇数与字数（日历热力图用）。
+func (s *Service) DailyPublication(days int) ([]post.DayPublication, error) {
+	return s.repo.DailyPublication(days)
+}
+
+// CategoryCounts 各分类文章数（分类雷达图用）。
+func (s *Service) CategoryCounts() ([]post.CategoryCount, error) {
+	return s.repo.CategoryCounts()
+}

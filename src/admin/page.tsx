@@ -1,9 +1,11 @@
-/** 后台-数据面板：八项统计卡 + 最近评论 */
+/** 后台-数据面板：统计卡 + 用户增长折线/增量 + 发布日历热力图 + 分类雷达图 + 最近评论 */
 
+import { useState } from "react";
 import type { PageAppProps } from "../app/pageApp";
 import { formatDateTime } from "../lib/format";
 import { v } from "../lib/theme";
 import { AdminLayout } from "./adminLayout";
+import { CalendarHeatmap, DeltaCards, LineChart, RadarChart, RangeTabs } from "./charts";
 import type { AdminDashboardState } from "./types";
 
 const mono = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
@@ -11,11 +13,15 @@ const mono = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 const EMPTY: AdminDashboardState = {
     stats: { posts: 0, words: 0, comments: 0, likes: 0, favorites: 0, users: 0, moments: 0, subscribers: 0 },
     recentComments: [],
+    userGrowth: { d7: [], d30: [], d365: [], deltas: { yesterday: 0, week: 0, month: 0 } },
+    heatmap: [],
+    categoryCounts: [],
 };
 
 export default function AdminDashboardPage({ bootstrap }: PageAppProps) {
     const state = (bootstrap.initialState ?? EMPTY) as AdminDashboardState;
     const { stats } = state;
+    const [range, setRange] = useState("30");
     const cards: [string, number][] = [
         ["文章", stats.posts],
         ["总字数", stats.words],
@@ -26,6 +32,8 @@ export default function AdminDashboardPage({ bootstrap }: PageAppProps) {
         ["动态", stats.moments],
         ["订阅", stats.subscribers],
     ];
+    const series = range === "7" ? state.userGrowth.d7 : range === "365" ? state.userGrowth.d365 : state.userGrowth.d30;
+
     return (
         <AdminLayout route={bootstrap.route}>
             <div
@@ -33,7 +41,7 @@ export default function AdminDashboardPage({ bootstrap }: PageAppProps) {
                     display: "grid",
                     gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
                     gap: 14,
-                    marginBottom: 36,
+                    marginBottom: 32,
                 }}
             >
                 {cards.map(([label, value]) => (
@@ -45,6 +53,31 @@ export default function AdminDashboardPage({ bootstrap }: PageAppProps) {
                     </div>
                 ))}
             </div>
+
+            <section className="ven-card" style={{ padding: "20px 22px", marginBottom: 24 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
+                    <h2 style={{ fontSize: 17, margin: 0 }}>用户增长</h2>
+                    <RangeTabs range={range} onChange={setRange} />
+                </div>
+                <LineChart data={series} />
+                <div style={{ marginTop: 18 }}>
+                    <DeltaCards deltas={state.userGrowth.deltas} />
+                </div>
+            </section>
+
+            <section className="ven-card" style={{ padding: "20px 22px", marginBottom: 24 }}>
+                <h2 style={{ fontSize: 17, margin: "0 0 16px" }}>发布日历（近一年 · 文章 + 动态）</h2>
+                <CalendarHeatmap data={state.heatmap} />
+                <p className="ven-meta" style={{ margin: "10px 0 0" }}>
+                    颜色越深发布越多（悬停看篇数与字数）
+                </p>
+            </section>
+
+            <section className="ven-card" style={{ padding: "20px 22px", marginBottom: 24 }}>
+                <h2 style={{ fontSize: 17, margin: "0 0 8px" }}>分类发布</h2>
+                <RadarChart data={state.categoryCounts} />
+            </section>
+
             <h2 style={{ fontSize: 18 }}>最近评论</h2>
             {state.recentComments.length === 0 ? (
                 <p style={{ color: v.textMuted, fontSize: 14 }}>还没有评论。</p>

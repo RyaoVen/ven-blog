@@ -5,6 +5,19 @@ import "errors"
 // ErrNotFound 文章不存在。
 var ErrNotFound = errors.New("post not found")
 
+// DayPublication 某日发布统计。
+type DayPublication struct {
+	Date  string `json:"date"`
+	Count int    `json:"count"`
+	Chars int    `json:"chars"`
+}
+
+// CategoryCount 某分类文章数。
+type CategoryCount struct {
+	Category string `json:"category"`
+	Count    int    `json:"count"`
+}
+
 // Repository 文章仓储接口（领域层定义，基础设施层实现）。
 type Repository interface {
 	// ListPaged 分页返回文章（创建时间倒序，含作者名与标签），并返回符合过滤条件的总数；
@@ -28,4 +41,8 @@ type Repository interface {
 	Stats() (posts int, totalChars int, err error)
 	// ListFavorites 返回某用户收藏的文章（收藏时间倒序，含作者名与标签）。
 	ListFavorites(userID int64) ([]*Post, error)
+	// DailyPublication 近 days 天每日发布篇数与字数（日期升序，不足补零）。
+	DailyPublication(days int) ([]DayPublication, error)
+	// CategoryCounts 各分类文章数（分类雷达图用）。
+	CategoryCounts() ([]CategoryCount, error)
 }

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"ven_hybird/build/domain/moment"
 )
@@ -106,4 +107,29 @@ func (r *MomentRepository) Count() (int, error) {
 		return 0, fmt.Errorf("count moments: %w", err)
 	}
 	return n, nil
+}
+
+// DailyCounts 近 days 天每日发布数（GROUP BY DATE 聚合，日期 -> 篇数）。
+func (r *MomentRepository) DailyCounts(days int) (map[string]int, error) {
+	if days <= 0 {
+		days = 365
+	}
+	rows, err := r.db.Query(
+		"SELECT DATE(created_at) AS d, COUNT(*) FROM moments WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY) GROUP BY d",
+		days-1,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("moment daily counts: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	counts := make(map[string]int)
+	for rows.Next() {
+		var d time.Time
+		var n int
+		if err := rows.Scan(&d, &n); err != nil {
+			return nil, fmt.Errorf("scan moment daily count: %w", err)
+		}
+		counts[d.Format("2006-01-02")] = n
+	}
+	return counts, rows.Err()
 }

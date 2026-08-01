@@ -15,4 +15,6 @@ type Repository interface {
 	Delete(id int64) error
 	// Count 返回动态总数（后台统计）。
 	Count() (int, error)
+	// DailyCounts 近 days 天每日发布数（日期升序，不足补零）。
+	DailyCounts(days int) (map[string]int, error)
 }

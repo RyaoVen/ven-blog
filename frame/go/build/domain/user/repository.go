@@ -1,6 +1,15 @@
 package user
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
+
+// DayCount 某日计数（注册/发布聚合通用）。
+type DayCount struct {
+	Date  string `json:"date"`
+	Count int    `json:"count"`
+}
 
 // 领域错误。
 var (
@@ -19,6 +28,10 @@ type Repository interface {
 	FindByEmail(email string) (*User, error)
 	// UpdateEmail 绑定/修改邮箱；唯一键冲突返回 ErrEmailTaken。
 	UpdateEmail(userID int64, email string) error
+	// DailyRegistrations 近 days 天每日注册数（不足补零，日期升序）。
+	DailyRegistrations(days int) ([]DayCount, error)
+	// CountSince 某时刻之后注册的用户数（增量对比用）。
+	CountSince(t time.Time) (int, error)
 	// Create 创建用户；用户名冲突返回 ErrUsernameTaken。
 	Create(u *User) error
 	// Count 返回用户总数（种子判定用）。

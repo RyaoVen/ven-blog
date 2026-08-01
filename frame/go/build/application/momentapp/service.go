@@ -51,3 +51,8 @@ func (e *ValidationError) Error() string { return e.Message }
 func (s *Service) Count() (int, error) {
 	return s.repo.Count()
 }
+
+// DailyCounts 近 days 天每日动态发布数（日历热力图合并用）。
+func (s *Service) DailyCounts(days int) (map[string]int, error) {
+	return s.repo.DailyCounts(days)
+}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"ven_hybird/build/domain/post"
 )
@@ -336,4 +337,61 @@ func (r *PostRepository) ListFavorites(userID int64) ([]*post.Post, error) {
 		return nil, err
 	}
 	return posts, nil
+}
+
+// DailyPublication 近 days 天每日发布篇数与字数（GROUP BY DATE，Go 侧补零，日期升序）。
+func (r *PostRepository) DailyPublication(days int) ([]post.DayPublication, error) {
+	if days <= 0 {
+		days = 365
+	}
+	rows, err := r.db.Query(
+		`SELECT DATE(created_at) AS d, COUNT(*), COALESCE(SUM(CHAR_LENGTH(content)), 0)
+		FROM posts WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY) GROUP BY d`,
+		days-1,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("daily publication: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	type cell struct {
+		count int
+		chars int
+	}
+	cells := make(map[string]cell)
+	for rows.Next() {
+		var d time.Time
+		var n, chars int
+		if err := rows.Scan(&d, &n, &chars); err != nil {
+			return nil, fmt.Errorf("scan daily publication: %w", err)
+		}
+		cells[d.Format("2006-01-02")] = cell{count: n, chars: chars}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	out := make([]post.DayPublication, 0, days)
+	for i := days - 1; i >= 0; i-- {
+		date := time.Now().AddDate(0, 0, -i).Format("2006-01-02")
+		c := cells[date]
+		out = append(out, post.DayPublication{Date: date, Count: c.count, Chars: c.chars})
+	}
+	return out, nil
+}
+
+// CategoryCounts 各分类文章数（字典序）。
+func (r *PostRepository) CategoryCounts() ([]post.CategoryCount, error) {
+	rows, err := r.db.Query("SELECT category, COUNT(*) FROM posts GROUP BY category ORDER BY category")
+	if err != nil {
+		return nil, fmt.Errorf("category counts: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := make([]post.CategoryCount, 0)
+	for rows.Next() {
+		var c post.CategoryCount
+		if err := rows.Scan(&c.Category, &c.Count); err != nil {
+			return nil, fmt.Errorf("scan category count: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
 }

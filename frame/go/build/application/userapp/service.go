@@ -3,6 +3,7 @@ package userapp
 
 import (
 	"errors"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -122,4 +123,14 @@ func (s *Service) UpdateProfile(userID int64, bio, avatarURL string) error {
 // FindByID 按 ID 取用户。
 func (s *Service) FindByID(userID int64) (*user.User, error) {
 	return s.repo.FindByID(userID)
+}
+
+// DailyRegistrations 近 days 天每日注册数（仪表盘用户增长折线用）。
+func (s *Service) DailyRegistrations(days int) ([]user.DayCount, error) {
+	return s.repo.DailyRegistrations(days)
+}
+
+// CountSince 某时刻之后注册的用户数（增量对比用）。
+func (s *Service) CountSince(t time.Time) (int, error) {
+	return s.repo.CountSince(t)
 }

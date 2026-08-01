@@ -83,6 +83,67 @@ func RegisterAdmin(
 		if err != nil {
 			return err
 		}
+		// 用户增长折线（7/30/365）与增量对比
+		growth7, err := users.DailyRegistrations(7)
+		if err != nil {
+			return err
+		}
+		growth30, err := users.DailyRegistrations(30)
+		if err != nil {
+			return err
+		}
+		growth365, err := users.DailyRegistrations(365)
+		if err != nil {
+			return err
+		}
+		now := time.Now()
+		dayAgo, err2 := users.CountSince(now.AddDate(0, 0, -1))
+		if err2 != nil {
+			return err2
+		}
+		dayAgo2, err3 := users.CountSince(now.AddDate(0, 0, -2))
+		if err3 != nil {
+			return err3
+		}
+		weekAgo, err4 := users.CountSince(now.AddDate(0, 0, -7))
+		if err4 != nil {
+			return err4
+		}
+		weekAgo2, err5 := users.CountSince(now.AddDate(0, 0, -14))
+		if err5 != nil {
+			return err5
+		}
+		monthAgo, err6 := users.CountSince(now.AddDate(0, 0, -30))
+		if err6 != nil {
+			return err6
+		}
+		monthAgo2, err7 := users.CountSince(now.AddDate(0, 0, -60))
+		if err7 != nil {
+			return err7
+		}
+		// 发布日历热力图（文章+动态合并，近一年）
+		postDaily, err := posts.DailyPublication(365)
+		if err != nil {
+			return err
+		}
+		momentDaily, err := moments.DailyCounts(365)
+		if err != nil {
+			return err
+		}
+		type heatDay struct {
+			Date  string `json:"date"`
+			Posts int    `json:"posts"`
+			Chars int    `json:"chars"`
+		}
+		heatmap := make([]heatDay, 0, len(postDaily))
+		for _, d := range postDaily {
+			heatmap = append(heatmap, heatDay{Date: d.Date, Posts: d.Count + momentDaily[d.Date], Chars: d.Chars})
+		}
+		// 分类计数（雷达图）
+		categoryCounts, err := posts.CategoryCounts()
+		if err != nil {
+			return err
+		}
 		recent, err := comments.ListAll(5)
 		if err != nil {
 			return err
@@ -105,6 +166,16 @@ func RegisterAdmin(
 				"moments": momentCount, "subscribers": subscriberCount,
 			},
 			"recentComments": recentViews,
+			"userGrowth": map[string]any{
+				"d7": growth7, "d30": growth30, "d365": growth365,
+				"deltas": map[string]any{
+					"yesterday": dayAgo - (dayAgo2 - dayAgo),
+					"week":      weekAgo - (weekAgo2 - weekAgo),
+					"month":     monthAgo - (monthAgo2 - monthAgo),
+				},
+			},
+			"heatmap":        heatmap,
+			"categoryCounts": categoryCounts,
 		})
 	}); err != nil {
 		return err
