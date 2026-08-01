@@ -79,6 +79,53 @@ func (s *Service) Moderation() (bool, error) {
 	return raw == "on", nil
 }
 
+// SMTPConfig 读取 SMTP 配置（mailer 每次发送时现取）。
+func (s *Service) SMTPConfig() (host, port, user, password, fromName string, err error) {
+	if host, err = s.repo.Get(setting.KeySMTPHost); err != nil {
+		return
+	}
+	if port, err = s.repo.Get(setting.KeySMTPPort); err != nil {
+		return
+	}
+	if user, err = s.repo.Get(setting.KeySMTPUser); err != nil {
+		return
+	}
+	if password, err = s.repo.Get(setting.KeySMTPPass); err != nil {
+		return
+	}
+	fromName, err = s.repo.Get(setting.KeySMTPFromName)
+	return
+}
+
+// SetSMTP 保存 SMTP 配置（password 为空串时保留原值——接口掩码场景）。
+func (s *Service) SetSMTP(host, port, user, password, fromName string) error {
+	pairs := map[string]string{
+		setting.KeySMTPHost:     host,
+		setting.KeySMTPPort:     port,
+		setting.KeySMTPUser:     user,
+		setting.KeySMTPFromName: fromName,
+	}
+	for k, v := range pairs {
+		if err := s.repo.Set(k, v); err != nil {
+			return err
+		}
+	}
+	if password != "" {
+		return s.repo.Set(setting.KeySMTPPass, password)
+	}
+	return nil
+}
+
+// AuthorEmail 作者个人邮箱（@ 通知收件地址）。
+func (s *Service) AuthorEmail() (string, error) {
+	return s.repo.Get(setting.KeyAuthorEmail)
+}
+
+// SetAuthorEmail 保存作者个人邮箱。
+func (s *Service) SetAuthorEmail(email string) error {
+	return s.repo.Set(setting.KeyAuthorEmail, email)
+}
+
 // SetModeration 设置评论审核开关。
 func (s *Service) SetModeration(on bool) error {
 	value := "off"

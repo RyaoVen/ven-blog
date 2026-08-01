@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"ven_hybird/build/application/commentapp"
+	"ven_hybird/build/application/emailauth"
 	"ven_hybird/build/application/interactionapp"
 	"ven_hybird/build/domain/comment"
 	"ven_hybird/hybrid"
@@ -56,7 +57,8 @@ var loginRoles = []string{"reader", "author"}
 
 // RegisterInteractions 注册互动 API。
 // 详情页是 ISR 共享物化——viewer 个性化状态一律走本文件的 JSON 接口，不进页面 initialState。
-func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *interactionapp.Service) error {
+// emailAuthSvc 用于评论 @ 时的邮件通知（异步不阻塞）；siteURL 拼接原文链接。
+func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *interactionapp.Service, emailAuthSvc *emailauth.Service, siteURL string) error {
 	// viewer 互动状态（登录用户挂载后查询）
 	if err := a.Get("/posts/:id/interactions", loginRoles, func(c *hybrid.ApiCtx) error {
 		userID, err := currentUserID(c)
@@ -222,7 +224,8 @@ func RegisterMomentLikes(a *hybrid.App, inter *interactionapp.Service) error {
 }
 
 // RegisterMomentComments 注册动态评论 API（列表公开，发表需登录）。
-func RegisterMomentComments(a *hybrid.App, comments *commentapp.Service) error {
+// emailAuthSvc 用于评论 @ 时的邮件通知（异步不阻塞）；siteURL 拼接原文链接（动态以 /moments 落地）。
+func RegisterMomentComments(a *hybrid.App, comments *commentapp.Service, emailAuthSvc *emailauth.Service, siteURL string) error {
 	// 动态评论列表（公开）
 	if err := a.Get("/moments/:id/comments", nil, func(c *hybrid.ApiCtx) error {
 		list, err := comments.ListForMoment(mustID(c.Param("id")))
@@ -254,8 +257,18 @@ func RegisterMomentComments(a *hybrid.App, comments *commentapp.Service) error {
 			return c.Error(500, "internal error")
 		}
 		_ = a.DataChange("/moments")
+		emailAuthSvc.NotifyMentioned(in.ReplyTo, "/moments", excerptOf(in.Content), siteURL)
 		return c.JSON(201, toCommentView(cm))
 	})
+}
+
+// excerptOf 评论内容截断 80 字符（邮件通知引用用）。
+func excerptOf(content string) string {
+	runes := []rune(content)
+	if len(runes) <= 80 {
+		return content
+	}
+	return string(runes[:80]) + "…"
 }
 
 // RegisterMe 注册当前用户信息接口（前端评论区等场景取 viewer 身份）。

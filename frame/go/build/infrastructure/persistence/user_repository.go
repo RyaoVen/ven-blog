@@ -23,12 +23,14 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 }
 
 // 用户查询列序（与 scanUser 一致）。
-const userSelect = "SELECT id, username, password_hash, role, bio, avatar_url, created_at FROM users"
+const userSelect = "SELECT id, username, password_hash, role, bio, avatar_url, email, created_at FROM users"
 
-// scanUser 从行扫描用户（列序与 userSelect 一致）。
+// scanUser 从行扫描用户（列序与 userSelect 一致；email 为 NULLable）。
 func scanUser(row interface{ Scan(...any) error }) (*user.User, error) {
 	u := &user.User{}
-	err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.Bio, &u.AvatarURL, &u.CreatedAt)
+	var email sql.NullString
+	err := row.Scan(&u.ID, &u.Username, &u.PasswordHash, &u.Role, &u.Bio, &u.AvatarURL, &email, &u.CreatedAt)
+	u.Email = email.String
 	return u, err
 }
 
@@ -59,8 +61,8 @@ func (r *UserRepository) FindByID(id int64) (*user.User, error) {
 // Create 创建用户并回填 ID；用户名冲突返回 user.ErrUsernameTaken。
 func (r *UserRepository) Create(u *user.User) error {
 	res, err := r.db.Exec(
-		"INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)",
-		u.Username, u.PasswordHash, u.Role.String(),
+		"INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, ?, NULLIF(?, ''))",
+		u.Username, u.PasswordHash, u.Role.String(), u.Email,
 	)
 	if err != nil {
 		if isDuplicateEntry(err) {
@@ -162,6 +164,30 @@ func (r *UserRepository) UpdateProfile(userID int64, bio, avatarURL string) erro
 	_, err := r.db.Exec("UPDATE users SET bio = ?, avatar_url = ? WHERE id = ?", bio, avatarURL, userID)
 	if err != nil {
 		return fmt.Errorf("update profile of user %d: %w", userID, err)
+	}
+	return nil
+}
+
+// FindByEmail 按邮箱查找（验证码登录），不存在返回 user.ErrNotFound。
+func (r *UserRepository) FindByEmail(email string) (*user.User, error) {
+	u, err := scanUser(r.db.QueryRow(userSelect+" WHERE email = ?", email))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, user.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find user by email %q: %w", email, err)
+	}
+	return u, nil
+}
+
+// UpdateEmail 绑定/修改邮箱；唯一键冲突返回 user.ErrEmailTaken。
+func (r *UserRepository) UpdateEmail(userID int64, email string) error {
+	_, err := r.db.Exec("UPDATE users SET email = ? WHERE id = ?", email, userID)
+	if err != nil {
+		if isDuplicateEntry(err) {
+			return user.ErrEmailTaken
+		}
+		return fmt.Errorf("update email of user %d: %w", userID, err)
 	}
 	return nil
 }

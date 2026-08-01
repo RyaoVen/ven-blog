@@ -10,6 +10,7 @@ import (
 	"ven_hybird/build/domain/user"
 
 	"ven_hybird/build/application/commentapp"
+	"ven_hybird/build/application/emailauth"
 	"ven_hybird/build/application/guestbookapp"
 	"ven_hybird/build/application/interactionapp"
 	"ven_hybird/build/application/momentapp"
@@ -17,6 +18,7 @@ import (
 	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/application/subscribeapp"
 	"ven_hybird/build/application/userapp"
+	"ven_hybird/build/infrastructure/mailer"
 	"ven_hybird/build/infrastructure/persistence"
 	"ven_hybird/build/interfaces"
 	"ven_hybird/hybrid"
@@ -43,6 +45,7 @@ func Register(a *hybrid.App) error {
 	subscriberRepo := persistence.NewSubscriberRepository(db)
 	guestbookRepo := persistence.NewGuestbookRepository(db)
 	settingsRepo := persistence.NewSettingsRepository(db)
+	emailCodeRepo := persistence.NewEmailCodeRepository(db)
 	if err := persistence.SeedUsers(userRepo); err != nil {
 		return fmt.Errorf("build: seed users: %w", err)
 	}
@@ -59,6 +62,11 @@ func Register(a *hybrid.App) error {
 	posts := postapp.NewService(postRepo)
 	users := userapp.NewService(userRepo)
 	settings := settingsapp.NewService(settingsRepo)
+	mail := mailer.NewSMTPMailer(func() (mailer.Config, error) {
+		host, port, user, password, fromName, err := settings.SMTPConfig()
+		return mailer.Config{Host: host, Port: port, User: user, Password: password, FromName: fromName}, err
+	})
+	emailAuth := emailauth.NewService(emailCodeRepo, userRepo, mail)
 	comments := commentapp.NewService(commentRepo, func() bool {
 		on, err := settings.Moderation()
 		return err == nil && on
@@ -83,7 +91,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterPages(a, posts, comments, interactions); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterInteractions(a, comments, interactions); err != nil {
+	if err := interfaces.RegisterInteractions(a, comments, interactions, emailAuth, siteURLFromEnv()); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterSearch(a, posts); err != nil {
@@ -101,7 +109,11 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterSettings(a, settings, users); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterMomentComments(a, comments); err != nil {
+	interfaces.RegisterEmailAuth(a, emailAuth, users)
+	if err := interfaces.RegisterMeEmail(a, users); err != nil {
+		return err
+	}
+	if err := interfaces.RegisterMomentComments(a, comments, emailAuth, siteURLFromEnv()); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterMomentLikes(a, interactions); err != nil {
