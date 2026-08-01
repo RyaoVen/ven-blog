@@ -9,7 +9,7 @@ export const markdownCss = `
 }
 
 /* ===== TOC 侧栏 ===== */
-.ven-toc { position: sticky; top: 24px; align-self: start; max-height: calc(100vh - 48px); overflow-y: auto; }
+.ven-toc { position: sticky; top: 84px; align-self: start; max-height: calc(100vh - 108px); overflow-y: auto; }
 .ven-toc nav { display: flex; flex-direction: column; gap: 2px; border-left: 1px solid var(--border); }
 .ven-toc a {
     display: block; padding: 3px 0 3px 12px; font-size: 13px; line-height: 1.5;

@@ -62,7 +62,7 @@ export function Modal({
             <div
                 ref={cardRef}
                 className="ven-card"
-                style={{ width: "100%", maxWidth: width, maxHeight: "82vh", overflowY: "auto", padding: "22px 24px" }}
+                style={{ width: "100%", maxWidth: width, maxHeight: "86vh", overflowY: "auto", padding: "26px 30px" }}
                 onClick={(e) => e.stopPropagation()}
             >
                 <button
