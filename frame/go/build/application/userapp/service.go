@@ -19,20 +19,25 @@ func NewService(repo user.Repository) *Service {
 	return &Service{repo: repo}
 }
 
-// Register 注册新用户（角色 reader）：领域校验 → 查重 → bcrypt 哈希 → 落库。
-func (s *Service) Register(username, password string) (*user.User, error) {
-	if msg := user.ValidateCredentials(username, password); msg != "" {
+// Register 注册新用户（角色 reader，邮箱必填）：领域校验 → bcrypt 哈希 → 落库。
+func (s *Service) Register(username, password, email string) (*user.User, error) {
+	if msg := user.ValidateCredentials(username, password, email); msg != "" {
 		return nil, &ValidationError{Message: msg}
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
-	u := &user.User{Username: username, PasswordHash: string(hash), Role: user.RoleReader}
+	u := &user.User{Username: username, PasswordHash: string(hash), Role: user.RoleReader, Email: email}
 	if err := s.repo.Create(u); err != nil {
 		return nil, err
 	}
 	return u, nil
+}
+
+// UpdateEmail 绑定/修改邮箱（唯一性冲突返回 user.ErrEmailTaken）。
+func (s *Service) UpdateEmail(userID int64, email string) error {
+	return s.repo.UpdateEmail(userID, email)
 }
 
 // Authenticate 登录认证：查用户 + bcrypt 比对；失败统一返回 ErrInvalidCredentials（不泄露是哪一环错）。

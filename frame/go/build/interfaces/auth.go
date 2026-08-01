@@ -12,10 +12,11 @@ import (
 	"ven_hybird/hybrid"
 )
 
-// credentialsInput 是登录/注册的请求体。
+// credentialsInput 是登录/注册的请求体（注册需带邮箱——验证码登录依赖）。
 type credentialsInput struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	Email    string `json:"email"`
 }
 
 // RegisterAuth 注册认证接口。
@@ -44,13 +45,15 @@ func RegisterAuth(a *hybrid.App, users *userapp.Service) {
 		if err := ctx.BodyParser(&in); err != nil {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "bad body"})
 		}
-		u, err := users.Register(in.Username, in.Password)
+		u, err := users.Register(in.Username, in.Password, in.Email)
 		var vErr *userapp.ValidationError
 		switch {
 		case errors.As(err, &vErr):
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": vErr.Message})
 		case errors.Is(err, user.ErrUsernameTaken):
 			return ctx.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "username taken"})
+		case errors.Is(err, user.ErrEmailTaken):
+			return ctx.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "email taken"})
 		case err != nil:
 			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
 		}

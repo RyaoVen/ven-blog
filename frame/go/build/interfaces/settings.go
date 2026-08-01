@@ -7,6 +7,7 @@ import (
 
 	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/userapp"
+	"ven_hybird/build/domain/user"
 	"ven_hybird/hybrid"
 )
 
@@ -28,6 +29,14 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		if err != nil {
 			return err
 		}
+		host, port, smtpUser, _, fromName, err := settings.SMTPConfig()
+		if err != nil {
+			return err
+		}
+		authorEmail, err := settings.AuthorEmail()
+		if err != nil {
+			return err
+		}
 		profile := map[string]any{"username": "", "bio": "", "avatarUrl": ""}
 		if userID, _, ok := c.User(); ok {
 			if uid, parseErr := strconv.ParseInt(userID, 10, 64); parseErr == nil {
@@ -41,6 +50,11 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 			"moderation": moderation,
 			"categories": categories,
 			"profile":    profile,
+			"email": map[string]any{
+				"host": host, "port": port, "user": smtpUser,
+				"fromName": fromName, "passwordSet": host != "" || smtpUser != "",
+				"authorEmail": authorEmail,
+			},
 		})
 	}); err != nil {
 		return err
@@ -88,6 +102,45 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 			return c.Error(500, "internal error")
 		}
 		return c.JSON(200, map[string]any{"ok": true, "on": in.On})
+	}); err != nil {
+		return err
+	}
+
+	// 邮箱配置（SMTP + 作者个人邮箱；作者邮箱同步写入 author 账号）
+	if err := a.Put("/admin/settings/email", admin, func(c *hybrid.ApiCtx) error {
+		var in struct {
+			Host        string `json:"host"`
+			Port        string `json:"port"`
+			User        string `json:"user"`
+			Password    string `json:"password"`
+			FromName    string `json:"fromName"`
+			AuthorEmail string `json:"authorEmail"`
+		}
+		if err := c.Bind(&in); err != nil {
+			return c.Error(400, "bad body")
+		}
+		if in.AuthorEmail != "" {
+			if msg := user.ValidateEmail(in.AuthorEmail); msg != "" {
+				return c.Error(400, msg)
+			}
+		}
+		if err := settings.SetSMTP(in.Host, in.Port, in.User, in.Password, in.FromName); err != nil {
+			return c.Error(500, "internal error")
+		}
+		if err := settings.SetAuthorEmail(in.AuthorEmail); err != nil {
+			return c.Error(500, "internal error")
+		}
+		// 作者个人邮箱同步进 author 账号（验证码登录与 @ 通知依赖）
+		userID, err := currentUserID(c)
+		if err != nil {
+			return c.Error(401, "unauthenticated")
+		}
+		if in.AuthorEmail != "" {
+			if err := users.UpdateEmail(userID, in.AuthorEmail); err != nil {
+				return c.Error(500, "internal error")
+			}
+		}
+		return c.JSON(200, map[string]any{"ok": true})
 	}); err != nil {
 		return err
 	}

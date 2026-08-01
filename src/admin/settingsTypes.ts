@@ -43,10 +43,21 @@ export interface SettingsProfile {
     avatarUrl: string;
 }
 
+/** 邮箱配置（SMTP + 作者个人邮箱） */
+export interface EmailConfig {
+    host: string;
+    port: string;
+    user: string;
+    fromName: string;
+    passwordSet: boolean;
+    authorEmail: string;
+}
+
 /** 设置页 initialState */
 export interface AdminSettingsState {
     content: SettingsContent;
     moderation: boolean;
     categories: string[];
     profile: SettingsProfile;
+    email: EmailConfig;
 }
