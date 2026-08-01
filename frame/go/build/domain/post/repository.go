@@ -21,8 +21,8 @@ type CategoryCount struct {
 // Repository 文章仓储接口（领域层定义，基础设施层实现）。
 type Repository interface {
 	// ListPaged 分页返回文章（创建时间倒序，含作者名与标签），并返回符合过滤条件的总数；
-	// tag 非空时按标签过滤，pageSize <= 0 表示不分页（返回全部）。
-	ListPaged(tag string, page, pageSize int) ([]*Post, int, error)
+	// category 非空时按分类过滤，pageSize <= 0 表示不分页（返回全部）。
+	ListPaged(category string, page, pageSize int) ([]*Post, int, error)
 	// ListByAuthor 返回指定作者的全部文章（创建时间倒序，含作者名）。
 	ListByAuthor(authorID int64) ([]*Post, error)
 	// Get 按 ID 取文章（含标签），不存在返回 ErrNotFound。

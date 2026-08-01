@@ -32,9 +32,9 @@ type PostInput struct {
 	Tags     []string
 }
 
-// ListFilter 是列表筛选条件：标签 + 分页。
+// ListFilter 是列表筛选条件：分类 + 分页。
 type ListFilter struct {
-	Tag      string
+	Category string
 	Page     int
 	PageSize int
 }
@@ -63,7 +63,7 @@ func (s *Service) List(filter ListFilter) (*Paged, error) {
 	if pageSize <= 0 {
 		pageSize = defaultPageSize
 	}
-	posts, total, err := s.repo.ListPaged(strings.TrimSpace(filter.Tag), page, pageSize)
+	posts, total, err := s.repo.ListPaged(strings.TrimSpace(filter.Category), page, pageSize)
 	if err != nil {
 		return nil, err
 	}

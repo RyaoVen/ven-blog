@@ -6,18 +6,18 @@ import { v } from "../lib/theme";
 import { PostList } from "./list";
 import type { PagedPostsState } from "./types";
 
-const fallback: PagedPostsState = { posts: [], total: 0, page: 1, pageSize: 10, tag: "", tags: [] };
+const fallback: PagedPostsState = { posts: [], total: 0, page: 1, pageSize: 10, category: "", categories: [] };
 
-/** 标签筛选链接（"全部"不带 query） */
-function tagHref(tag: string): string {
-    return tag ? `/posts?tag=${encodeURIComponent(tag)}` : "/posts";
+/** 分类筛选链接（"全部"不带 query） */
+function categoryHref(category: string): string {
+    return category ? `/posts?category=${encodeURIComponent(category)}` : "/posts";
 }
 
-/** 分页链接：保留 tag 参数，第 1 页省略 page */
-function pageHref(tag: string, page: number): string {
+/** 分页链接：保留 category 参数，第 1 页省略 page */
+function pageHref(category: string, page: number): string {
     const params = new URLSearchParams();
-    if (tag) {
-        params.set("tag", tag);
+    if (category) {
+        params.set("category", category);
     }
     if (page > 1) {
         params.set("page", String(page));
@@ -37,9 +37,9 @@ export default function PostsPage({ bootstrap }: PageAppProps) {
                         分类
                     </p>
                     <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <TagRow label="全部" href="/posts" active={state.tag === ""} />
-                        {state.tags.map((t) => (
-                            <TagRow key={t} label={t} href={tagHref(t)} active={state.tag === t} />
+                        <TagRow label="全部" href="/posts" active={state.category === ""} />
+                        {state.categories.map((c) => (
+                            <TagRow key={c} label={c} href={categoryHref(c)} active={state.category === c} />
                         ))}
                     </nav>
                 </aside>
@@ -47,14 +47,14 @@ export default function PostsPage({ bootstrap }: PageAppProps) {
                     <header style={{ marginBottom: 24 }}>
                         <h1 style={{ fontSize: 28 }}>文章</h1>
                         <p style={{ color: v.textSecondary, margin: 0 }}>
-                            {state.tag ? `标签「${state.tag}」 · 共 ${state.total} 篇` : `共 ${state.total} 篇`}
+                            {state.category ? `分类「${state.category}」 · 共 ${state.total} 篇` : `共 ${state.total} 篇`}
                         </p>
                     </header>
                     <PostList posts={state.posts} />
                     {totalPages > 1 && (
                         <nav style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 28 }}>
                             {state.page > 1 ? (
-                                <a className="ven-btn" href={pageHref(state.tag, state.page - 1)}>
+                                <a className="ven-btn" href={pageHref(state.category, state.page - 1)}>
                                     ← 上一页
                                 </a>
                             ) : (
@@ -64,7 +64,7 @@ export default function PostsPage({ bootstrap }: PageAppProps) {
                                 {state.page} / {totalPages}
                             </span>
                             {state.page < totalPages ? (
-                                <a className="ven-btn" href={pageHref(state.tag, state.page + 1)}>
+                                <a className="ven-btn" href={pageHref(state.category, state.page + 1)}>
                                     下一页 →
                                 </a>
                             ) : (
