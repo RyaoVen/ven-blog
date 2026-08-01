@@ -3,6 +3,7 @@ package interfaces
 
 import (
 	"errors"
+	"strconv"
 
 	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/userapp"
@@ -13,7 +14,7 @@ import (
 func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *userapp.Service) error {
 	admin := []string{"author"}
 
-	// 设置页（数据面板 tab 之一）
+	// 设置页（含当前作者资料）
 	if err := a.Page("/admin/settings", admin, func(c *hybrid.PageCtx) error {
 		content, err := settings.Content()
 		if err != nil {
@@ -27,10 +28,19 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		if err != nil {
 			return err
 		}
+		profile := map[string]any{"username": "", "bio": "", "avatarUrl": ""}
+		if userID, _, ok := c.User(); ok {
+			if uid, parseErr := strconv.ParseInt(userID, 10, 64); parseErr == nil {
+				if u, findErr := users.FindByID(uid); findErr == nil {
+					profile = map[string]any{"username": u.Username, "bio": u.Bio, "avatarUrl": u.AvatarURL}
+				}
+			}
+		}
 		return c.JSON(map[string]any{
 			"content":    content,
 			"moderation": moderation,
 			"categories": categories,
+			"profile":    profile,
 		})
 	}); err != nil {
 		return err
