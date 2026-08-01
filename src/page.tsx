@@ -153,23 +153,37 @@ function Hero({ state }: { state: HomeState }) {
             <Tilt max={9}>
                 <div className="ven-card" style={{ width: 260, padding: "24px 22px", flexShrink: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-                        <span
-                            style={{
-                                width: 52,
-                                height: 52,
-                                borderRadius: 3,
-                                background: v.text,
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: 22,
-                                fontWeight: 700,
-                                fontFamily: mono,
-                                color: v.bg,
-                            }}
-                        >
-                            {author.username.slice(0, 1).toUpperCase()}
-                        </span>
+                        {author.avatarUrl ? (
+                            <img
+                                src={author.avatarUrl}
+                                alt={`${author.username} 的头像`}
+                                style={{
+                                    width: 52,
+                                    height: 52,
+                                    borderRadius: 3,
+                                    objectFit: "cover",
+                                    border: `1px solid ${v.border}`,
+                                }}
+                            />
+                        ) : (
+                            <span
+                                style={{
+                                    width: 52,
+                                    height: 52,
+                                    borderRadius: 3,
+                                    background: v.text,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 22,
+                                    fontWeight: 700,
+                                    fontFamily: mono,
+                                    color: v.bg,
+                                }}
+                            >
+                                {author.username.slice(0, 1).toUpperCase()}
+                            </span>
+                        )}
                         <div>
                             <div style={{ fontWeight: 700, fontSize: 17 }}>{author.username}</div>
                             <div className="ven-meta">AUTHOR</div>

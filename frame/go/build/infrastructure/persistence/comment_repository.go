@@ -19,32 +19,32 @@ func NewCommentRepository(db *sql.DB) *CommentRepository {
 }
 
 // commentSelect 评论查询列（post_id/moment_id 为 NULLable，扫描走 NullInt64 转换）。
-const commentSelect = `SELECT c.id, c.post_id, c.moment_id, c.user_id, u.username, c.content, c.reply_to, c.created_at
+const commentSelect = `SELECT c.id, c.post_id, c.moment_id, c.user_id, u.username, c.content, c.reply_to, c.status, c.created_at
 FROM comments c JOIN users u ON u.id = c.user_id`
 
 // scanComment 从行扫描评论（宿主 NULLable 列转为零值 int64）。
 func scanComment(row interface{ Scan(...any) error }) (*comment.Comment, error) {
 	c := &comment.Comment{}
 	var postID, momentID sql.NullInt64
-	err := row.Scan(&c.ID, &postID, &momentID, &c.UserID, &c.Username, &c.Content, &c.ReplyTo, &c.CreatedAt)
+	err := row.Scan(&c.ID, &postID, &momentID, &c.UserID, &c.Username, &c.Content, &c.ReplyTo, &c.Status, &c.CreatedAt)
 	c.PostID = postID.Int64
 	c.MomentID = momentID.Int64
 	return c, err
 }
 
-// ListByPost 返回文章下的评论（创建时间倒序，联表取用户名）。
+// ListByPost 返回文章下的可见评论（approved，创建时间倒序，联表取用户名）。
 func (r *CommentRepository) ListByPost(postID int64) ([]*comment.Comment, error) {
-	return r.listWhere("c.post_id = ?", postID)
+	return r.listWhere("c.post_id = ? AND c.status = ?", postID, comment.StatusApproved)
 }
 
-// ListByMoment 返回动态下的评论（创建时间倒序，联表取用户名）。
+// ListByMoment 返回动态下的可见评论（approved，创建时间倒序，联表取用户名）。
 func (r *CommentRepository) ListByMoment(momentID int64) ([]*comment.Comment, error) {
-	return r.listWhere("c.moment_id = ?", momentID)
+	return r.listWhere("c.moment_id = ? AND c.status = ?", momentID, comment.StatusApproved)
 }
 
-// listWhere 按宿主条件查询评论列表。
-func (r *CommentRepository) listWhere(where string, arg any) ([]*comment.Comment, error) {
-	rows, err := r.db.Query(commentSelect+" WHERE "+where+" ORDER BY c.created_at DESC, c.id DESC", arg)
+// listWhere 按宿主条件查询评论列表（args 依次填占位符）。
+func (r *CommentRepository) listWhere(where string, args ...any) ([]*comment.Comment, error) {
+	rows, err := r.db.Query(commentSelect+" WHERE "+where+" ORDER BY c.created_at DESC, c.id DESC", args...)
 	if err != nil {
 		return nil, fmt.Errorf("list comments: %w", err)
 	}
@@ -85,7 +85,7 @@ func (r *CommentRepository) ListAll(limit int) ([]*comment.Comment, error) {
 		limit = 100
 	}
 	rows, err := r.db.Query(
-		`SELECT c.id, c.post_id, c.moment_id, c.user_id, u.username, p.title, c.content, c.reply_to, c.created_at
+		`SELECT c.id, c.post_id, c.moment_id, c.user_id, u.username, p.title, c.content, c.reply_to, c.status, c.created_at
 		FROM comments c
 		JOIN users u ON u.id = c.user_id
 		LEFT JOIN posts p ON p.id = c.post_id
@@ -101,7 +101,7 @@ func (r *CommentRepository) ListAll(limit int) ([]*comment.Comment, error) {
 		c := &comment.Comment{}
 		var postID, momentID sql.NullInt64
 		var title sql.NullString
-		if err := rows.Scan(&c.ID, &postID, &momentID, &c.UserID, &c.Username, &title, &c.Content, &c.ReplyTo, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &postID, &momentID, &c.UserID, &c.Username, &title, &c.Content, &c.ReplyTo, &c.Status, &c.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan comment: %w", err)
 		}
 		c.PostID = postID.Int64
@@ -143,8 +143,8 @@ func (r *CommentRepository) Create(c *comment.Comment) error {
 		momentID = c.MomentID
 	}
 	res, err := r.db.Exec(
-		"INSERT INTO comments (post_id, moment_id, user_id, content, reply_to) VALUES (?, ?, ?, ?, ?)",
-		postID, momentID, c.UserID, c.Content, c.ReplyTo,
+		"INSERT INTO comments (post_id, moment_id, user_id, content, reply_to, status) VALUES (?, ?, ?, ?, ?, ?)",
+		postID, momentID, c.UserID, c.Content, c.ReplyTo, c.Status,
 	)
 	if err != nil {
 		return fmt.Errorf("create comment: %w", err)
@@ -173,6 +173,32 @@ func (r *CommentRepository) Delete(id int64) error {
 	}
 	if affected == 0 {
 		return comment.ErrNotFound
+	}
+	return nil
+}
+
+// ListPending 返回待审核评论（创建时间正序）。
+func (r *CommentRepository) ListPending() ([]*comment.Comment, error) {
+	rows, err := r.db.Query(commentSelect+" WHERE c.status = ? ORDER BY c.created_at ASC, c.id ASC", comment.StatusPending)
+	if err != nil {
+		return nil, fmt.Errorf("list pending comments: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	comments := make([]*comment.Comment, 0)
+	for rows.Next() {
+		c, err := scanComment(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan comment: %w", err)
+		}
+		comments = append(comments, c)
+	}
+	return comments, rows.Err()
+}
+
+// SetStatus 更新评论状态（审核通过/打回）。
+func (r *CommentRepository) SetStatus(id int64, status string) error {
+	if _, err := r.db.Exec("UPDATE comments SET status = ? WHERE id = ?", status, id); err != nil {
+		return fmt.Errorf("set status of comment %d: %w", id, err)
 	}
 	return nil
 }

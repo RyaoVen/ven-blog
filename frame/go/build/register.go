@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"os"
 
+	"ven_hybird/build/domain/user"
+
 	"ven_hybird/build/application/commentapp"
 	"ven_hybird/build/application/guestbookapp"
 	"ven_hybird/build/application/interactionapp"
 	"ven_hybird/build/application/momentapp"
+	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/application/subscribeapp"
 	"ven_hybird/build/application/userapp"
@@ -39,20 +42,27 @@ func Register(a *hybrid.App) error {
 	imageRepo := persistence.NewImageRepository(db)
 	subscriberRepo := persistence.NewSubscriberRepository(db)
 	guestbookRepo := persistence.NewGuestbookRepository(db)
+	settingsRepo := persistence.NewSettingsRepository(db)
 	if err := persistence.SeedUsers(userRepo); err != nil {
 		return fmt.Errorf("build: seed users: %w", err)
 	}
 
-	// 首页 hero 作者卡需要作者资料（种子 author 即本站作者）
-	author, err := userRepo.FindByUsername(persistence.AuthorUsernameFromEnv())
-	if err != nil {
+	// 作者资料每次请求现取（设置页改头像/简介后立即生效）
+	authorFn := func() (*user.User, error) {
+		return userRepo.FindByUsername(persistence.AuthorUsernameFromEnv())
+	}
+	if _, err := authorFn(); err != nil {
 		return fmt.Errorf("build: find author: %w", err)
 	}
 
 	// 应用服务
 	posts := postapp.NewService(postRepo)
 	users := userapp.NewService(userRepo)
-	comments := commentapp.NewService(commentRepo)
+	settings := settingsapp.NewService(settingsRepo)
+	comments := commentapp.NewService(commentRepo, func() bool {
+		on, err := settings.Moderation()
+		return err == nil && on
+	})
 	interactions := interactionapp.NewService(interactionRepo)
 	moments := momentapp.NewService(momentRepo)
 	subscribe := subscribeapp.NewService(subscriberRepo)
@@ -61,10 +71,10 @@ func Register(a *hybrid.App) error {
 	// 接口层注册（发文归属经 c.User() 取调用者，框架会话已携带用户身份）
 	interfaces.RegisterAuth(a, users)
 	interfaces.RegisterImages(a, imageRepo)
-	if err := interfaces.RegisterHome(a, posts, moments, author); err != nil {
+	if err := interfaces.RegisterHome(a, posts, moments, authorFn, settings); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterSiteInfo(a, author); err != nil {
+	if err := interfaces.RegisterSiteInfo(a, authorFn); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterSubscribe(a, subscribe, posts, siteURLFromEnv()); err != nil {
@@ -79,13 +89,16 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterSearch(a, posts); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterProfiles(a, users, posts, guestbook); err != nil {
+	if err := interfaces.RegisterProfiles(a, users, posts, guestbook, settings); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterGuestbookAPI(a, guestbook, author.Username); err != nil {
+	if err := interfaces.RegisterGuestbookAPI(a, guestbook, persistence.AuthorUsernameFromEnv()); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterAPIs(a, posts); err != nil {
+		return err
+	}
+	if err := interfaces.RegisterSettings(a, settings, users); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterMomentComments(a, comments); err != nil {

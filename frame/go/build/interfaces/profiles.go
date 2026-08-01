@@ -7,6 +7,7 @@ import (
 
 	"ven_hybird/build/application/guestbookapp"
 	"ven_hybird/build/application/postapp"
+	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/userapp"
 	"ven_hybird/build/domain/user"
 	"ven_hybird/hybrid"
@@ -40,7 +41,7 @@ func toUserView(u *user.User) UserView {
 
 // RegisterProfiles 注册用户个人页与作者主页。
 // 个人页对任意注册用户开放；作者主页仅当目标用户是 author 时存在，其余一律 404（不暴露角色信息）。
-func RegisterProfiles(a *hybrid.App, users *userapp.Service, posts *postapp.Service, gb *guestbookapp.Service) error {
+func RegisterProfiles(a *hybrid.App, users *userapp.Service, posts *postapp.Service, gb *guestbookapp.Service, settings *settingsapp.Service) error {
 	// 用户个人页：公开信息 + 文章/评论统计；isAuthor 供前端展示作者主页入口；
 	// viewer 即本人时附带收藏列表（仅本人可见，他人不可见）
 	if err := a.Page("/users/:name", nil, func(c *hybrid.PageCtx) error {
@@ -92,11 +93,15 @@ func RegisterProfiles(a *hybrid.App, users *userapp.Service, posts *postapp.Serv
 		if err != nil {
 			return err
 		}
+		content, err := settings.Content()
+		if err != nil {
+			return err
+		}
 		return c.JSON(map[string]any{
 			"author":      toUserView(profile.User),
-			"intro":       map[string]any{"paragraphs": authorIntroParagraphs, "skills": authorSkills},
-			"showcase":    map[string]any{"projects": homeProjects, "articles": toPostViews(latest)},
-			"friendLinks": friendLinks,
+			"intro":       map[string]any{"paragraphs": content.Paragraphs, "skills": content.Skills},
+			"showcase":    map[string]any{"projects": content.Projects, "articles": toPostViews(latest)},
+			"friendLinks": content.Friends,
 			"guestbook":   toGuestbookViews(entries),
 		})
 	})

@@ -22,6 +22,7 @@ export interface AdminComment {
     postTitle: string;
     username: string;
     content: string;
+    status: string;
     createdAt: string;
 }
 
@@ -39,6 +40,7 @@ export interface AdminPostsState {
 /** 评论管理 initialState */
 export interface AdminCommentsState {
     comments: AdminComment[];
+    pending: AdminComment[];
 }
 
 /** 动态管理 initialState */

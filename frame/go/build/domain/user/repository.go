@@ -18,6 +18,10 @@ type Repository interface {
 	Create(u *User) error
 	// Count 返回用户总数（种子判定用）。
 	Count() (int, error)
+	// UpdatePassword 更新密码哈希（设置页改密码）。
+	UpdatePassword(userID int64, passwordHash string) error
+	// UpdateProfile 更新简介与头像（设置页资料编辑）。
+	UpdateProfile(userID int64, bio, avatarURL string) error
 	// CountPosts 返回用户发布的文章数。
 	CountPosts(userID int64) (int, error)
 	// CountComments 返回用户发表的评论数。

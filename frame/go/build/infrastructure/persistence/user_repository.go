@@ -147,3 +147,21 @@ func isDuplicateEntry(err error) bool {
 	var mysqlErr *mysqldriver.MySQLError
 	return errors.As(err, &mysqlErr) && mysqlErr.Number == 1062
 }
+
+// UpdatePassword 更新密码哈希。
+func (r *UserRepository) UpdatePassword(userID int64, passwordHash string) error {
+	_, err := r.db.Exec("UPDATE users SET password_hash = ? WHERE id = ?", passwordHash, userID)
+	if err != nil {
+		return fmt.Errorf("update password of user %d: %w", userID, err)
+	}
+	return nil
+}
+
+// UpdateProfile 更新简介与头像。
+func (r *UserRepository) UpdateProfile(userID int64, bio, avatarURL string) error {
+	_, err := r.db.Exec("UPDATE users SET bio = ?, avatar_url = ? WHERE id = ?", bio, avatarURL, userID)
+	if err != nil {
+		return fmt.Errorf("update profile of user %d: %w", userID, err)
+	}
+	return nil
+}

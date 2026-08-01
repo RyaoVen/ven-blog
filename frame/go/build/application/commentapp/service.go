@@ -7,12 +7,13 @@ import (
 
 // Service 评论用例服务。
 type Service struct {
-	repo comment.Repository
+	repo       comment.Repository
+	moderation func() bool // 评论审核开关（true 时新评论待审核）
 }
 
-// NewService 构造评论用例服务。
-func NewService(repo comment.Repository) *Service {
-	return &Service{repo: repo}
+// NewService 构造评论用例服务；moderation 为审核开关解析函数（组装根注入，随设置实时生效）。
+func NewService(repo comment.Repository, moderation func() bool) *Service {
+	return &Service{repo: repo, moderation: moderation}
 }
 
 // ListForPost 文章评论列表。
@@ -28,6 +29,23 @@ func (s *Service) ListForMoment(momentID int64) ([]*comment.Comment, error) {
 // MomentCounts 动态评论数分组统计（/moments 页展示用）。
 func (s *Service) MomentCounts() (map[int64]int, error) {
 	return s.repo.MomentCommentCounts()
+}
+
+// Approve 审核通过评论；返回宿主（失效声明用）。
+func (s *Service) Approve(commentID int64) (comment.Target, error) {
+	c, err := s.repo.Get(commentID)
+	if err != nil {
+		return comment.Target{}, err
+	}
+	if err := s.repo.SetStatus(commentID, comment.StatusApproved); err != nil {
+		return comment.Target{}, err
+	}
+	return comment.Target{PostID: c.PostID, MomentID: c.MomentID}, nil
+}
+
+// ListPending 待审核评论（后台管理用）。
+func (s *Service) ListPending() ([]*comment.Comment, error) {
+	return s.repo.ListPending()
 }
 
 // ListAll 全站评论（后台管理用，含所属文章标题）。
@@ -51,12 +69,17 @@ func (s *Service) Create(userID int64, target comment.Target, content, replyTo s
 	if len(replyTo) > 64 {
 		return nil, &ValidationError{Message: "replyTo too long"}
 	}
+	status := comment.StatusApproved
+	if s.moderation != nil && s.moderation() {
+		status = comment.StatusPending
+	}
 	c := &comment.Comment{
 		UserID:   userID,
 		PostID:   target.PostID,
 		MomentID: target.MomentID,
 		Content:  content,
 		ReplyTo:  replyTo,
+		Status:   status,
 	}
 	if err := s.repo.Create(c); err != nil {
 		return nil, err
