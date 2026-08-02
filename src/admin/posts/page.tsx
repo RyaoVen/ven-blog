@@ -131,7 +131,6 @@ export default function AdminPostsPage({ bootstrap }: PageAppProps) {
                             >
                                 {p.pinned ? "取消置顶" : "置顶"}
                             </button>
->>>>>>> gh-ssh/master
                             <a href={`/admin/posts/${p.id}/edit`} className="ven-btn" style={{ padding: "3px 12px", fontSize: 12 }}>
                                 编辑
                             </a>

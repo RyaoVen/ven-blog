@@ -42,6 +42,8 @@ jobs:
       # 用 install 而非 ci：依赖树含跨平台 optional 包（esbuild/vite 8 的 @emnapi 系），
       # 单平台生成的 lock 不覆盖其他平台条目，install 会按当前平台补全（lock 满足时零变化）
       - run: npm install
+      # build 会经 esbuild 打包仓库根 src/（TSX 不在 typecheck 覆盖内，这是唯一能抓 JSX 语法错误的环节）
+      - run: npm run build
       - run: npm run typecheck
       - run: npm test
 
