@@ -11,11 +11,12 @@ import type { AdminDashboardState } from "./types";
 const mono = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
 const EMPTY: AdminDashboardState = {
-    stats: { posts: 0, words: 0, comments: 0, likes: 0, favorites: 0, users: 0, moments: 0, subscribers: 0 },
+    stats: { posts: 0, words: 0, comments: 0, likes: 0, favorites: 0, users: 0, moments: 0, subscribers: 0, visits: 0, postHits: 0 },
     recentComments: [],
     userGrowth: { d7: [], d30: [], d365: [], deltas: { yesterday: 0, week: 0, month: 0 } },
     heatmap: [],
     categoryCounts: [],
+    pv30: [],
 };
 
 export default function AdminDashboardPage({ bootstrap }: PageAppProps) {
@@ -23,6 +24,8 @@ export default function AdminDashboardPage({ bootstrap }: PageAppProps) {
     const { stats } = state;
     const [range, setRange] = useState("30");
     const cards: [string, number][] = [
+        ["访问量", stats.visits],
+        ["文章点击", stats.postHits],
         ["文章", stats.posts],
         ["总字数", stats.words],
         ["评论", stats.comments],
@@ -63,6 +66,14 @@ export default function AdminDashboardPage({ bootstrap }: PageAppProps) {
                 <div style={{ marginTop: 18 }}>
                     <DeltaCards deltas={state.userGrowth.deltas} />
                 </div>
+            </section>
+
+            <section className="ven-card" style={{ padding: "20px 22px", marginBottom: 24 }}>
+                <h2 style={{ fontSize: 17, margin: "0 0 16px" }}>访问量（近 30 天 PV）</h2>
+                <LineChart data={state.pv30} />
+                <p className="ven-meta" style={{ margin: "10px 0 0" }}>
+                    双埋点统计：网关中间件（整页加载/ISR 直发）+ SPA 导航上报
+                </p>
             </section>
 
             <section className="ven-card" style={{ padding: "20px 22px", marginBottom: 24 }}>

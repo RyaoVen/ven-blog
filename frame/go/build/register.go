@@ -6,6 +6,7 @@ package build
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"ven_hybird/build/domain/user"
 
@@ -20,6 +21,7 @@ import (
 	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/application/subscribeapp"
 	"ven_hybird/build/application/userapp"
+	"ven_hybird/build/application/visitapp"
 	"ven_hybird/build/infrastructure/llm"
 	"ven_hybird/build/infrastructure/mailer"
 	"ven_hybird/build/infrastructure/persistence"
@@ -51,6 +53,7 @@ func Register(a *hybrid.App) error {
 	settingsRepo := persistence.NewSettingsRepository(db)
 	emailCodeRepo := persistence.NewEmailCodeRepository(db)
 	apiKeyRepo := persistence.NewApiKeyRepository(db)
+	visitRepo := persistence.NewVisitRepository(db)
 	if err := persistence.SeedUsers(userRepo); err != nil {
 		return fmt.Errorf("build: seed users: %w", err)
 	}
@@ -93,6 +96,13 @@ func Register(a *hybrid.App) error {
 		return err == nil && on
 	})
 	apiKeys := apikeyapp.NewService(apiKeyRepo)
+	visits := visitapp.NewService(visitRepo)
+
+	// 埋点 ① Go 网关中间件：最外层 Use（ISR 直发也计数），失败静默——回调吞错，
+	// 页面响应不受埋点影响；SPA data-only 取数已在中间件层跳过，由前端导航上报兜底。
+	a.Server().SetVisitRecorder(func(path string) {
+		_ = visits.Record(time.Now(), path)
+	})
 
 	// 接口层注册（发文归属经 c.User() 取调用者，框架会话已携带用户身份）
 	interfaces.RegisterAuth(a, users)
@@ -146,6 +156,10 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterMomentLikes(a, interactions); err != nil {
 		return err
 	}
+	// 埋点 ② SPA 导航上报接口（公开；30s 同 path 节流在服务内）
+	if err := interfaces.RegisterVisitAPI(a, visits); err != nil {
+		return err
+	}
 	if err := interfaces.RegisterMe(a, users); err != nil {
 		return err
 	}
@@ -158,7 +172,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterPins(a, posts, moments); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterAdmin(a, posts, comments, interactions, moments, subscribe, users, settings); err != nil {
+	if err := interfaces.RegisterAdmin(a, posts, comments, interactions, moments, subscribe, users, settings, visits); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterKeysAdmin(a, apiKeys); err != nil {

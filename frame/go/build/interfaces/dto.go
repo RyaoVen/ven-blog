@@ -22,6 +22,10 @@ type PostView struct {
 	Pinned     bool      `json:"pinned"`
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
+	// 统计字段：后台文章列表（/admin/posts）批量填充；公开视图不填，保持 0
+	Hits      int `json:"hits"`
+	Likes     int `json:"likes"`
+	Favorites int `json:"favorites"`
 }
 
 // toPostView 领域实体 → JSON 视图。

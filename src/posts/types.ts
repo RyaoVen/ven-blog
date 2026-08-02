@@ -14,6 +14,10 @@ export interface Post {
     pinned: boolean;
     createdAt: string;
     updatedAt: string;
+    /** 统计字段（后台 /admin/posts 列表填充；公开视图不填） */
+    hits?: number;
+    likes?: number;
+    favorites?: number;
 }
 
 /** 一条评论 */

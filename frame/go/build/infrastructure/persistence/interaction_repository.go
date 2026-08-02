@@ -105,6 +105,44 @@ func (r *InteractionRepository) CountFavorites() (int, error) {
 	return n, nil
 }
 
+// PostFavoriteCounts 各文章收藏数分组统计（后台文章列表用，一次查询出全表 map）。
+func (r *InteractionRepository) PostFavoriteCounts() (map[int64]int, error) {
+	rows, err := r.db.Query("SELECT post_id, COUNT(*) FROM favorites GROUP BY post_id")
+	if err != nil {
+		return nil, fmt.Errorf("post favorite counts: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	counts := make(map[int64]int)
+	for rows.Next() {
+		var id int64
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, fmt.Errorf("scan post favorite count: %w", err)
+		}
+		counts[id] = n
+	}
+	return counts, rows.Err()
+}
+
+// PostLikeCounts 各文章点赞数分组统计（后台文章列表用，一次查询出全表 map）。
+func (r *InteractionRepository) PostLikeCounts() (map[int64]int, error) {
+	rows, err := r.db.Query("SELECT target_id, COUNT(*) FROM likes WHERE target_type = 'post' GROUP BY target_id")
+	if err != nil {
+		return nil, fmt.Errorf("post like counts: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	counts := make(map[int64]int)
+	for rows.Next() {
+		var id int64
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, fmt.Errorf("scan post like count: %w", err)
+		}
+		counts[id] = n
+	}
+	return counts, rows.Err()
+}
+
 // MomentLikeCounts 各动态点赞数分组统计。
 func (r *InteractionRepository) MomentLikeCounts() (map[int64]int, error) {
 	rows, err := r.db.Query("SELECT target_id, COUNT(*) FROM likes WHERE target_type = 'moment' GROUP BY target_id")

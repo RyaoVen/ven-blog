@@ -2,6 +2,7 @@
 
 import type { Moment } from "../moments/types";
 import type { Post } from "../posts/types";
+import type { DayCount } from "./charts";
 
 /** 后台统计 */
 export interface AdminStats {
@@ -13,6 +14,10 @@ export interface AdminStats {
     users: number;
     moments: number;
     subscribers: number;
+    /** 全站访问量（visits 表累计） */
+    visits: number;
+    /** 文章点击总量（/posts/{id} 路径累计） */
+    postHits: number;
 }
 
 /** 后台评论视图 */
@@ -55,6 +60,8 @@ export interface AdminDashboardState {
     userGrowth: UserGrowth;
     heatmap: HeatDay[];
     categoryCounts: CategoryCount[];
+    /** 近 30 天每日 PV（日期升序，不足补零） */
+    pv30: DayCount[];
 }
 
 /** 文章管理 initialState */

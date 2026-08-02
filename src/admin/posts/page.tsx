@@ -114,6 +114,9 @@ export default function AdminPostsPage({ bootstrap }: PageAppProps) {
                             <span className="ven-meta" style={{ flexShrink: 0 }}>
                                 {formatDateTime(p.createdAt)}
                             </span>
+                            <span className="ven-meta" style={{ flexShrink: 0 }}>
+                                阅读 {p.hits ?? 0} · 赞 {p.likes ?? 0} · 藏 {p.favorites ?? 0}
+                            </span>
                             <button
                                 type="button"
                                 className="ven-btn"
@@ -128,6 +131,7 @@ export default function AdminPostsPage({ bootstrap }: PageAppProps) {
                             >
                                 {p.pinned ? "取消置顶" : "置顶"}
                             </button>
+>>>>>>> gh-ssh/master
                             <a href={`/admin/posts/${p.id}/edit`} className="ven-btn" style={{ padding: "3px 12px", fontSize: 12 }}>
                                 编辑
                             </a>
