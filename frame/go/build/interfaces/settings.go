@@ -230,7 +230,7 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		return err
 	}
 
-	// 修改作者用户名（改名后新旧作者主页与首页作者卡都需失效刷新）
+	// 修改作者用户名（改名后新旧作者主页、首页作者卡与动态页都需失效刷新）
 	if err := a.Put("/admin/settings/username", admin, func(c *hybrid.ApiCtx) error {
 		var in struct {
 			Username string `json:"username"`
@@ -259,6 +259,8 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		a.InvalidatePage("/")
 		a.InvalidatePage("/author/" + old.Username)
 		a.InvalidatePage("/author/" + in.Username)
+		// 动态页是 ISR 静态页（物化落盘直发），走 DataChange 失效再生
+		_ = a.DataChange("/moments")
 		return c.JSON(200, map[string]any{"ok": true, "username": in.Username})
 	}); err != nil {
 		return err
@@ -311,9 +313,10 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		if err != nil {
 			return c.Error(500, "internal error")
 		}
-		// 资料展示在首页/作者主页（动态页），失效刷新 + SSE
+		// 资料展示在首页/作者主页/动态页（ISR 静态页 DataChange 失效再生），失效刷新 + SSE
 		a.InvalidatePage("/")
 		a.InvalidatePage("/author/"+usernameOf(a, users, userID))
+		_ = a.DataChange("/moments")
 		return c.JSON(200, map[string]any{"ok": true})
 	})
 }
