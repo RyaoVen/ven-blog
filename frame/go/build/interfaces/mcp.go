@@ -581,6 +581,7 @@ func (m *MCP) authorUpdate(ctx *fiber.Ctx, payload json.RawMessage) (any, *mcpEr
 	}
 
 	// 资料部分更新：只写传入字段，未传字段保持现值（UpdateProfile 是整包写入，需先取现值合并）
+	profileChanged := false
 	if in.Bio != nil || in.AvatarURL != nil {
 		current, err := m.users.FindByID(userID)
 		if err != nil {
@@ -597,6 +598,7 @@ func (m *MCP) authorUpdate(ctx *fiber.Ctx, payload json.RawMessage) (any, *mcpEr
 			return nil, classifyUserError(err)
 		}
 		contentChanged = true
+		profileChanged = true
 	}
 
 	// 改用户名：改名前先取旧用户名（旧路径失效需要，对齐 settings.go 用户名分支）
@@ -614,12 +616,18 @@ func (m *MCP) authorUpdate(ctx *fiber.Ctx, payload json.RawMessage) (any, *mcpEr
 		m.a.InvalidatePage("/")
 		m.a.InvalidatePage("/author/" + old)
 		m.a.InvalidatePage("/author/" + newUsername)
+		// 动态页是 ISR 静态页，一并 DataChange 失效再生（对齐 settings.go 用户名分支）
+		_ = m.a.DataChange("/moments")
 	}
 
 	if contentChanged {
 		// content 与 profile 改动聚合：作者主页 + 首页（对齐 authorAdmin.go 失效组）
 		m.a.InvalidatePage("/author/" + m.authorNameFn())
 		m.a.InvalidatePage("/")
+	}
+	if profileChanged {
+		// 资料（bio/头像）同展示于动态页 ISR 静态页，DataChange 失效再生（对齐 settings.go 资料分支）
+		_ = m.a.DataChange("/moments")
 	}
 
 	if usernameChanged {

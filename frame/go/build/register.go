@@ -169,6 +169,9 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterMoments(a, moments, comments, interactions); err != nil {
 		return err
 	}
+	if err := interfaces.RegisterPins(a, posts, moments); err != nil {
+		return err
+	}
 	if err := interfaces.RegisterAdmin(a, posts, comments, interactions, moments, subscribe, users, settings, visits); err != nil {
 		return err
 	}

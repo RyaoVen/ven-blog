@@ -298,6 +298,17 @@ func (r *fakePostRepo) Delete(id int64) error {
 	return nil
 }
 
+func (r *fakePostRepo) SetPinned(id int64, pinned bool) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	p, ok := r.posts[id]
+	if !ok {
+		return post.ErrNotFound
+	}
+	p.Pinned = pinned
+	return nil
+}
+
 func (r *fakePostRepo) ListPaged(category string, page, pageSize int) ([]*post.Post, int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -467,6 +478,17 @@ func (r *fakeMomentRepo) Delete(id int64) error {
 		return moment.ErrNotFound
 	}
 	delete(r.moments, id)
+	return nil
+}
+
+func (r *fakeMomentRepo) SetPinned(id int64, pinned bool) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	m, ok := r.moments[id]
+	if !ok {
+		return moment.ErrNotFound
+	}
+	m.Pinned = pinned
 	return nil
 }
 

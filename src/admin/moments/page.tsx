@@ -19,6 +19,7 @@ export default function AdminMomentsPage({ bootstrap }: PageAppProps) {
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [deleting, setDeleting] = useState<Moment | null>(null);
+    const [pinning, setPinning] = useState<string | null>(null);
     const [keyword, setKeyword] = useState("");
     const fileRef = useRef<HTMLInputElement>(null);
 
@@ -84,7 +85,7 @@ export default function AdminMomentsPage({ bootstrap }: PageAppProps) {
             setDraft("");
             // 本地即时上屏（详情字段以服务端下次拉取为准）
             setList((l) => [
-                { id: data.id, content: draft, authorName: "author", createdAt: new Date().toISOString() },
+                { id: data.id, content: draft, authorName: "author", pinned: false, createdAt: new Date().toISOString() },
                 ...l,
             ]);
         } catch {
@@ -103,6 +104,29 @@ export default function AdminMomentsPage({ bootstrap }: PageAppProps) {
             setList((l) => l.filter((m) => m.id !== deleting.id));
         }
         setDeleting(null);
+    }
+
+    /** togglePin 调置顶接口，成功后本地更新并重排（置顶优先，其内创建时间倒序，与后端一致） */
+    async function togglePin(m: Moment) {
+        setPinning(m.id);
+        try {
+            const resp = await fetch(`/api/admin/moments/${m.id}/pin`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pinned: !m.pinned }),
+            });
+            if (resp.ok) {
+                setList((l) =>
+                    l
+                        .map((x) => (x.id === m.id ? { ...x, pinned: !m.pinned } : x))
+                        .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.createdAt.localeCompare(a.createdAt)),
+                );
+            }
+        } catch {
+            // 网络错误静默保留原状态，刷新页面即可回源
+        } finally {
+            setPinning(null);
+        }
     }
 
     return (
@@ -165,6 +189,20 @@ export default function AdminMomentsPage({ bootstrap }: PageAppProps) {
                                 </p>
                                 <span className="ven-meta">{formatDateTime(m.createdAt)}</span>
                             </div>
+                            <button
+                                type="button"
+                                className="ven-btn"
+                                style={{
+                                    padding: "3px 12px",
+                                    fontSize: 12,
+                                    flexShrink: 0,
+                                    ...(m.pinned ? { color: v.accent, borderColor: v.accent } : {}),
+                                }}
+                                disabled={pinning === m.id}
+                                onClick={() => togglePin(m)}
+                            >
+                                {m.pinned ? "取消置顶" : "置顶"}
+                            </button>
                             <button
                                 type="button"
                                 className="ven-btn ven-btn-danger"

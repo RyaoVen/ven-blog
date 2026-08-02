@@ -6,6 +6,8 @@ import type { Post } from "../posts/types";
 export interface HomeMoment {
     id: string;
     content: string;
+    /** 置顶标记（列表排序置顶优先，前端只做展示） */
+    pinned: boolean;
     createdAt: string;
 }
 

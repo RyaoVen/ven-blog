@@ -35,6 +35,8 @@ type Repository interface {
 	Update(p *Post) error
 	// Delete 删除文章，不存在返回 ErrNotFound。
 	Delete(id int64) error
+	// SetPinned 设置置顶标记（置顶列表优先，不影响其余排序），不存在返回 ErrNotFound。
+	SetPinned(id int64, pinned bool) error
 	// AllTags 返回全部标签名（字典序）。
 	AllTags() ([]string, error)
 	// Stats 返回站点统计：文章总数与正文总字符数。

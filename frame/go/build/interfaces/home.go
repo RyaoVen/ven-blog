@@ -16,6 +16,7 @@ import (
 type homeMomentView struct {
 	ID        string    `json:"id"`
 	Content   string    `json:"content"`
+	Pinned    bool      `json:"pinned"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -58,6 +59,7 @@ func RegisterHome(a *hybrid.App, posts *postapp.Service, moments *momentapp.Serv
 			recentMoments = append(recentMoments, homeMomentView{
 				ID:        strconv.FormatInt(m.ID, 10),
 				Content:   m.Content,
+				Pinned:    m.Pinned,
 				CreatedAt: m.CreatedAt,
 			})
 		}

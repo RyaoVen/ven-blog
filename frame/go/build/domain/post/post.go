@@ -17,7 +17,8 @@ const (
 
 // Post 文章实体。
 // AuthorName 是读取模型字段（仓储查询时联表填充），写回时不持久化；
-// Tags 写回时经 NormalizeTags 归一化后由仓储持久化（tags/post_tags 表）。
+// Tags 写回时经 NormalizeTags 归一化后由仓储持久化（tags/post_tags 表）；
+// Pinned 置顶标记（0/1，排序加分项，写回经仓储 SetPinned 独立维护）。
 type Post struct {
 	ID         int64
 	AuthorID   int64
@@ -28,6 +29,7 @@ type Post struct {
 	Content    string
 	CoverURL   string
 	Tags       []string
+	Pinned     bool
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }

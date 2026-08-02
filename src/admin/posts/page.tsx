@@ -15,6 +15,7 @@ export default function AdminPostsPage({ bootstrap }: PageAppProps) {
     const state = (bootstrap.initialState ?? { posts: [] }) as AdminPostsState;
     const [list, setList] = useState(state.posts);
     const [deleting, setDeleting] = useState<Post | null>(null);
+    const [pinning, setPinning] = useState<string | null>(null);
     const [keyword, setKeyword] = useState("");
     const [category, setCategory] = useState("");
 
@@ -38,6 +39,29 @@ export default function AdminPostsPage({ bootstrap }: PageAppProps) {
             setList((l) => l.filter((p) => p.id !== deleting.id));
         }
         setDeleting(null);
+    }
+
+    /** togglePin 调置顶接口，成功后本地更新并重排（置顶优先，其内创建时间倒序，与后端一致） */
+    async function togglePin(p: Post) {
+        setPinning(p.id);
+        try {
+            const resp = await fetch(`/api/admin/posts/${p.id}/pin`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pinned: !p.pinned }),
+            });
+            if (resp.ok) {
+                setList((l) =>
+                    l
+                        .map((x) => (x.id === p.id ? { ...x, pinned: !p.pinned } : x))
+                        .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.createdAt.localeCompare(a.createdAt)),
+                );
+            }
+        } catch {
+            // 网络错误静默保留原状态，刷新页面即可回源
+        } finally {
+            setPinning(null);
+        }
     }
 
     return (
@@ -93,6 +117,21 @@ export default function AdminPostsPage({ bootstrap }: PageAppProps) {
                             <span className="ven-meta" style={{ flexShrink: 0 }}>
                                 阅读 {p.hits ?? 0} · 赞 {p.likes ?? 0} · 藏 {p.favorites ?? 0}
                             </span>
+                            <button
+                                type="button"
+                                className="ven-btn"
+                                style={{
+                                    padding: "3px 12px",
+                                    fontSize: 12,
+                                    flexShrink: 0,
+                                    ...(p.pinned ? { color: v.accent, borderColor: v.accent } : {}),
+                                }}
+                                disabled={pinning === p.id}
+                                onClick={() => togglePin(p)}
+                            >
+                                {p.pinned ? "取消置顶" : "置顶"}
+                            </button>
+>>>>>>> gh-ssh/master
                             <a href={`/admin/posts/${p.id}/edit`} className="ven-btn" style={{ padding: "3px 12px", fontSize: 12 }}>
                                 编辑
                             </a>
