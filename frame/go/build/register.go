@@ -14,14 +14,17 @@ import (
 	"ven_hybird/build/application/emailauth"
 	"ven_hybird/build/application/guestbookapp"
 	"ven_hybird/build/application/interactionapp"
+	"ven_hybird/build/application/moderationapp"
 	"ven_hybird/build/application/momentapp"
 	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/application/subscribeapp"
 	"ven_hybird/build/application/userapp"
+	"ven_hybird/build/infrastructure/llm"
 	"ven_hybird/build/infrastructure/mailer"
 	"ven_hybird/build/infrastructure/persistence"
 	"ven_hybird/build/interfaces"
+	"ven_hybird/build/interfaces/moderator"
 	"ven_hybird/hybrid"
 )
 
@@ -160,7 +163,35 @@ func Register(a *hybrid.App) error {
 	}
 	// /api/mcp 网关（agent 统一入口）：纯原生 fiber 路由，只认 key 不认 cookie，
 	// 与页面注册顺序无关，放链尾最稳；apiKeys 天然满足 interfaces.KeyAuthenticator。
-	return interfaces.RegisterMCP(a, apiKeys, posts, moments, comments, settings, users, authorFn, authorNameFn)
+	if err := interfaces.RegisterMCP(a, apiKeys, posts, moments, comments, settings, users, authorFn, authorNameFn); err != nil {
+		return err
+	}
+	// Unit 4：AI 自动审核 worker（BLOG_LLM_API_KEY 未配置则不启动）
+	return registerModerator(a, comments, guestbook, settings, mail, authorNameFn)
+}
+
+// registerModerator 组装自动审核 worker：构造 llm 客户端 → moderationapp → handler → 启动 ticker。
+// 启动条件：BLOG_LLM_API_KEY 非空（settings 键开关 ugc_ai_moderation 在每次 tick 现查，改设置即时生效）。
+func registerModerator(a *hybrid.App, comments *commentapp.Service, gb *guestbookapp.Service,
+	settings *settingsapp.Service, mail mailer.Mailer, authorNameFn func() string) error {
+	if os.Getenv("BLOG_LLM_API_KEY") == "" {
+		return nil
+	}
+	llmClient, err := llm.NewClient() // 读 BLOG_LLM_BASE_URL/API_KEY/MODEL（默认 DeepSeek 兼容端点）
+	if err != nil {
+		return fmt.Errorf("build: llm client: %w", err)
+	}
+	svc := moderationapp.NewService(comments, gb, llmClient)
+	handler := moderator.NewHandler(svc, settings, mail, a, authorNameFn, siteURLFromEnv(), moderator.Options{
+		Interval: moderator.IntervalFromEnv(), // BLOG_MODERATOR_INTERVAL，默认 5m
+		Batch:    moderator.BatchFromEnv(),    // BLOG_MODERATOR_BATCH，默认 20
+		Enabled: func() bool {
+			on, err := settings.AIModeration()
+			return err == nil && on
+		},
+	})
+	handler.Start() // 内部 go 协程，不阻塞注册与启动
+	return nil
 }
 
 // siteURLFromEnv 返回站点对外 URL（BLOG_SITE_URL，RSS 链接拼接用；默认本地开发地址）。
