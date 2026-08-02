@@ -127,7 +127,7 @@ export default function AdminCommentsPage({ bootstrap }: PageAppProps) {
                     <h2 style={{ fontSize: 16, margin: "0 0 12px" }}>待审核（{pending.length}）</h2>
                     <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                         {pending.map((c) => (
-                            <li key={c.id} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: `1px solid ${v.border}` }}>
+                            <li key={c.id} className="ven-admin-row" style={{ display: "flex", justifyContent: "space-between", gap: "10px 16px", flexWrap: "wrap", padding: "10px 0", borderBottom: `1px solid ${v.border}` }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     {commentMeta(c)}
                                     <p style={{ margin: "4px 0 0", fontSize: 13.5, color: v.textSecondary }}>{c.content}</p>
@@ -154,7 +154,7 @@ export default function AdminCommentsPage({ bootstrap }: PageAppProps) {
                     <h2 style={{ fontSize: 16, margin: "0 0 12px" }}>已驳回（{rejected.length}）</h2>
                     <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                         {rejected.map((c) => (
-                            <li key={c.id} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: `1px solid ${v.border}` }}>
+                            <li key={c.id} className="ven-admin-row" style={{ display: "flex", justifyContent: "space-between", gap: "10px 16px", flexWrap: "wrap", padding: "10px 0", borderBottom: `1px solid ${v.border}` }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     {commentMeta(c)}
                                     <p style={{ margin: "4px 0 0", fontSize: 13.5, color: v.textSecondary }}>{c.content}</p>
