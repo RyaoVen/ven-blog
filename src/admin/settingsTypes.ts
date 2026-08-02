@@ -62,3 +62,13 @@ export interface AdminSettingsState {
     email: EmailConfig;
     siteIcon: string;
 }
+
+/** API 访问密钥（与 Go 侧 apikeyapp.KeyView JSON 同形；永不含明文） */
+export interface ApiKeyView {
+    id: string;
+    name: string;
+    prefix: string;
+    createdAt: string;
+    lastUsedAt: string | null;
+    revokedAt: string | null;
+}

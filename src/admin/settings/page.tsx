@@ -1,13 +1,14 @@
-/** 后台-设置页：账号安全 / 作者资料 / 内容配置 / 文章分类 / 评论审核 */
+/** 后台-设置页：账号安全 / 作者资料 / 内容配置 / 文章分类 / 评论审核 / API 访问密钥 */
 
-import { ChangeEvent, FormEvent, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import type { PageAppProps } from "../../app/pageApp";
 import { CheckIcon } from "../../lib/icons";
-import { Modal } from "../../lib/modal";
+import { ConfirmModal, Modal } from "../../lib/modal";
 import { EditorBlock, RowShell } from "../editorBlocks";
 import { v } from "../../lib/theme";
 import { AdminLayout } from "../adminLayout";
-import type { AdminSettingsState, SettingsContent } from "../settingsTypes";
+import { formatDateTime } from "../../lib/format";
+import type { AdminSettingsState, ApiKeyView, SettingsContent } from "../settingsTypes";
 
 const sectionStyle = { padding: "22px 24px", marginBottom: 24 } as const;
 
@@ -53,6 +54,7 @@ export default function AdminSettingsPage({ bootstrap }: PageAppProps) {
             <ContentSection content={state.content} />
             <CategoriesSection categories={state.categories} />
             <ModerationSection initial={state.moderation} />
+            <KeysSection />
         </AdminLayout>
     );
 }
@@ -718,6 +720,220 @@ function ModerationSection({ initial }: { initial: boolean }) {
                 开启评论审核（开启后，所有新评论需经你人工审核通过才会公开显示）
             </label>
             <div style={{ marginTop: 10 }}>{node}</div>
+        </section>
+    );
+}
+
+/* ===== API 访问密钥 =====
+ * 数据客户端现取（不进 SSR initialState）：密钥动态（last_used_at 随鉴权变化、可随时吊销）且含高敏操作。
+ * 明文仅创建弹窗展示一次，关窗即丢弃；服务端只存哈希。 */
+const mono = { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" } as const;
+
+function KeysSection() {
+    const [keys, setKeys] = useState<ApiKeyView[]>([]);
+    const [name, setName] = useState("");
+    const [creating, setCreating] = useState(false);
+    const [created, setCreated] = useState<{ raw: string; view: ApiKeyView } | null>(null);
+    const [copied, setCopied] = useState(false);
+    const [revoking, setRevoking] = useState<ApiKeyView | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const { show, node } = useToast();
+
+    async function load() {
+        try {
+            const resp = await fetch("/api/admin/keys");
+            const data = await resp.json().catch(() => null);
+            if (resp.ok) {
+                setKeys(data?.keys ?? []);
+            }
+        } catch {
+            // 拉取失败保留旧数据（列表非关键路径，不打断页面）
+        }
+    }
+
+    useEffect(() => {
+        void load();
+    }, []);
+
+    async function create(event: FormEvent) {
+        event.preventDefault();
+        if (!name.trim()) {
+            return;
+        }
+        setCreating(true);
+        setError(null);
+        try {
+            const resp = await fetch("/api/admin/keys", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: name.trim() }),
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok) {
+                setError(
+                    data?.error === "name is required"
+                        ? "请填写用途备注"
+                        : data?.error === "name too long (max 64)"
+                          ? "备注最长 64 字符"
+                          : (data?.error ?? "生成失败"),
+                );
+                return;
+            }
+            setCreated({ raw: data.key, view: data.view });
+            setName("");
+            setCopied(false);
+        } catch {
+            setError("网络错误，请重试");
+        } finally {
+            setCreating(false);
+        }
+    }
+
+    async function copyRaw() {
+        if (!created) {
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(created.raw);
+            setCopied(true);
+        } catch {
+            // 剪贴板不可用时忽略（仍可手动选中复制）
+        }
+    }
+
+    /** 关窗即丢弃明文，重新拉列表 */
+    function closeCreated() {
+        setCreated(null);
+        void load();
+    }
+
+    async function revoke() {
+        if (!revoking) {
+            return;
+        }
+        const target = revoking;
+        setRevoking(null);
+        setError(null);
+        try {
+            const resp = await fetch(`/api/admin/keys/${encodeURIComponent(target.id)}`, { method: "DELETE" });
+            if (resp.ok) {
+                show(`已吊销「${target.name}」（即时生效）`);
+            } else {
+                const data = await resp.json().catch(() => null);
+                setError(data?.error === "api key not found" ? "密钥不存在或已吊销" : (data?.error ?? "吊销失败"));
+            }
+            void load();
+        } catch {
+            setError("网络错误，请重试");
+        }
+    }
+
+    return (
+        <section className="ven-card" style={sectionStyle}>
+            <SectionTitle>API 访问密钥</SectionTitle>
+            <p className="ven-meta" style={{ margin: "0 0 14px" }}>
+                程序化调用（agent / 脚本）使用的凭据，请求头携带 <code style={mono}>Authorization: Bearer ven_xxx</code>。
+                服务端只保存哈希，明文仅在生成时展示一次；吊销立即生效。
+            </p>
+            <form onSubmit={create} style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                <input
+                    className="ven-input"
+                    style={{ maxWidth: 240 }}
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="用途备注（如 zcode-agent）"
+                    maxLength={64}
+                />
+                <button className="ven-btn ven-btn-primary" type="submit" disabled={creating}>
+                    {creating ? "生成中…" : "生成密钥"}
+                </button>
+            </form>
+            {keys.length === 0 ? (
+                <p style={{ color: v.textMuted, fontSize: 14, margin: 0 }}>暂无密钥。</p>
+            ) : (
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                    {keys.map((k) => (
+                        <li
+                            key={k.id}
+                            style={{
+                                display: "flex",
+                                gap: 12,
+                                alignItems: "center",
+                                padding: "10px 0",
+                                borderBottom: `1px solid ${v.border}`,
+                                opacity: k.revokedAt ? 0.55 : 1,
+                            }}
+                        >
+                            <code style={{ ...mono, fontSize: 13 }}>{k.prefix}…</code>
+                            <span style={{ fontSize: 14, fontWeight: 550 }}>{k.name}</span>
+                            <span className="ven-meta" style={{ fontSize: 12 }}>
+                                {formatDateTime(k.createdAt)}
+                            </span>
+                            <span className="ven-meta" style={{ fontSize: 12 }}>
+                                {k.lastUsedAt ? `最后使用 ${formatDateTime(k.lastUsedAt)}` : "从未使用"}
+                            </span>
+                            {k.revokedAt ? (
+                                <span className="ven-meta" style={{ fontSize: 12, marginLeft: "auto" }}>
+                                    已吊销
+                                </span>
+                            ) : (
+                                <button
+                                    className="ven-btn ven-btn-danger"
+                                    type="button"
+                                    style={{ padding: "3px 12px", fontSize: 12, marginLeft: "auto" }}
+                                    onClick={() => setRevoking(k)}
+                                >
+                                    吊销
+                                </button>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {error && <p style={{ color: v.danger, fontSize: 13, margin: "10px 0 0" }}>{error}</p>}
+            <div style={{ marginTop: 10 }}>{node}</div>
+
+            {/* 新建成功：明文仅此一次展示，关窗即丢弃 */}
+            <Modal open={created !== null} onClose={closeCreated} width={520}>
+                <h3 style={{ margin: "0 0 8px", fontSize: 16 }}>密钥已生成（{created?.view.name}）</h3>
+                <p style={{ fontSize: 14, color: v.danger, fontWeight: 550, margin: "0 0 12px" }}>
+                    密钥只显示这一次，关闭后将无法再次查看；请立即复制并妥善保存。
+                </p>
+                <div
+                    style={{
+                        ...mono,
+                        padding: "12px 14px",
+                        background: v.bg,
+                        border: `1px solid ${v.border}`,
+                        borderRadius: 6,
+                        fontSize: 13,
+                        overflowX: "auto",
+                        whiteSpace: "nowrap",
+                        marginBottom: 16,
+                    }}
+                >
+                    {created?.raw}
+                </div>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                    <button className="ven-btn" type="button" onClick={copyRaw}>
+                        {copied ? "已复制" : "复制"}
+                    </button>
+                    <button className="ven-btn ven-btn-primary" type="button" onClick={closeCreated}>
+                        我已复制
+                    </button>
+                </div>
+            </Modal>
+
+            {/* 吊销确认（即时生效） */}
+            <ConfirmModal
+                open={revoking !== null}
+                title={`吊销密钥「${revoking?.name ?? ""}」？`}
+                message="吊销后立即生效，使用该密钥的请求将马上被拒绝；此操作不可恢复。"
+                confirmText="吊销"
+                danger
+                onCancel={() => setRevoking(null)}
+                onConfirm={revoke}
+            />
         </section>
     );
 }
