@@ -146,6 +146,25 @@ func (s *Service) SetModeration(on bool) error {
 	return s.repo.Set(setting.KeyCommentModeration, value)
 }
 
+// AIModeration AI 自动审核开关（ugc_ai_moderation 键：未设置视为开——随 BLOG_LLM_API_KEY 存在而生效；
+// 键只控制 worker 每轮是否动手，worker 本身是否启动仍取决于 LLM key 是否配置）。
+func (s *Service) AIModeration() (bool, error) {
+	raw, err := s.repo.Get(setting.KeyUGCModeration)
+	if err != nil {
+		return false, err
+	}
+	return raw == "" || raw == "on", nil
+}
+
+// SetAIModeration 设置 AI 自动审核开关。
+func (s *Service) SetAIModeration(on bool) error {
+	value := "off"
+	if on {
+		value = "on"
+	}
+	return s.repo.Set(setting.KeyUGCModeration, value)
+}
+
 // Content 读取站点内容配置（缺省项回退内置默认值）。
 func (s *Service) Content() (*Content, error) {
 	c := &Content{GitHub: defaultGitHub}
