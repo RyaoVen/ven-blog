@@ -14,3 +14,10 @@
 
 # 本地私有环境变量
 .env.local
+
+# 部署工具（tools/deploy）运行时产物
+bin/
+logs/
+.deploy/
+/tools/deploy/deploy
+/tools/deploy/deploy.exe
