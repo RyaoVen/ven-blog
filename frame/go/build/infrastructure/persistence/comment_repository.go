@@ -19,14 +19,14 @@ func NewCommentRepository(db *sql.DB) *CommentRepository {
 }
 
 // commentSelect 评论查询列（post_id/moment_id 为 NULLable，扫描走 NullInt64 转换）。
-const commentSelect = `SELECT c.id, c.post_id, c.moment_id, c.user_id, u.username, c.content, c.reply_to, c.status, c.created_at
+const commentSelect = `SELECT c.id, c.post_id, c.moment_id, c.user_id, u.username, c.content, c.reply_to, c.status, c.rejected_reason, c.created_at
 FROM comments c JOIN users u ON u.id = c.user_id`
 
 // scanComment 从行扫描评论（宿主 NULLable 列转为零值 int64）。
 func scanComment(row interface{ Scan(...any) error }) (*comment.Comment, error) {
 	c := &comment.Comment{}
 	var postID, momentID sql.NullInt64
-	err := row.Scan(&c.ID, &postID, &momentID, &c.UserID, &c.Username, &c.Content, &c.ReplyTo, &c.Status, &c.CreatedAt)
+	err := row.Scan(&c.ID, &postID, &momentID, &c.UserID, &c.Username, &c.Content, &c.ReplyTo, &c.Status, &c.RejectedReason, &c.CreatedAt)
 	c.PostID = postID.Int64
 	c.MomentID = momentID.Int64
 	return c, err
@@ -60,9 +60,9 @@ func (r *CommentRepository) listWhere(where string, args ...any) ([]*comment.Com
 	return comments, rows.Err()
 }
 
-// MomentCommentCounts 动态评论数分组统计（/moments 页展示用）。
+// MomentCommentCounts 动态评论数分组统计（/moments 页展示用；仅统计 approved，避免 pending/rejected 虚增公开计数）。
 func (r *CommentRepository) MomentCommentCounts() (map[int64]int, error) {
-	rows, err := r.db.Query("SELECT moment_id, COUNT(*) FROM comments WHERE moment_id IS NOT NULL GROUP BY moment_id")
+	rows, err := r.db.Query("SELECT moment_id, COUNT(*) FROM comments WHERE moment_id IS NOT NULL AND status = ? GROUP BY moment_id", comment.StatusApproved)
 	if err != nil {
 		return nil, fmt.Errorf("moment comment counts: %w", err)
 	}
@@ -85,7 +85,7 @@ func (r *CommentRepository) ListAll(limit int) ([]*comment.Comment, error) {
 		limit = 100
 	}
 	rows, err := r.db.Query(
-		`SELECT c.id, c.post_id, c.moment_id, c.user_id, u.username, p.title, c.content, c.reply_to, c.status, c.created_at
+		`SELECT c.id, c.post_id, c.moment_id, c.user_id, u.username, p.title, c.content, c.reply_to, c.status, c.rejected_reason, c.created_at
 		FROM comments c
 		JOIN users u ON u.id = c.user_id
 		LEFT JOIN posts p ON p.id = c.post_id
@@ -101,7 +101,7 @@ func (r *CommentRepository) ListAll(limit int) ([]*comment.Comment, error) {
 		c := &comment.Comment{}
 		var postID, momentID sql.NullInt64
 		var title sql.NullString
-		if err := rows.Scan(&c.ID, &postID, &momentID, &c.UserID, &c.Username, &title, &c.Content, &c.ReplyTo, &c.Status, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &postID, &momentID, &c.UserID, &c.Username, &title, &c.Content, &c.ReplyTo, &c.Status, &c.RejectedReason, &c.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan comment: %w", err)
 		}
 		c.PostID = postID.Int64
@@ -195,10 +195,36 @@ func (r *CommentRepository) ListPending() ([]*comment.Comment, error) {
 	return comments, rows.Err()
 }
 
-// SetStatus 更新评论状态（审核通过/打回）。
+// ListRejected 返回被驳回评论（创建时间正序）。
+func (r *CommentRepository) ListRejected() ([]*comment.Comment, error) {
+	rows, err := r.db.Query(commentSelect+" WHERE c.status = ? ORDER BY c.created_at ASC, c.id ASC", comment.StatusRejected)
+	if err != nil {
+		return nil, fmt.Errorf("list rejected comments: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	comments := make([]*comment.Comment, 0)
+	for rows.Next() {
+		c, err := scanComment(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan comment: %w", err)
+		}
+		comments = append(comments, c)
+	}
+	return comments, rows.Err()
+}
+
+// SetStatus 更新评论状态（审核通过/打回），同时清空驳回原因。
 func (r *CommentRepository) SetStatus(id int64, status string) error {
-	if _, err := r.db.Exec("UPDATE comments SET status = ? WHERE id = ?", status, id); err != nil {
+	if _, err := r.db.Exec("UPDATE comments SET status = ?, rejected_reason = '' WHERE id = ?", status, id); err != nil {
 		return fmt.Errorf("set status of comment %d: %w", id, err)
+	}
+	return nil
+}
+
+// SetRejected 驳回评论并记录驳回原因。
+func (r *CommentRepository) SetRejected(id int64, reason string) error {
+	if _, err := r.db.Exec("UPDATE comments SET status = ?, rejected_reason = ? WHERE id = ?", comment.StatusRejected, reason, id); err != nil {
+		return fmt.Errorf("reject comment %d: %w", id, err)
 	}
 	return nil
 }
