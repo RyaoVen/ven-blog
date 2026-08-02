@@ -254,17 +254,41 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
     97% { opacity: 1; }
 }
 
-/* 后台侧边栏：窄屏折叠为顶栏 */
+/* 后台侧边栏：窄屏折叠为顶栏——品牌+返回/注销一行，导航独占一行横向滚动（避免 320px 下 8 个链接多行占屏） */
 @media (max-width: 900px) {
     .ven-admin-side {
         position: static !important; width: 100% !important; bottom: auto !important;
         flex-direction: row !important; align-items: center !important; flex-wrap: wrap !important;
+        row-gap: 6px !important;
         border-right: none !important; border-bottom: 1px solid var(--border);
         padding: 10px 16px !important;
     }
-    .ven-admin-side nav { flex-direction: row !important; flex: 1 !important; }
-    .ven-admin-side > div:last-child { flex-direction: row !important; border-top: none !important; padding-top: 0 !important; }
+    .ven-admin-side > a:first-child { margin-bottom: 0 !important; }
+    .ven-admin-side nav {
+        flex-direction: row !important; flex: 1 1 100% !important;
+        flex-wrap: nowrap !important; overflow-x: auto !important;
+        scrollbar-width: none !important;
+    }
+    .ven-admin-side nav::-webkit-scrollbar { display: none !important; }
+    .ven-admin-side nav > div { margin-top: 0 !important; }
+    .ven-admin-side nav a { white-space: nowrap !important; flex-shrink: 0 !important; }
+    .ven-admin-side > div:last-child {
+        flex-direction: row !important; border-top: none !important; padding-top: 0 !important;
+        margin-left: auto !important; white-space: nowrap !important;
+    }
     .ven-admin-main { margin-left: 0 !important; padding: 24px 20px 48px !important; }
+}
+
+/* 后台文章管理行：≤720px 标题独占一行，日期/统计/按钮折为副行（纵向卡片） */
+@media (max-width: 720px) {
+    .ven-admin-post-row { flex-wrap: wrap !important; }
+    .ven-admin-post-row > :first-child { flex-basis: 100% !important; }
+}
+
+/* 后台审核/动态行：≤480px 内容独占一行，操作按钮换行到内容下方 */
+@media (max-width: 480px) {
+    .ven-admin-row { flex-wrap: wrap !important; }
+    .ven-admin-row > div:first-child { flex-basis: 100% !important; }
 }
 
 /* /posts 左栏分类框响应式 */
