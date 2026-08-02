@@ -150,58 +150,125 @@ function Hero({ state }: { state: HomeState }) {
                     </a>
                 </div>
             </div>
-            <Tilt max={9}>
-                <div className="ven-card" style={{ width: 260, padding: "24px 22px", flexShrink: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-                        {author.avatarUrl ? (
-                            <img
-                                src={author.avatarUrl}
-                                alt={`${author.username} 的头像`}
-                                style={{
-                                    width: 52,
-                                    height: 52,
-                                    borderRadius: 3,
-                                    objectFit: "cover",
-                                    border: `1px solid ${v.border}`,
-                                }}
-                            />
-                        ) : (
-                            <span
-                                style={{
-                                    width: 52,
-                                    height: 52,
-                                    borderRadius: 3,
-                                    background: v.text,
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: 22,
-                                    fontWeight: 700,
-                                    fontFamily: mono,
-                                    color: v.bg,
-                                }}
-                            >
-                                {author.username.slice(0, 1).toUpperCase()}
-                            </span>
-                        )}
-                        <div>
-                            <div style={{ fontWeight: 700, fontSize: 17 }}>{author.username}</div>
-                            <div className="ven-meta">AUTHOR</div>
+            <Tilt max={10}>
+                <HeroAuthorCard state={state} />
+            </Tilt>
+        </div>
+    );
+}
+
+/* ===== hero 作者卡：裱框 + 双环旋转头像 + 状态脉冲 + 元信息栏 ===== */
+function HeroAuthorCard({ state }: { state: HomeState }) {
+    const { author } = state;
+    return (
+        <div className="ven-frame" style={{ width: 330, padding: 14, flexShrink: 0 }}>
+            <svg className="ven-frame-corners" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M12 1 H1 V12" fill="none" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                <path d="M88 1 H99 V12" fill="none" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                <path d="M88 99 H99 V88" fill="none" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+                <path d="M12 99 H1 V88" fill="none" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            </svg>
+            <div className="ven-frame-inner ven-card" style={{ padding: "26px 24px 22px" }}>
+                {/* 头像：双层旋转环（外虚线顺时针 / 内玉青弧逆时针） */}
+                <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 18 }}>
+                    <div style={{ position: "relative", width: 88, height: 88, flexShrink: 0 }}>
+                        <svg className="ven-spin-slow" viewBox="0 0 88 88" style={{ position: "absolute", inset: 0 }} aria-hidden="true">
+                            <circle cx="44" cy="44" r="42" fill="none" stroke="var(--border-strong)" strokeWidth="1" strokeDasharray="3 7" />
+                        </svg>
+                        <svg className="ven-spin-rev" viewBox="0 0 88 88" style={{ position: "absolute", inset: 0 }} aria-hidden="true">
+                            <circle cx="44" cy="44" r="35" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="52 168" strokeLinecap="round" />
+                        </svg>
+                        <div style={{ position: "absolute", inset: 10 }}>
+                            {author.avatarUrl ? (
+                                <img
+                                    src={author.avatarUrl}
+                                    alt={`${author.username} 的头像`}
+                                    style={{ width: "100%", height: "100%", borderRadius: 3, objectFit: "cover", border: `1px solid ${v.border}` }}
+                                />
+                            ) : (
+                                <span
+                                    style={{
+                                        width: "100%",
+                                        height: "100%",
+                                        borderRadius: 3,
+                                        background: v.text,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        fontSize: 28,
+                                        fontWeight: 700,
+                                        fontFamily: mono,
+                                        color: v.bg,
+                                    }}
+                                >
+                                    {author.username.slice(0, 1).toUpperCase()}
+                                </span>
+                            )}
                         </div>
                     </div>
-                    <p style={{ fontSize: 13.5, color: v.textSecondary, marginBottom: 18 }}>
-                        {author.bio || "ven_hybird 框架作者，本站站长。喜欢折腾渲染链路与开发者工具。"}
-                    </p>
-                    <div style={{ display: "flex", gap: 10 }}>
-                        <a href={`/author/${author.username}`} className="ven-btn" style={{ flex: 1 }}>
-                            个人页
-                        </a>
-                        <a href={author.github} className="ven-btn" style={{ flex: 1 }} target="_blank" rel="noreferrer">
-                            GitHub
-                        </a>
+                    <div style={{ minWidth: 0 }}>
+                        <div className="ven-serif" style={{ fontWeight: 700, fontSize: 24, letterSpacing: "-0.01em", lineHeight: 1.2 }}>
+                            {author.username}
+                        </div>
+                        <div className="ven-meta" style={{ marginTop: 4 }}>
+                            AUTHOR · 站长
+                        </div>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 7, marginTop: 10 }}>
+                            <span
+                                style={{
+                                    width: 7,
+                                    height: 7,
+                                    borderRadius: "50%",
+                                    background: "#22c55e",
+                                    boxShadow: "0 0 6px rgba(34,197,94,0.6)",
+                                    animation: "ven-blink 1.8s steps(1) infinite",
+                                }}
+                            />
+                            <span className="ven-meta" style={{ fontSize: 10 }}>
+                                OPEN FOR IDEAS
+                            </span>
+                        </div>
                     </div>
                 </div>
-            </Tilt>
+                <p className="ven-serif" style={{ fontSize: 14.5, lineHeight: 1.8, color: v.textSecondary, margin: "0 0 18px" }}>
+                    {author.bio || "ven_hybird 框架作者，本站站长。喜欢折腾渲染链路与开发者工具。"}
+                </p>
+                {/* 元信息栏 */}
+                <div
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(3, 1fr)",
+                        gap: 8,
+                        padding: "12px 0",
+                        borderTop: `1px solid ${v.border}`,
+                        borderBottom: `1px solid ${v.border}`,
+                        marginBottom: 18,
+                    }}
+                >
+                    {[
+                        ["ROLE", "AUTHOR"],
+                        ["FIELD", "RENDERING"],
+                        ["STACK", "GO+NODE"],
+                    ].map(([k, val]) => (
+                        <div key={k}>
+                            <div className="ven-meta" style={{ fontSize: 9, marginBottom: 3 }}>
+                                {k}
+                            </div>
+                            <div style={{ fontSize: 12, fontWeight: 650, fontFamily: mono, color: v.text }}>
+                                {val}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                    <a href={`/author/${author.username}`} className="ven-btn ven-btn-primary" style={{ flex: 1, justifyContent: "center" }}>
+                        个人页
+                    </a>
+                    <a href={author.github} className="ven-btn" style={{ flex: 1, justifyContent: "center" }} target="_blank" rel="noreferrer">
+                        GitHub ↗
+                    </a>
+                </div>
+            </div>
         </div>
     );
 }

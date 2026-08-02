@@ -229,6 +229,11 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
 .ven-caret { color: var(--accent); animation: ven-blink 1s steps(1) infinite; }
 @keyframes ven-blink { 50% { opacity: 0; } }
 
+/* 缓慢旋转（hero 作者卡头像环：外环顺时针 / 内环逆时针） */
+@keyframes ven-rotate { to { transform: rotate(360deg); } }
+.ven-spin-slow { animation: ven-rotate 16s linear infinite; }
+.ven-spin-rev { animation: ven-rotate 26s linear infinite reverse; }
+
 /* 辉光管时钟：玉青辉光 + 偶发微闪 */
 .ven-nixie {
     font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
