@@ -59,9 +59,9 @@ type Item struct {
 	MomentID  int64  // comment 宿主为动态时非零
 }
 
-// AutoReview 拉取两类待审内容（各上限 limit）并逐条判定：
+// AutoReview 拉取两类 AI 未判待审内容（各上限 limit）并逐条判定：
 //   approve → 调用宿主 Service 的 Approve；reject → 调用 Reject(id, reason)；
-//   pending → 不动（保持 pending）；Review 返回 error → 重试 1 次，仍失败保持 pending（记 failed）。
+//   pending → 打"AI 已判"标记交人工（不再重复提交 LLM）；Review 返回 error → 重试 1 次，仍失败保持 pending（记 failed，下轮重判）。
 // 逐条串行（成本可控、顺序确定）；ctx 透传给 Moderator（ticker 场景传 Background 派生）。
 // 任一宿主查询出错 → 返回部分结果与 error（本轮整体失败由接口层记录日志；已处理的保持已处理状态）。
 func (s *Service) AutoReview(ctx context.Context, limit int) (*Result, error) {
@@ -69,11 +69,11 @@ func (s *Service) AutoReview(ctx context.Context, limit int) (*Result, error) {
 		limit = defaultBatch
 	}
 	result := &Result{}
-	comments, err := s.comments.ListPending()
+	comments, err := s.comments.ListUnreviewedPending()
 	if err != nil {
 		return result, err
 	}
-	entries, err := s.guestbook.ListPending()
+	entries, err := s.guestbook.ListUnreviewedPending()
 	if err != nil {
 		return result, err
 	}
@@ -105,7 +105,7 @@ func (s *Service) AutoReview(ctx context.Context, limit int) (*Result, error) {
 			}
 			_, err := s.comments.Reject(item.ID, clipReason(verdict.Reason))
 			return err
-		})
+		}, s.comments.MarkAIReviewed)
 	}
 	for _, e := range entries {
 		s.process(ctx, result, Item{
@@ -123,7 +123,7 @@ func (s *Service) AutoReview(ctx context.Context, limit int) (*Result, error) {
 				return s.guestbook.Approve(item.ID)
 			}
 			return s.guestbook.Reject(item.ID, clipReason(verdict.Reason))
-		})
+		}, s.guestbook.MarkAIReviewed)
 	}
 	return result, nil
 }
@@ -148,8 +148,9 @@ func hostTitleOfComment(c *comment.Comment) string {
 
 // process 判定单条并落结果：
 //   approve → 宿主 Approve（写库失败记 failed，保持 pending）；reject → 宿主 Reject（reason 截断到领域上限）；
-//   pending → 不写库；Review 两次都失败 → 保持 pending 记 failed。
-func (s *Service) process(ctx context.Context, result *Result, item Item, req moderation.Request, write func(Item, moderation.Verdict) error) {
+//   pending → 打"AI 已判"标记（markReviewed 失败记 failed，下轮重试）；Review 两次都失败 → 保持 pending 记 failed。
+func (s *Service) process(ctx context.Context, result *Result, item Item, req moderation.Request,
+	write func(Item, moderation.Verdict) error, markReviewed func(int64) error) {
 	result.Processed++
 	verdict, err := s.reviewWithRetry(ctx, req)
 	if err != nil {
@@ -174,7 +175,12 @@ func (s *Service) process(ctx context.Context, result *Result, item Item, req mo
 		item.Reason = clipReason(verdict.Reason)
 		result.Rejected++
 		result.RejectedItems = append(result.RejectedItems, item)
-	default: // pending：不动（保持 pending），交人工复核
+	default: // pending：打标后交人工复核，不再重复提交 LLM（打标失败记 failed 下轮重判）
+		if err := markReviewed(item.ID); err != nil {
+			result.Failed++
+			result.FailedItems = append(result.FailedItems, item)
+			return
+		}
 		result.Uncertain++
 		result.UncertainItems = append(result.UncertainItems, item)
 	}

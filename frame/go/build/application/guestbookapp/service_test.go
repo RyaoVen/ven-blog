@@ -9,13 +9,15 @@ import (
 
 // fakeRepo 内存实现 guestbook.Repository（测试用）。
 // List 语义与真实仓储一致：仅返回 approved（公开列表）。
+// reviewed 模拟 ai_reviewed_at：MarkAIReviewed 打标，ListUnreviewedPending 排除已打标。
 type fakeRepo struct {
-	byID map[int64]*guestbook.Entry
-	next int64
+	byID     map[int64]*guestbook.Entry
+	reviewed map[int64]bool
+	next     int64
 }
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{byID: map[int64]*guestbook.Entry{}, next: 1}
+	return &fakeRepo{byID: map[int64]*guestbook.Entry{}, reviewed: map[int64]bool{}, next: 1}
 }
 
 func (f *fakeRepo) add(e *guestbook.Entry) *guestbook.Entry {
@@ -51,6 +53,24 @@ func (f *fakeRepo) ListPending() ([]*guestbook.Entry, error) {
 		}
 	}
 	return out, nil
+}
+
+func (f *fakeRepo) ListUnreviewedPending() ([]*guestbook.Entry, error) {
+	out := make([]*guestbook.Entry, 0)
+	for _, e := range f.byID {
+		if e.Status == guestbook.StatusPending && !f.reviewed[e.ID] {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeRepo) MarkAIReviewed(id int64) error {
+	// 与真仓储一致：仅 pending 行打标，幂等，不存在也不报错。
+	if e, ok := f.byID[id]; ok && e.Status == guestbook.StatusPending {
+		f.reviewed[id] = true
+	}
+	return nil
 }
 
 func (f *fakeRepo) ListRejected() ([]*guestbook.Entry, error) {

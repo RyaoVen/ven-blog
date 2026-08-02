@@ -79,6 +79,16 @@ func (s *Service) ListPending() ([]*comment.Comment, error) {
 	return s.repo.ListPending()
 }
 
+// ListUnreviewedPending AI 未判的待审评论（自动审核 worker 队列）。
+func (s *Service) ListUnreviewedPending() ([]*comment.Comment, error) {
+	return s.repo.ListUnreviewedPending()
+}
+
+// MarkAIReviewed 给待审评论打"AI 已判"标记（uncertain 交人工后不再重复提交 LLM）。
+func (s *Service) MarkAIReviewed(id int64) error {
+	return s.repo.MarkAIReviewed(id)
+}
+
 // ListRejected 被驳回评论（后台管理用）。
 func (s *Service) ListRejected() ([]*comment.Comment, error) {
 	return s.repo.ListRejected()

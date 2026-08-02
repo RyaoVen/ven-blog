@@ -18,6 +18,10 @@ const (
 	KeySMTPFromName      = "smtp_from_name"      // 发件人名称
 	KeyAuthorEmail       = "author_email"        // 作者个人邮箱（@ 通知收件 + author 账号绑定）
 	KeySiteIcon          = "site_icon"           // 站点图标 URL（favicon + 导航品牌标）
+	KeyModeratorReported = "moderator_reported"  // 审核 worker 已报告条目 ID（行：kind:id，邮件去重）
+	KeyLLMBaseURL        = "llm_base_url"        // LLM OpenAI 兼容端点（空回退 env/默认）
+	KeyLLMAPIKey         = "llm_api_key"         // LLM API key（接口不回传；空回退 env）
+	KeyLLMModel          = "llm_model"           // LLM 模型名（空回退 env/默认）
 	KeyUGCModeration     = "ugc_ai_moderation"   // AI 自动审核开关（"off" 为关；未设置视为开）
 )
 

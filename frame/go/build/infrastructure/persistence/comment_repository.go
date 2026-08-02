@@ -177,16 +177,37 @@ func (r *CommentRepository) Delete(id int64) error {
 	return nil
 }
 
-// ListPending 返回待审核评论（创建时间正序）。
-func (r *CommentRepository) ListPending() ([]*comment.Comment, error) {
-	rows, err := r.db.Query(commentSelect+" WHERE c.status = ? ORDER BY c.created_at ASC, c.id ASC", comment.StatusPending)
+// 带文章标题的联表查询（列序：commentSelect 列 + p.title 紧随 u.username 后）。
+const commentSelectWithTitle = `SELECT c.id, c.post_id, c.moment_id, c.user_id, u.username, p.title, c.content, c.reply_to, c.status, c.rejected_reason, c.created_at
+FROM comments c
+JOIN users u ON u.id = c.user_id
+LEFT JOIN posts p ON p.id = c.post_id`
+
+// scanCommentWithTitle 从行扫描评论（含文章标题；列序与 commentSelectWithTitle 一致）。
+func scanCommentWithTitle(row interface{ Scan(...any) error }) (*comment.Comment, error) {
+	c := &comment.Comment{}
+	var postID, momentID sql.NullInt64
+	var title sql.NullString
+	err := row.Scan(&c.ID, &postID, &momentID, &c.UserID, &c.Username, &title, &c.Content, &c.ReplyTo, &c.Status, &c.RejectedReason, &c.CreatedAt)
+	c.PostID = postID.Int64
+	c.MomentID = momentID.Int64
+	c.PostTitle = title.String
+	return c, err
+}
+
+// listReviewQueue 审核队列查询（创建时间正序，带文章标题；extraWhere 附加条件如 AI 未判）。
+func (r *CommentRepository) listReviewQueue(status string, extraWhere string) ([]*comment.Comment, error) {
+	rows, err := r.db.Query(
+		commentSelectWithTitle+" WHERE c.status = ?"+extraWhere+" ORDER BY c.created_at ASC, c.id ASC",
+		status,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("list pending comments: %w", err)
+		return nil, fmt.Errorf("list review queue comments: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 	comments := make([]*comment.Comment, 0)
 	for rows.Next() {
-		c, err := scanComment(rows)
+		c, err := scanCommentWithTitle(rows)
 		if err != nil {
 			return nil, fmt.Errorf("scan comment: %w", err)
 		}
@@ -195,22 +216,27 @@ func (r *CommentRepository) ListPending() ([]*comment.Comment, error) {
 	return comments, rows.Err()
 }
 
-// ListRejected 返回被驳回评论（创建时间正序）。
+// ListPending 返回待审核评论（创建时间正序，联表文章标题）。
+func (r *CommentRepository) ListPending() ([]*comment.Comment, error) {
+	return r.listReviewQueue(comment.StatusPending, "")
+}
+
+// ListUnreviewedPending 返回 AI 未判的待审评论（worker 队列）。
+func (r *CommentRepository) ListUnreviewedPending() ([]*comment.Comment, error) {
+	return r.listReviewQueue(comment.StatusPending, " AND c.ai_reviewed_at IS NULL")
+}
+
+// MarkAIReviewed 给待审评论打"AI 已判"标记（仅 pending 行，幂等）。
+func (r *CommentRepository) MarkAIReviewed(id int64) error {
+	if _, err := r.db.Exec("UPDATE comments SET ai_reviewed_at = NOW() WHERE id = ? AND status = ?", id, comment.StatusPending); err != nil {
+		return fmt.Errorf("mark ai reviewed of comment %d: %w", id, err)
+	}
+	return nil
+}
+
+// ListRejected 返回被驳回评论（创建时间正序，联表文章标题）。
 func (r *CommentRepository) ListRejected() ([]*comment.Comment, error) {
-	rows, err := r.db.Query(commentSelect+" WHERE c.status = ? ORDER BY c.created_at ASC, c.id ASC", comment.StatusRejected)
-	if err != nil {
-		return nil, fmt.Errorf("list rejected comments: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-	comments := make([]*comment.Comment, 0)
-	for rows.Next() {
-		c, err := scanComment(rows)
-		if err != nil {
-			return nil, fmt.Errorf("scan comment: %w", err)
-		}
-		comments = append(comments, c)
-	}
-	return comments, rows.Err()
+	return r.listReviewQueue(comment.StatusRejected, "")
 }
 
 // SetStatus 更新评论状态（审核通过/打回），同时清空驳回原因。

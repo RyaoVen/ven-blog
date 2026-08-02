@@ -32,13 +32,16 @@ func (f *fakeModerator) Review(_ context.Context, _ moderation.Request) (moderat
 }
 
 // fakeCommentRepo 内存实现 comment.Repository（与 commentapp 测试同款；ListPending 正序）。
+// reviewed 模拟 ai_reviewed_at；markErr 注入打标失败。
 type fakeCommentRepo struct {
-	byID map[int64]*comment.Comment
-	next int64
+	byID     map[int64]*comment.Comment
+	reviewed map[int64]bool
+	next     int64
+	markErr  error
 }
 
 func newFakeCommentRepo() *fakeCommentRepo {
-	return &fakeCommentRepo{byID: map[int64]*comment.Comment{}, next: 1}
+	return &fakeCommentRepo{byID: map[int64]*comment.Comment{}, reviewed: map[int64]bool{}, next: 1}
 }
 
 func (f *fakeCommentRepo) add(c *comment.Comment) *comment.Comment {
@@ -64,6 +67,25 @@ func (f *fakeCommentRepo) ListPending() ([]*comment.Comment, error) {
 		}
 	}
 	return out, nil
+}
+func (f *fakeCommentRepo) ListUnreviewedPending() ([]*comment.Comment, error) {
+	out := make([]*comment.Comment, 0, len(f.byID))
+	for _, c := range f.byID {
+		if c.Status == comment.StatusPending && !f.reviewed[c.ID] {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+func (f *fakeCommentRepo) MarkAIReviewed(id int64) error {
+	if f.markErr != nil {
+		return f.markErr
+	}
+	// 与真仓储一致：仅 pending 行打标，幂等，不存在也不报错。
+	if c, ok := f.byID[id]; ok && c.Status == comment.StatusPending {
+		f.reviewed[id] = true
+	}
+	return nil
 }
 func (f *fakeCommentRepo) ListRejected() ([]*comment.Comment, error) { return nil, nil }
 func (f *fakeCommentRepo) SetStatus(id int64, status string) error {
@@ -99,13 +121,16 @@ func (f *fakeCommentRepo) Create(c *comment.Comment) error {
 func (f *fakeCommentRepo) Delete(id int64) error { return nil }
 
 // fakeGuestbookRepo 内存实现 guestbook.Repository（与 guestbookapp 测试同款）。
+// reviewed 模拟 ai_reviewed_at；markErr 注入打标失败。
 type fakeGuestbookRepo struct {
-	byID map[int64]*guestbook.Entry
-	next int64
+	byID     map[int64]*guestbook.Entry
+	reviewed map[int64]bool
+	next     int64
+	markErr  error
 }
 
 func newFakeGuestbookRepo() *fakeGuestbookRepo {
-	return &fakeGuestbookRepo{byID: map[int64]*guestbook.Entry{}, next: 1}
+	return &fakeGuestbookRepo{byID: map[int64]*guestbook.Entry{}, reviewed: map[int64]bool{}, next: 1}
 }
 
 func (f *fakeGuestbookRepo) add(e *guestbook.Entry) *guestbook.Entry {
@@ -127,6 +152,25 @@ func (f *fakeGuestbookRepo) ListPending() ([]*guestbook.Entry, error) {
 		}
 	}
 	return out, nil
+}
+func (f *fakeGuestbookRepo) ListUnreviewedPending() ([]*guestbook.Entry, error) {
+	out := make([]*guestbook.Entry, 0, len(f.byID))
+	for _, e := range f.byID {
+		if e.Status == guestbook.StatusPending && !f.reviewed[e.ID] {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+func (f *fakeGuestbookRepo) MarkAIReviewed(id int64) error {
+	if f.markErr != nil {
+		return f.markErr
+	}
+	// 与真仓储一致：仅 pending 行打标，幂等，不存在也不报错。
+	if e, ok := f.byID[id]; ok && e.Status == guestbook.StatusPending {
+		f.reviewed[id] = true
+	}
+	return nil
 }
 func (f *fakeGuestbookRepo) ListRejected() ([]*guestbook.Entry, error) { return nil, nil }
 func (f *fakeGuestbookRepo) Get(id int64) (*guestbook.Entry, error) {
@@ -279,17 +323,51 @@ func TestAutoReviewPending(t *testing.T) {
 	cr := newFakeCommentRepo()
 	m := &fakeModerator{verdicts: []moderation.Verdict{{Action: moderation.ActionPending}}}
 	c := cr.add(&comment.Comment{PostID: 1, UserID: 1, Username: "u", Content: "这个说法我觉得有问题", Status: comment.StatusPending})
-	result, err := newService(cr, newFakeGuestbookRepo(), m).AutoReview(context.Background(), 20)
+	svc := newService(cr, newFakeGuestbookRepo(), m)
+	result, err := svc.AutoReview(context.Background(), 20)
 	if err != nil {
 		t.Fatalf("AutoReview: %v", err)
 	}
 	if result.Uncertain != 1 || len(result.UncertainItems) != 1 {
 		t.Fatalf("result = %+v, want uncertain=1", result)
 	}
-	// 不写库：仍 pending
+	// 状态不动：仍 pending（不确定内容必须留在待审队列）
 	got, _ := cr.Get(c.ID)
 	if got.Status != comment.StatusPending {
 		t.Fatalf("status = %q, want pending（不确定内容必须留在待审队列）", got.Status)
+	}
+	// 但已打"AI 已判"标记：下轮不再重复提交 LLM
+	if !cr.reviewed[c.ID] {
+		t.Fatal("uncertain 后应调用 MarkAIReviewed 打标")
+	}
+	second, err := svc.AutoReview(context.Background(), 20)
+	if err != nil {
+		t.Fatalf("AutoReview second round: %v", err)
+	}
+	if second.Processed != 0 || m.calls != 1 {
+		t.Fatalf("second round processed = %d calls = %d, want 0/1（已判过 uncertain 的不再进队列）", second.Processed, m.calls)
+	}
+}
+
+func TestAutoReviewMarkReviewedFailure(t *testing.T) {
+	cr := newFakeCommentRepo()
+	cr.markErr = errors.New("db down")
+	m := &fakeModerator{verdicts: []moderation.Verdict{{Action: moderation.ActionPending}}}
+	c := cr.add(&comment.Comment{PostID: 1, UserID: 1, Username: "u", Content: "x", Status: comment.StatusPending})
+	result, err := newService(cr, newFakeGuestbookRepo(), m).AutoReview(context.Background(), 20)
+	if err != nil {
+		t.Fatalf("AutoReview: %v", err)
+	}
+	// 打标失败记 failed（而非 uncertain），保持 pending 且仍在未判队列，下轮重试
+	if result.Failed != 1 || result.Uncertain != 0 || len(result.FailedItems) != 1 {
+		t.Fatalf("result = %+v, want failed=1 uncertain=0", result)
+	}
+	got, _ := cr.Get(c.ID)
+	if got.Status != comment.StatusPending {
+		t.Fatalf("status = %q, want pending（打标失败绝不误杀/放行）", got.Status)
+	}
+	if cr.reviewed[c.ID] {
+		t.Fatal("打标失败不应留下已判标记")
 	}
 }
 

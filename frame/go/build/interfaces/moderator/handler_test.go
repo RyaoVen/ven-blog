@@ -61,15 +61,16 @@ func (f *fakeSettingsRepo) Set(key, value string) error {
 	return nil
 }
 
-// fakeCommentRepo 评论仓储（带 ListPending 错误注入）。
+// fakeCommentRepo 评论仓储（带待审队列错误注入；reviewed 模拟 ai_reviewed_at）。
 type fakeCommentRepo struct {
-	byID          map[int64]*comment.Comment
-	next          int64
-	listPendingErr error
+	byID     map[int64]*comment.Comment
+	reviewed map[int64]bool
+	next     int64
+	listErr  error
 }
 
 func newFakeCommentRepo() *fakeCommentRepo {
-	return &fakeCommentRepo{byID: map[int64]*comment.Comment{}, next: 1}
+	return &fakeCommentRepo{byID: map[int64]*comment.Comment{}, reviewed: map[int64]bool{}, next: 1}
 }
 
 func (f *fakeCommentRepo) add(c *comment.Comment) *comment.Comment {
@@ -86,8 +87,8 @@ func (f *fakeCommentRepo) ListByMoment(momentID int64) ([]*comment.Comment, erro
 func (f *fakeCommentRepo) MomentCommentCounts() (map[int64]int, error) { return nil, nil }
 func (f *fakeCommentRepo) ListAll(limit int) ([]*comment.Comment, error) { return nil, nil }
 func (f *fakeCommentRepo) ListPending() ([]*comment.Comment, error) {
-	if f.listPendingErr != nil {
-		return nil, f.listPendingErr
+	if f.listErr != nil {
+		return nil, f.listErr
 	}
 	out := make([]*comment.Comment, 0, len(f.byID))
 	for _, c := range f.byID {
@@ -96,6 +97,25 @@ func (f *fakeCommentRepo) ListPending() ([]*comment.Comment, error) {
 		}
 	}
 	return out, nil
+}
+func (f *fakeCommentRepo) ListUnreviewedPending() ([]*comment.Comment, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
+	out := make([]*comment.Comment, 0, len(f.byID))
+	for _, c := range f.byID {
+		if c.Status == comment.StatusPending && !f.reviewed[c.ID] {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+func (f *fakeCommentRepo) MarkAIReviewed(id int64) error {
+	// 与真仓储一致：仅 pending 行打标，幂等，不存在也不报错。
+	if c, ok := f.byID[id]; ok && c.Status == comment.StatusPending {
+		f.reviewed[id] = true
+	}
+	return nil
 }
 func (f *fakeCommentRepo) ListRejected() ([]*comment.Comment, error) { return nil, nil }
 func (f *fakeCommentRepo) SetStatus(id int64, status string) error {
@@ -130,15 +150,16 @@ func (f *fakeCommentRepo) Create(c *comment.Comment) error {
 }
 func (f *fakeCommentRepo) Delete(id int64) error { return nil }
 
-// fakeGuestbookRepo 留言板仓储（带 ListPending 错误注入）。
+// fakeGuestbookRepo 留言板仓储（带待审队列错误注入；reviewed 模拟 ai_reviewed_at）。
 type fakeGuestbookRepo struct {
-	byID           map[int64]*guestbook.Entry
-	next           int64
-	listPendingErr error
+	byID     map[int64]*guestbook.Entry
+	reviewed map[int64]bool
+	next     int64
+	listErr  error
 }
 
 func newFakeGuestbookRepo() *fakeGuestbookRepo {
-	return &fakeGuestbookRepo{byID: map[int64]*guestbook.Entry{}, next: 1}
+	return &fakeGuestbookRepo{byID: map[int64]*guestbook.Entry{}, reviewed: map[int64]bool{}, next: 1}
 }
 
 func (f *fakeGuestbookRepo) add(e *guestbook.Entry) *guestbook.Entry {
@@ -153,8 +174,8 @@ func (f *fakeGuestbookRepo) ListAll(limit int) ([]*guestbook.Entry, error) {
 	return nil, nil
 }
 func (f *fakeGuestbookRepo) ListPending() ([]*guestbook.Entry, error) {
-	if f.listPendingErr != nil {
-		return nil, f.listPendingErr
+	if f.listErr != nil {
+		return nil, f.listErr
 	}
 	out := make([]*guestbook.Entry, 0, len(f.byID))
 	for _, e := range f.byID {
@@ -163,6 +184,25 @@ func (f *fakeGuestbookRepo) ListPending() ([]*guestbook.Entry, error) {
 		}
 	}
 	return out, nil
+}
+func (f *fakeGuestbookRepo) ListUnreviewedPending() ([]*guestbook.Entry, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
+	out := make([]*guestbook.Entry, 0, len(f.byID))
+	for _, e := range f.byID {
+		if e.Status == guestbook.StatusPending && !f.reviewed[e.ID] {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+func (f *fakeGuestbookRepo) MarkAIReviewed(id int64) error {
+	// 与真仓储一致：仅 pending 行打标，幂等，不存在也不报错。
+	if e, ok := f.byID[id]; ok && e.Status == guestbook.StatusPending {
+		f.reviewed[id] = true
+	}
+	return nil
 }
 func (f *fakeGuestbookRepo) ListRejected() ([]*guestbook.Entry, error) { return nil, nil }
 func (f *fakeGuestbookRepo) Get(id int64) (*guestbook.Entry, error) {
@@ -307,7 +347,7 @@ func TestRunOnceSendFailureOnlyLogs(t *testing.T) {
 
 func TestRunOnceAutoReviewErrorOnlyLogs(t *testing.T) {
 	cr := newFakeCommentRepo()
-	cr.listPendingErr = errors.New("db down")
+	cr.listErr = errors.New("db down")
 	m := &fakeModerator{}
 	mail := &fakeMailer{}
 	h, _ := newHandler(cr, newFakeGuestbookRepo(), m, mail, func() bool { return true })

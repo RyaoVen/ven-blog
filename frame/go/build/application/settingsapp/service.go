@@ -132,6 +132,79 @@ func (s *Service) SetSiteIcon(url string) error {
 	return s.repo.Set(setting.KeySiteIcon, url)
 }
 
+// moderatorReportedCap 已报告条目 ID 的留存上限（超出裁最旧，防键值无限膨胀）。
+const moderatorReportedCap = 500
+
+// ModeratorReported 审核 worker 已报告过的条目键集（kind:id；摘要邮件去重用）。
+func (s *Service) ModeratorReported() (map[string]bool, error) {
+	raw, err := s.repo.Get(setting.KeyModeratorReported)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]bool)
+	for _, line := range splitLines(raw) {
+		out[line] = true
+	}
+	return out, nil
+}
+
+// AppendModeratorReported 追加已报告条目键（合并去重 + 留存上限截断）。
+func (s *Service) AppendModeratorReported(keys []string) error {
+	existing, err := s.ModeratorReported()
+	if err != nil {
+		return err
+	}
+	lines := make([]string, 0, len(existing)+len(keys))
+	seen := make(map[string]bool, len(existing)+len(keys))
+	// 旧条目按原序保留，新条目追加在后（截断时新条目优先留下）
+	raw, err := s.repo.Get(setting.KeyModeratorReported)
+	if err != nil {
+		return err
+	}
+	for _, line := range splitLines(raw) {
+		if !seen[line] {
+			seen[line] = true
+			lines = append(lines, line)
+		}
+	}
+	for _, k := range keys {
+		if k != "" && !seen[k] {
+			seen[k] = true
+			lines = append(lines, k)
+		}
+	}
+	if len(lines) > moderatorReportedCap {
+		lines = lines[len(lines)-moderatorReportedCap:]
+	}
+	return s.repo.Set(setting.KeyModeratorReported, strings.Join(lines, "\n"))
+}
+
+// LLMConfig 读取 LLM 配置（审核 worker 每次判定现取；空值由调用方回退 env/默认）。
+func (s *Service) LLMConfig() (baseURL, apiKey, model string, err error) {
+	if baseURL, err = s.repo.Get(setting.KeyLLMBaseURL); err != nil {
+		return
+	}
+	if apiKey, err = s.repo.Get(setting.KeyLLMAPIKey); err != nil {
+		return
+	}
+	model, err = s.repo.Get(setting.KeyLLMModel)
+	return
+}
+
+// SetLLMConfig 保存 LLM 配置（apiKey 为空串时保留原值——接口掩码场景）。
+func (s *Service) SetLLMConfig(baseURL, apiKey, model string) error {
+	if err := s.repo.Set(setting.KeyLLMBaseURL, baseURL); err != nil {
+		return err
+	}
+	if err := s.repo.Set(setting.KeyLLMModel, model); err != nil {
+		return err
+	}
+	if apiKey != "" {
+		return s.repo.Set(setting.KeyLLMAPIKey, apiKey)
+	}
+	return nil
+}
+
 // SetAuthorEmail 保存作者个人邮箱。
 func (s *Service) SetAuthorEmail(email string) error {
 	return s.repo.Set(setting.KeyAuthorEmail, email)
