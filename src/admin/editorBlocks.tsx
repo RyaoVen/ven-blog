@@ -3,6 +3,13 @@
 import { ReactNode } from "react";
 import { v } from "../lib/theme";
 
+/** 窄屏兜底样式：RowShell 内固定宽输入（width 120/140/160）≤480px 改为满宽（由使用页注入 <style>） */
+export const rowShellCss = `
+@media (max-width: 480px) {
+    .ven-fw { width: 100% !important; }
+}
+`;
+
 /** 编辑器块：标题 + 添加按钮（可选）+ 行列表 */
 export function EditorBlock({
     title,
