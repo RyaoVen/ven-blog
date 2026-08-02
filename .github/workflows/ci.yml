@@ -9,6 +9,9 @@ jobs:
   go:
     name: Go（网关+业务）
     runs-on: ubuntu-latest
+    env:
+      # proxy.golang.org 偶发 403（已知抖动），多级 fallback 自动切换
+      GOPROXY: https://proxy.golang.org,https://goproxy.cn,direct
     defaults:
       run:
         working-directory: frame/go
@@ -45,6 +48,8 @@ jobs:
   deploy:
     name: 部署工具（tools/deploy）
     runs-on: ubuntu-latest
+    env:
+      GOPROXY: https://proxy.golang.org,https://goproxy.cn,direct
     defaults:
       run:
         working-directory: tools/deploy
