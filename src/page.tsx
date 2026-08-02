@@ -306,20 +306,30 @@ function DualLists({ state }: { state: HomeState }) {
                                         borderBottom: `1px solid ${v.border}`,
                                     }}
                                 >
-                                    <a
-                                        href={`/posts/${p.id}`}
-                                        style={{
-                                            fontSize: 16,
-                                            fontWeight: 550,
-                                            color: v.text,
-                                            textDecoration: "none",
-                                            overflow: "hidden",
-                                            textOverflow: "ellipsis",
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        {p.title}
-                                    </a>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                                        {p.pinned && (
+                                            <span
+                                                className="ven-chip"
+                                                style={{ color: v.accent, borderColor: v.accent, flexShrink: 0 }}
+                                            >
+                                                置顶
+                                            </span>
+                                        )}
+                                        <a
+                                            href={`/posts/${p.id}`}
+                                            style={{
+                                                fontSize: 16,
+                                                fontWeight: 550,
+                                                color: v.text,
+                                                textDecoration: "none",
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            {p.title}
+                                        </a>
+                                    </div>
                                     <span className="ven-meta" style={{ flexShrink: 0 }}>
                                         {p.createdAt.slice(0, 10)}
                                     </span>
@@ -340,17 +350,27 @@ function DualLists({ state }: { state: HomeState }) {
                                     className="ven-accent-item"
                                     style={{ padding: "16px 0 16px 12px", borderBottom: `1px solid ${v.border}` }}
                                 >
-                                    <p
-                                        style={{
-                                            margin: "0 0 4px",
-                                            fontSize: 14.5,
-                                            overflow: "hidden",
-                                            textOverflow: "ellipsis",
-                                            whiteSpace: "nowrap",
-                                        }}
-                                    >
-                                        {m.content}
-                                    </p>
+                                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                                        {m.pinned && (
+                                            <span
+                                                className="ven-chip"
+                                                style={{ color: v.accent, borderColor: v.accent, flexShrink: 0 }}
+                                            >
+                                                置顶
+                                            </span>
+                                        )}
+                                        <p
+                                            style={{
+                                                margin: "0 0 4px",
+                                                fontSize: 14.5,
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                                whiteSpace: "nowrap",
+                                            }}
+                                        >
+                                            {m.content}
+                                        </p>
+                                    </div>
                                     <span className="ven-meta">{formatDateTime(m.createdAt)}</span>
                                 </li>
                             ))}

@@ -10,6 +10,8 @@ export interface Post {
     coverUrl: string;
     authorName: string;
     tags: string[];
+    /** 置顶标记（列表排序置顶优先，前端只做展示） */
+    pinned: boolean;
     createdAt: string;
     updatedAt: string;
 }

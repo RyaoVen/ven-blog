@@ -58,6 +58,14 @@ export default function MomentsPage({ bootstrap }: PageAppProps) {
                                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                                     <MomentAvatar name={m.authorName} />
                                     <span style={{ fontWeight: 550 }}>{m.authorName}</span>
+                                    {m.pinned && (
+                                        <span
+                                            className="ven-chip"
+                                            style={{ color: v.accent, borderColor: v.accent, flexShrink: 0 }}
+                                        >
+                                            置顶
+                                        </span>
+                                    )}
                                     <span className="ven-meta">{formatDateTime(m.createdAt)}</span>
                                     <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 14 }}>
                                         <button
