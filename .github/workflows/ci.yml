@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  go:
+    name: Go（网关+业务）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frame/go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: frame/go/go.sum
+      - run: go build ./...
+      - run: go vet ./...
+      # -race 补上本机（Windows）跑不了的并发检查
+      - run: go test -race ./...
+
+  node:
+    name: Node（SSR worker）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frame/node
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frame/node/package-lock.json
+      # 用 install 而非 ci：依赖树含跨平台 optional 包（esbuild/vite 8 的 @emnapi 系），
+      # 单平台生成的 lock 不覆盖其他平台条目，install 会按当前平台补全（lock 满足时零变化）
+      - run: npm install
+      - run: npm run typecheck
+      - run: npm test
+
+  deploy:
+    name: 部署工具（tools/deploy）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/deploy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: tools/deploy/go.sum
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test -race ./...
