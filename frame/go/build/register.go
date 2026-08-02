@@ -161,6 +161,11 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterKeysAdmin(a, apiKeys); err != nil {
 		return err
 	}
+	// /api/mcp 网关（agent 统一入口）：纯原生 fiber 路由，只认 key 不认 cookie，
+	// 与页面注册顺序无关，放链尾最稳；apiKeys 天然满足 interfaces.KeyAuthenticator。
+	if err := interfaces.RegisterMCP(a, apiKeys, posts, moments, comments, settings, users, authorFn, authorNameFn); err != nil {
+		return err
+	}
 	// Unit 4：AI 自动审核 worker（BLOG_LLM_API_KEY 未配置则不启动）
 	return registerModerator(a, comments, guestbook, settings, mail, authorNameFn)
 }
