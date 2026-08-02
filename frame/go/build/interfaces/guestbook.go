@@ -187,7 +187,7 @@ func RegisterGuestbookAdmin(a *hybrid.App, gb *guestbookapp.Service, authorNameF
 		return err
 	}
 
-	// 驳回留言（reason 必填 ≤200）；rejected 从不公开，无失效
+	// 驳回留言（reason 必填 ≤200）；approved→rejected 是可见性变化，作者主页失效
 	if err := a.Post("/guestbook/:id/reject", admin, func(c *hybrid.ApiCtx) error {
 		var in rejectInput
 		if err := c.Bind(&in); err != nil {
@@ -203,6 +203,7 @@ func RegisterGuestbookAdmin(a *hybrid.App, gb *guestbookapp.Service, authorNameF
 		case err != nil:
 			return c.Error(500, "internal error")
 		}
+		a.InvalidatePage("/author/" + authorNameFn())
 		return c.JSON(200, map[string]any{"ok": true})
 	}); err != nil {
 		return err
