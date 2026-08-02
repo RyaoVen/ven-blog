@@ -165,14 +165,13 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 		return err
 	}
 
-	// 驳回评论（仅 author；reason 必填 ≤200）。面板仅对 pending/rejected 提供驳回，
-	// 不做读者失效——rejected 从不公开，无可见性变化。
+	// 驳回评论（仅 author；reason 必填 ≤200）。approved→rejected 是可见性变化，宿主页必须失效。
 	if err := a.Post("/comments/:id/reject", []string{"author"}, func(c *hybrid.ApiCtx) error {
 		var in rejectInput
 		if err := c.Bind(&in); err != nil {
 			return c.Error(400, "bad body")
 		}
-		_, err := comments.Reject(mustID(c.Param("id")), in.Reason)
+		target, err := comments.Reject(mustID(c.Param("id")), in.Reason)
 		var vErr *commentapp.ValidationError
 		switch {
 		case errors.As(err, &vErr):
@@ -182,6 +181,7 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 		case err != nil:
 			return c.Error(500, "internal error")
 		}
+		invalidateCommentHost(a, target)
 		return c.JSON(200, map[string]any{"ok": true})
 	}); err != nil {
 		return err
