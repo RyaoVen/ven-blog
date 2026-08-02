@@ -36,7 +36,9 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: frame/node/package-lock.json
-      - run: npm ci
+      # 用 install 而非 ci：依赖树含跨平台 optional 包（esbuild/vite 8 的 @emnapi 系），
+      # 单平台生成的 lock 不覆盖其他平台条目，install 会按当前平台补全（lock 满足时零变化）
+      - run: npm install
       - run: npm run typecheck
       - run: npm test
 
