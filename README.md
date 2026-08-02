@@ -48,7 +48,9 @@ cd frame/go
 go run .           # :8080
 ```
 
-启动后在 `src/` 下新建 `<路径>/page.tsx` 即得页面，在 `frame/go/build/` 的 `Register` 里注册角色/页面/API（当前为空骨架；用法见 [PROMPT.md](PROMPT.md)）。
+启动后在 `src/` 下新建 `<路径>/page.tsx` 即得页面，在 `frame/go/build/` 的 `Register` 里注册角色/页面/API（用法见 [PROMPT.md](PROMPT.md)）。
+
+**ven-blog 业务使用**（部署/环境变量/agent 能力/运维）：见 [docs/usage.md](docs/usage.md)。
 
 **检查命令**：Go 端 `go build ./... && go vet ./... && go test ./...`；Node 端 `npm run typecheck && npm test`（vitest，纯逻辑单元测试）。
 
