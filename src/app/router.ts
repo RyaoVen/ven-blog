@@ -38,6 +38,42 @@ let navSeq = 0;
 let currentKey = "initial";
 const scrollPositions = new Map<string, number>();
 
+/** 访问上报节流窗口：30s 内同 path 只报一次（与 Go 端 /api/visit 服务内节流一致，前端再做一道防抖） */
+const visitThrottleMs = 30_000;
+/** 各 path 最近一次上报时间（简单内存节流，刷新页面即清） */
+const visitReportedAt = new Map<string, number>();
+
+/**
+ * 访问上报（双埋点之二）：SPA 导航成功后 POST /api/visit。
+ * fetch keepalive 保证卸载/跳转前发出；失败静默——整页加载兜底由 Go 网关中间件计数。
+ */
+function reportVisit(path: string): void {
+    const now = Date.now();
+    const last = visitReportedAt.get(path);
+    if (last !== undefined && now - last < visitThrottleMs) {
+        return;
+    }
+    // 表过大时顺带清一次过期键（30s 窗口外的旧条目不再需要）
+    if (visitReportedAt.size >= 2048) {
+        for (const [p, t] of visitReportedAt) {
+            if (now - t >= visitThrottleMs) visitReportedAt.delete(p);
+        }
+    }
+    visitReportedAt.set(path, now);
+    try {
+        fetch("/api/visit", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path }),
+            keepalive: true,
+        }).catch(() => {
+            /* 静默：上报失败不影响页面 */
+        });
+    } catch {
+        /* 静默 */
+    }
+}
+
 let currentState: VenRouterState = {
     route: "/",
     query: {},
@@ -186,6 +222,7 @@ async function loadRoute(url: string, isPop: boolean): Promise<void> {
     const data: unknown = await response.json();
     setLoading(false);
     emit({ route: pathOf(url), query: queryOf(url), initialState: data, forbidden: false });
+    reportVisit(pathOf(url)); // 导航成功：访问上报（401/403/失败已走整页跳转，由网关中间件计数）
     subscribeLive(); // 导航完成：切换到新路由的推送订阅
     window.scrollTo(0, isPop ? (scrollPositions.get(currentKey) ?? 0) : 0);
 }
