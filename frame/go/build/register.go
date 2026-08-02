@@ -155,7 +155,12 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterAdmin(a, posts, comments, interactions, moments, subscribe, users, settings); err != nil {
 		return err
 	}
-	return interfaces.RegisterKeysAdmin(a, apiKeys)
+	if err := interfaces.RegisterKeysAdmin(a, apiKeys); err != nil {
+		return err
+	}
+	// /api/mcp 网关（agent 统一入口）：纯原生 fiber 路由，只认 key 不认 cookie，
+	// 与页面注册顺序无关，放链尾最稳；apiKeys 天然满足 interfaces.KeyAuthenticator。
+	return interfaces.RegisterMCP(a, apiKeys, posts, moments, comments, settings, users, authorFn, authorNameFn)
 }
 
 // siteURLFromEnv 返回站点对外 URL（BLOG_SITE_URL，RSS 链接拼接用；默认本地开发地址）。
