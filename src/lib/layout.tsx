@@ -172,8 +172,8 @@ function BrandMark({ size = 24, fontSize = 12 }: { size?: number; fontSize?: num
     return <span style={{ ...styles.brandDot, width: size, height: size, fontSize }}>V</span>;
 }
 
-/** 作者字母头像（链到作者主页） */
-function AuthorAvatar() {
+/** 作者字母头像（链到作者主页）；labeled 时以抽屉导航行展示（头像 + 文字） */
+function AuthorAvatar({ labeled = false, onNavigate }: { labeled?: boolean; onNavigate?: () => void }) {
     const [name, setName] = useState<string | null>(null);
     useEffect(() => {
         let cancelled = false;
@@ -186,13 +186,17 @@ function AuthorAvatar() {
             cancelled = true;
         };
     }, []);
+    const href = name ? `/author/${name}` : "/";
+    if (labeled) {
+        return (
+            <a href={href} className="ven-drawer-nav-link" onClick={onNavigate} title="作者主页">
+                <span style={styles.authorAvatar}>{(name ?? "A").slice(0, 1).toUpperCase()}</span>
+                <span>作者主页</span>
+            </a>
+        );
+    }
     return (
-        <a
-            href={name ? `/author/${name}` : "/"}
-            title="作者主页"
-            style={styles.authorAvatar}
-            aria-label="作者主页"
-        >
+        <a href={href} style={styles.authorAvatar} title="作者主页" aria-label="作者主页">
             {(name ?? "A").slice(0, 1).toUpperCase()}
         </a>
     );
@@ -242,7 +246,27 @@ function ProfileEntry() {
 export function Layout({ children }: { children: ReactNode }) {
     const role = useRole();
     const [authView, setAuthView] = useState<"login" | "register" | null>(null);
+    const [menuOpen, setMenuOpen] = useState(false);
     useCardGlow();
+
+    // 移动端抽屉：打开时锁定 body 滚动 + Esc 关闭
+    useEffect(() => {
+        if (!menuOpen) {
+            return;
+        }
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                setMenuOpen(false);
+            }
+        };
+        document.addEventListener("keydown", onKey);
+        return () => {
+            document.body.style.overflow = prevOverflow;
+            document.removeEventListener("keydown", onKey);
+        };
+    }, [menuOpen]);
 
     // 大图 blur-up（捕获 load 事件）+ 代码块交互（委托监听，SSR 结构不变）
     useEffect(() => {
@@ -326,8 +350,7 @@ export function Layout({ children }: { children: ReactNode }) {
                         <BrandMark />
                         ven-blog
                     </a>
-                    <AuthorAvatar />
-                    <nav style={styles.nav}>
+                    <nav style={styles.nav} className="ven-header-nav">
                         <a href="/posts" style={styles.navLink} className="ven-nav-link">
                             文章
                         </a>
@@ -337,7 +360,7 @@ export function Layout({ children }: { children: ReactNode }) {
                     </nav>
                 </div>
                 <HeaderSearch />
-                <div style={styles.side}>
+                <div style={styles.side} className="ven-header-actions">
                     <div className="ven-theme-wrap"><ThemeToggle /></div>
                     {role === "author" && (
                         <>
@@ -370,9 +393,84 @@ export function Layout({ children }: { children: ReactNode }) {
                             </button>
                         </>
                     )}
+                    <button type="button" className="ven-menu-btn" onClick={() => setMenuOpen(true)} aria-label="打开菜单">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                            <path d="M2 4.5 H16 M2 9 H16 M2 13.5 H16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                    </button>
                 </div>
                 </div>
             </header>
+            {/* 移动端抽屉：≤720px 汉堡按钮展开，收纳导航/主题/账号操作 */}
+            {menuOpen && (
+                <>
+                    <div className="ven-drawer-overlay" onClick={() => setMenuOpen(false)} aria-hidden="true" />
+                    <div className="ven-drawer" role="dialog" aria-modal="true" aria-label="导航菜单">
+                        <div className="ven-drawer-head">
+                            <a href="/" style={styles.brand} onClick={() => setMenuOpen(false)}>
+                                <BrandMark />
+                                ven-blog
+                            </a>
+                            <button type="button" className="ven-drawer-close" onClick={() => setMenuOpen(false)} aria-label="关闭菜单">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                    <path d="M3 3 L13 13 M13 3 L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="ven-drawer-body">
+                            <nav className="ven-drawer-nav" aria-label="移动端导航">
+                                <a className="ven-drawer-nav-link" href="/posts" onClick={() => setMenuOpen(false)}>
+                                    文章
+                                </a>
+                                <a className="ven-drawer-nav-link" href="/moments" onClick={() => setMenuOpen(false)}>
+                                    动态
+                                </a>
+                                <AuthorAvatar labeled onNavigate={() => setMenuOpen(false)} />
+                            </nav>
+                            <div className="ven-drawer-actions">
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                    <span className="ven-meta">主题</span>
+                                    <div className="ven-theme-wrap"><ThemeToggle /></div>
+                                </div>
+                                {role === "author" && (
+                                    <>
+                                        <a href="/admin" className="ven-btn" onClick={() => setMenuOpen(false)}>
+                                            <GridIcon />
+                                            后台
+                                        </a>
+                                        <a href="/admin/posts/new" className="ven-btn ven-btn-primary" onClick={() => setMenuOpen(false)}>
+                                            <PenIcon />
+                                            写文章
+                                        </a>
+                                    </>
+                                )}
+                                {role ? (
+                                    <>
+                                        <div className="ven-drawer-profile" onClick={() => setMenuOpen(false)}>
+                                            <ProfileEntry />
+                                        </div>
+                                        <button type="button" className="ven-btn" onClick={() => { logout(); setMenuOpen(false); }}>
+                                            <LogoutIcon />
+                                            注销（{role}）
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button type="button" className="ven-btn" onClick={() => { setAuthView("login"); setMenuOpen(false); }}>
+                                            <LoginIcon />
+                                            登录
+                                        </button>
+                                        <button type="button" className="ven-btn ven-btn-primary" onClick={() => { setAuthView("register"); setMenuOpen(false); }}>
+                                            <UserPlusIcon />
+                                            注册
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </>
+            )}
             <div style={styles.container}>
             <main style={styles.main}>
                 <PageEnter>{children}</PageEnter>
