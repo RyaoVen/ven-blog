@@ -12,6 +12,8 @@ type Repository interface {
 	LikeCount(targetType TargetType, targetID int64) (int, error)
 	// CountLikes 全站点赞总数（后台统计）。
 	CountLikes() (int, error)
+	// PostLikeCounts 各文章点赞数分组统计（后台文章列表用，一次查询出全表 map）。
+	PostLikeCounts() (map[int64]int, error)
 	// MomentLikeCounts 各动态点赞数分组统计（target_type='moment'）。
 	MomentLikeCounts() (map[int64]int, error)
 	// LikedTargetIDs 某用户点赞过的目标 ID 列表（viewer 状态下发用）。
@@ -27,4 +29,6 @@ type Repository interface {
 	FavoriteCount(postID int64) (int, error)
 	// CountFavorites 全站收藏总数（后台统计）。
 	CountFavorites() (int, error)
+	// PostFavoriteCounts 各文章收藏数分组统计（后台文章列表用，一次查询出全表 map）。
+	PostFavoriteCounts() (map[int64]int, error)
 }

@@ -49,6 +49,11 @@ func (s *Service) MomentLikeCounts() (map[int64]int, error) {
 	return s.repo.MomentLikeCounts()
 }
 
+// PostLikeCounts 各文章点赞数分组统计（后台文章列表用，一次查询避免 N+1）。
+func (s *Service) PostLikeCounts() (map[int64]int, error) {
+	return s.repo.PostLikeCounts()
+}
+
 // ViewerMomentLikes 用户点赞过的动态 ID（viewer 状态下发用）。
 func (s *Service) ViewerMomentLikes(userID int64) ([]int64, error) {
 	return s.repo.LikedTargetIDs(userID, interaction.TargetMoment)
@@ -124,4 +129,9 @@ func (s *Service) Totals() (likes int, favorites int, err error) {
 		return 0, 0, err
 	}
 	return likes, favorites, nil
+}
+
+// PostFavoriteCounts 各文章收藏数分组统计（后台文章列表用，一次查询避免 N+1）。
+func (s *Service) PostFavoriteCounts() (map[int64]int, error) {
+	return s.repo.PostFavoriteCounts()
 }

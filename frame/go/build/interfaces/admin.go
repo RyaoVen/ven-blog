@@ -14,6 +14,7 @@ import (
 	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/subscribeapp"
 	"ven_hybird/build/application/userapp"
+	"ven_hybird/build/application/visitapp"
 	"ven_hybird/build/domain/comment"
 	"ven_hybird/build/domain/post"
 	"ven_hybird/hybrid"
@@ -64,6 +65,7 @@ func RegisterAdmin(
 	subscribe *subscribeapp.Service,
 	users *userapp.Service,
 	settings *settingsapp.Service,
+	visits *visitapp.Service,
 ) error {
 	admin := []string{"author"}
 
@@ -93,6 +95,15 @@ func RegisterAdmin(
 			return err
 		}
 		likes, favorites, err := inter.Totals()
+		if err != nil {
+			return err
+		}
+		// 访问统计：全站访问量 / 文章点击总量 / 近 30 天 PV
+		visitTotal, postHitsTotal, err := visits.Totals()
+		if err != nil {
+			return err
+		}
+		pv30, err := visits.Daily(30)
 		if err != nil {
 			return err
 		}
@@ -189,7 +200,9 @@ func RegisterAdmin(
 				"posts": postCount, "words": totalChars, "comments": commentCount,
 				"likes": likes, "favorites": favorites, "users": userCount,
 				"moments": momentCount, "subscribers": subscriberCount,
+				"visits": visitTotal, "postHits": postHitsTotal,
 			},
+			"pv30":            pv30,
 			"recentComments": recentViews,
 			"userGrowth": map[string]any{
 				"d7": growth7, "d30": growth30, "d365": growth365,
@@ -212,7 +225,27 @@ func RegisterAdmin(
 		if err != nil {
 			return err
 		}
-		return c.JSON(map[string]any{"posts": toPostViews(list)})
+		views := toPostViews(list)
+		// 批量统计（各一次查询出 map，避免 N+1）：点击来自 visits 聚合，点赞/收藏来自互动表
+		hits, err := visits.PostHits()
+		if err != nil {
+			return err
+		}
+		likeCounts, err := inter.PostLikeCounts()
+		if err != nil {
+			return err
+		}
+		favoriteCounts, err := inter.PostFavoriteCounts()
+		if err != nil {
+			return err
+		}
+		for i := range views {
+			id := mustID(views[i].ID)
+			views[i].Hits = hits[id]
+			views[i].Likes = likeCounts[id]
+			views[i].Favorites = favoriteCounts[id]
+		}
+		return c.JSON(map[string]any{"posts": views})
 	}); err != nil {
 		return err
 	}
