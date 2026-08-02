@@ -32,6 +32,7 @@ func (s *Service) MomentCounts() (map[int64]int, error) {
 }
 
 // Approve 审核通过评论；返回宿主（失效声明用）。
+// 对 rejected 调用即等价 recover（SetStatus 会清空驳回原因）。
 func (s *Service) Approve(commentID int64) (comment.Target, error) {
 	c, err := s.repo.Get(commentID)
 	if err != nil {
@@ -43,9 +44,49 @@ func (s *Service) Approve(commentID int64) (comment.Target, error) {
 	return comment.Target{PostID: c.PostID, MomentID: c.MomentID}, nil
 }
 
+// Reject 驳回评论：reason 必填且 ≤200，任意状态可驳回（违规复核驳回）；返回宿主。
+func (s *Service) Reject(commentID int64, reason string) (comment.Target, error) {
+	if msg := comment.ValidateRejectedReason(reason); msg != "" {
+		return comment.Target{}, &ValidationError{Message: msg}
+	}
+	c, err := s.repo.Get(commentID)
+	if err != nil {
+		return comment.Target{}, err
+	}
+	if err := s.repo.SetRejected(commentID, reason); err != nil {
+		return comment.Target{}, err
+	}
+	return comment.Target{PostID: c.PostID, MomentID: c.MomentID}, nil
+}
+
+// Recover 恢复被驳回的评论（AI 误杀恢复）：仅 rejected → approved（reason 随 SetStatus 清空）；其余状态返回 ErrInvalidState。
+func (s *Service) Recover(commentID int64) (comment.Target, error) {
+	c, err := s.repo.Get(commentID)
+	if err != nil {
+		return comment.Target{}, err
+	}
+	if c.Status != comment.StatusRejected {
+		return comment.Target{}, comment.ErrInvalidState
+	}
+	if err := s.repo.SetStatus(commentID, comment.StatusApproved); err != nil {
+		return comment.Target{}, err
+	}
+	return comment.Target{PostID: c.PostID, MomentID: c.MomentID}, nil
+}
+
 // ListPending 待审核评论（后台管理用）。
 func (s *Service) ListPending() ([]*comment.Comment, error) {
 	return s.repo.ListPending()
+}
+
+// ListRejected 被驳回评论（后台管理用）。
+func (s *Service) ListRejected() ([]*comment.Comment, error) {
+	return s.repo.ListRejected()
+}
+
+// Get 按 ID 取评论（驳回邮件触发的读取通道，供后续单元拼邮件用）。
+func (s *Service) Get(commentID int64) (*comment.Comment, error) {
+	return s.repo.Get(commentID)
 }
 
 // ListAll 全站评论（后台管理用，含所属文章标题）。

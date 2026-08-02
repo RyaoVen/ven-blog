@@ -53,6 +53,11 @@ type commentInput struct {
 	ReplyTo string `json:"replyTo"`
 }
 
+// rejectInput 驳回请求体（reason 必填 ≤200）。
+type rejectInput struct {
+	Reason string `json:"reason"`
+}
+
 // loginRoles 评论/点赞/收藏对全部登录用户开放（扁平角色下两个都列）。
 var loginRoles = []string{"reader", "author"}
 
@@ -147,6 +152,49 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 		switch {
 		case errors.Is(err, comment.ErrNotFound):
 			return c.Error(404, "comment not found")
+		case err != nil:
+			return c.Error(500, "internal error")
+		}
+		if target.MomentID > 0 {
+			_ = a.DataChange("/moments")
+		} else {
+			declarePostsChanged(a, target.PostID)
+		}
+		return c.JSON(200, map[string]any{"ok": true})
+	}); err != nil {
+		return err
+	}
+
+	// 驳回评论（仅 author；reason 必填 ≤200）。面板仅对 pending/rejected 提供驳回，
+	// 不做读者失效——rejected 从不公开，无可见性变化。
+	if err := a.Post("/comments/:id/reject", []string{"author"}, func(c *hybrid.ApiCtx) error {
+		var in rejectInput
+		if err := c.Bind(&in); err != nil {
+			return c.Error(400, "bad body")
+		}
+		_, err := comments.Reject(mustID(c.Param("id")), in.Reason)
+		var vErr *commentapp.ValidationError
+		switch {
+		case errors.As(err, &vErr):
+			return c.Error(400, vErr.Message)
+		case errors.Is(err, comment.ErrNotFound):
+			return c.Error(404, "comment not found")
+		case err != nil:
+			return c.Error(500, "internal error")
+		}
+		return c.JSON(200, map[string]any{"ok": true})
+	}); err != nil {
+		return err
+	}
+
+	// 恢复被驳回评论（仅 author）：读者可见性 不可见→可见，按宿主做失效声明。
+	if err := a.Post("/comments/:id/recover", []string{"author"}, func(c *hybrid.ApiCtx) error {
+		target, err := comments.Recover(mustID(c.Param("id")))
+		switch {
+		case errors.Is(err, comment.ErrNotFound):
+			return c.Error(404, "comment not found")
+		case errors.Is(err, comment.ErrInvalidState):
+			return c.Error(400, "comment not in rejected state")
 		case err != nil:
 			return c.Error(500, "internal error")
 		}

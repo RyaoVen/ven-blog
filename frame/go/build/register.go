@@ -84,7 +84,11 @@ func Register(a *hybrid.App) error {
 	interactions := interactionapp.NewService(interactionRepo)
 	moments := momentapp.NewService(momentRepo)
 	subscribe := subscribeapp.NewService(subscriberRepo)
-	guestbook := guestbookapp.NewService(guestbookRepo)
+	// 审核开关（comment_moderation 设置）同时管评论与留言：开时新留言待审核
+	guestbook := guestbookapp.NewService(guestbookRepo, func() bool {
+		on, err := settings.Moderation()
+		return err == nil && on
+	})
 	apiKeys := apikeyapp.NewService(apiKeyRepo)
 
 	// 接口层注册（发文归属经 c.User() 取调用者，框架会话已携带用户身份）
@@ -112,6 +116,9 @@ func Register(a *hybrid.App) error {
 		return err
 	}
 	if err := interfaces.RegisterGuestbookAPI(a, guestbook, authorNameFn); err != nil {
+		return err
+	}
+	if err := interfaces.RegisterGuestbookAdmin(a, guestbook, authorNameFn); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterAPIs(a, posts); err != nil {

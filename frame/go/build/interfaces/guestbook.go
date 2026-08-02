@@ -17,6 +17,7 @@ type GuestbookView struct {
 	UserID    string    `json:"userId"`
 	Username  string    `json:"username"`
 	Content   string    `json:"content"`
+	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -27,6 +28,7 @@ func toGuestbookView(e *guestbook.Entry) GuestbookView {
 		UserID:    strconv.FormatInt(e.UserID, 10),
 		Username:  e.Username,
 		Content:   e.Content,
+		Status:    e.Status,
 		CreatedAt: e.CreatedAt,
 	}
 }
@@ -99,6 +101,121 @@ func RegisterGuestbookAPI(a *hybrid.App, gb *guestbookapp.Service, authorNameFn 
 			return c.Error(404, "entry not found")
 		case errors.Is(err, guestbook.ErrForbidden):
 			return c.Error(403, "forbidden")
+		case err != nil:
+			return c.Error(500, "internal error")
+		}
+		a.InvalidatePage("/author/" + authorNameFn())
+		return c.JSON(200, map[string]any{"ok": true})
+	})
+}
+
+// adminGuestbookView 后台留言管理视图（含审核状态与驳回原因）。
+type adminGuestbookView struct {
+	ID             string    `json:"id"`
+	UserID         string    `json:"userId"`
+	Username       string    `json:"username"`
+	Content        string    `json:"content"`
+	Status         string    `json:"status"`
+	RejectedReason string    `json:"rejectedReason"`
+	CreatedAt      time.Time `json:"createdAt"`
+}
+
+// toAdminGuestbookView 领域实体 → 后台管理视图。
+func toAdminGuestbookView(e *guestbook.Entry) adminGuestbookView {
+	return adminGuestbookView{
+		ID:             strconv.FormatInt(e.ID, 10),
+		UserID:         strconv.FormatInt(e.UserID, 10),
+		Username:       e.Username,
+		Content:        e.Content,
+		Status:         e.Status,
+		RejectedReason: e.RejectedReason,
+		CreatedAt:      e.CreatedAt,
+	}
+}
+
+// toAdminGuestbookViews 批量转换。
+func toAdminGuestbookViews(entries []*guestbook.Entry) []adminGuestbookView {
+	views := make([]adminGuestbookView, 0, len(entries))
+	for _, e := range entries {
+		views = append(views, toAdminGuestbookView(e))
+	}
+	return views
+}
+
+// RegisterGuestbookAdmin 注册留言板管理页与审核 API（全部 author 守卫）。
+// 删除复用 RegisterGuestbookAPI 的 DELETE /guestbook/:id（本人或 author 可删）。
+// 失效规则：approve/recover 使留言从不可见变为可见，失效作者主页；reject 无读者可见性变化，不失效。
+func RegisterGuestbookAdmin(a *hybrid.App, gb *guestbookapp.Service, authorNameFn func() string) error {
+	admin := []string{"author"}
+
+	// 留言板管理页：全量 + 待审核 + 被驳回三区
+	if err := a.Page("/admin/guestbook", admin, func(c *hybrid.PageCtx) error {
+		all, err := gb.ListAll(200)
+		if err != nil {
+			return err
+		}
+		pending, err := gb.ListPending()
+		if err != nil {
+			return err
+		}
+		rejected, err := gb.ListRejected()
+		if err != nil {
+			return err
+		}
+		return c.JSON(map[string]any{
+			"entries":  toAdminGuestbookViews(all),
+			"pending":  toAdminGuestbookViews(pending),
+			"rejected": toAdminGuestbookViews(rejected),
+		})
+	}); err != nil {
+		return err
+	}
+
+	// 审核通过留言
+	if err := a.Post("/guestbook/:id/approve", admin, func(c *hybrid.ApiCtx) error {
+		if err := gb.Approve(mustID(c.Param("id"))); err != nil {
+			switch {
+			case errors.Is(err, guestbook.ErrNotFound):
+				return c.Error(404, "entry not found")
+			default:
+				return c.Error(500, "internal error")
+			}
+		}
+		a.InvalidatePage("/author/" + authorNameFn())
+		return c.JSON(200, map[string]any{"ok": true})
+	}); err != nil {
+		return err
+	}
+
+	// 驳回留言（reason 必填 ≤200）；rejected 从不公开，无失效
+	if err := a.Post("/guestbook/:id/reject", admin, func(c *hybrid.ApiCtx) error {
+		var in rejectInput
+		if err := c.Bind(&in); err != nil {
+			return c.Error(400, "bad body")
+		}
+		err := gb.Reject(mustID(c.Param("id")), in.Reason)
+		var vErr *guestbookapp.ValidationError
+		switch {
+		case errors.As(err, &vErr):
+			return c.Error(400, vErr.Message)
+		case errors.Is(err, guestbook.ErrNotFound):
+			return c.Error(404, "entry not found")
+		case err != nil:
+			return c.Error(500, "internal error")
+		}
+		return c.JSON(200, map[string]any{"ok": true})
+	}); err != nil {
+		return err
+	}
+
+	// 恢复被驳回留言
+	return a.Post("/guestbook/:id/recover", admin, func(c *hybrid.ApiCtx) error {
+		err := gb.Recover(mustID(c.Param("id")))
+		switch {
+		case errors.Is(err, guestbook.ErrNotFound):
+			return c.Error(404, "entry not found")
+		case errors.Is(err, guestbook.ErrInvalidState):
+			return c.Error(400, "entry not in rejected state")
 		case err != nil:
 			return c.Error(500, "internal error")
 		}

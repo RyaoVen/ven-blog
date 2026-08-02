@@ -10,6 +10,7 @@ import (
 const (
 	StatusApproved = "approved"
 	StatusPending  = "pending"
+	StatusRejected = "rejected"
 )
 
 // Comment 评论实体。Username 与 PostTitle 是读取模型字段（仓储联表填充），写回时不持久化。
@@ -22,8 +23,9 @@ type Comment struct {
 	PostTitle string // 所属文章标题（后台评论管理联表填充）
 	Content   string
 	ReplyTo   string // 回复目标用户名（@ 形式平铺展示，空串表示非回复）
-	Status    string // approved | pending（开启评论审核后新评论为 pending）
-	CreatedAt time.Time
+	Status         string // approved | pending | rejected（开启评论审核后新评论为 pending）
+	RejectedReason string // 驳回原因：仅 Status==rejected 时非空；其余状态由仓储保证清空
+	CreatedAt      time.Time
 }
 
 // Target 评论宿主（文章或动态，二选一，恰一个非零）。
@@ -45,6 +47,18 @@ func Validate(content string) string {
 	}
 	if len(content) > 2000 {
 		return "content too long (max 2000)"
+	}
+	return ""
+}
+
+// ValidateRejectedReason 校验驳回原因，返回错误消息（空串表示通过）。
+// 领域规则：去空白后非空，且不超过 200 字符。
+func ValidateRejectedReason(reason string) string {
+	if strings.TrimSpace(reason) == "" {
+		return "reason is required"
+	}
+	if len(reason) > 200 {
+		return "reason too long (max 200)"
 	}
 	return ""
 }

@@ -7,6 +7,8 @@ var (
 	ErrNotFound = errors.New("comment not found")
 	// ErrForbidden 无权删除他人评论。
 	ErrForbidden = errors.New("forbidden")
+	// ErrInvalidState Recover 前置校验用（非 rejected 状态不可恢复）。
+	ErrInvalidState = errors.New("comment not in rejected state")
 )
 
 // Repository 评论仓储接口（领域层定义，基础设施层实现）。
@@ -21,8 +23,13 @@ type Repository interface {
 	ListAll(limit int) ([]*Comment, error)
 	// ListPending 返回待审核评论（创建时间正序，先审先到的）。
 	ListPending() ([]*Comment, error)
-	// SetStatus 更新评论状态（审核通过/打回）。
+	// ListRejected 返回被驳回评论（创建时间正序）。
+	ListRejected() ([]*Comment, error)
+	// SetStatus 更新评论状态（审核通过/打回），任何写入同时清空驳回原因
+	// （保持"仅 rejected 有 reason"不变量）。
 	SetStatus(id int64, status string) error
+	// SetRejected 驳回评论并记录驳回原因。
+	SetRejected(id int64, reason string) error
 	// Count 返回评论总数。
 	Count() (int, error)
 	// Get 按 ID 取评论，不存在返回 ErrNotFound（删除前归属校验用）。
