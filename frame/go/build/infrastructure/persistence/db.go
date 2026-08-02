@@ -34,8 +34,12 @@ var migration006 string
 //go:embed migrations/007_email.sql
 var migration007 string
 
+//go:embed migrations/009_ugc_status.sql
+var migration009 string
+
 // migrations 按序执行的迁移脚本（文件名即顺序）。
-var migrations = []string{migration001, migration002, migration003, migration004, migration005, migration006, migration007}
+// 注：008 由并行单元（密钥管理）提供，合入时保持 008 在前 009 在后（数字序）。
+var migrations = []string{migration001, migration002, migration003, migration004, migration005, migration006, migration007, migration009}
 
 // DSNFromEnv 读取 BLOG_MYSQL_DSN，未设置回退开发默认值。
 func DSNFromEnv() string {
