@@ -12,6 +12,15 @@ function excerptOf(p: Post): string {
     return source.length > 90 ? source.slice(0, 90) + "…" : source;
 }
 
+/** 置顶标记（对齐 ven-chip 设计语言，强调色描边） */
+function PinnedBadge() {
+    return (
+        <span className="ven-chip" style={{ color: v.accent, borderColor: v.accent, flexShrink: 0 }}>
+            置顶
+        </span>
+    );
+}
+
 export function PostList({ posts }: { posts: Post[] }) {
     if (posts.length === 0) {
         return <p style={{ color: v.textSecondary }}>还没有文章。</p>;
@@ -40,13 +49,16 @@ export function PostList({ posts }: { posts: Post[] }) {
                         />
                     )}
                     <div style={{ padding: "18px 22px" }}>
-                        <a
-                            href={`/posts/${p.id}`}
-                            className="ven-hl"
-                            style={{ fontSize: 17, fontWeight: 650, color: v.text }}
-                        >
-                            {p.title}
-                        </a>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                            {p.pinned && <PinnedBadge />}
+                            <a
+                                href={`/posts/${p.id}`}
+                                className="ven-hl"
+                                style={{ fontSize: 17, fontWeight: 650, color: v.text }}
+                            >
+                                {p.title}
+                            </a>
+                        </div>
                         <p style={{ margin: "8px 0 12px", fontSize: 14, color: v.textSecondary }}>{excerptOf(p)}</p>
                         <div className="ven-meta" style={{ display: "flex", gap: 14, alignItems: "center" }}>
                             <a

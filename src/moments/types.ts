@@ -5,6 +5,8 @@ export interface Moment {
     id: string;
     content: string;
     authorName: string;
+    /** 置顶标记（列表排序置顶优先，前端只做展示） */
+    pinned: boolean;
     createdAt: string;
 }
 

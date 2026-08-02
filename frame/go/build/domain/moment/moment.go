@@ -11,12 +11,14 @@ import (
 const MaxContentLen = 1000
 
 // Moment 动态实体。
-// AuthorName 是读取模型字段（仓储查询时联表填充），写回时不持久化。
+// AuthorName 是读取模型字段（仓储查询时联表填充），写回时不持久化；
+// Pinned 置顶标记（0/1，排序加分项，写回经仓储 SetPinned 独立维护）。
 type Moment struct {
 	ID         int64
 	AuthorID   int64
 	AuthorName string
 	Content    string
+	Pinned     bool
 	CreatedAt  time.Time
 }
 

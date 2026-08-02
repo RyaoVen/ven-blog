@@ -20,19 +20,19 @@ func NewMomentRepository(db *sql.DB) *MomentRepository {
 }
 
 // 列表查询联表 users 取作者名。
-const momentSelect = `SELECT m.id, m.author_id, u.username, m.content, m.created_at
+const momentSelect = `SELECT m.id, m.author_id, u.username, m.content, m.pinned, m.created_at
 FROM moments m JOIN users u ON u.id = m.author_id`
 
 // scanMoment 从行扫描动态（列序与 momentSelect 一致）。
 func scanMoment(row interface{ Scan(...any) error }) (*moment.Moment, error) {
 	m := &moment.Moment{}
-	err := row.Scan(&m.ID, &m.AuthorID, &m.AuthorName, &m.Content, &m.CreatedAt)
+	err := row.Scan(&m.ID, &m.AuthorID, &m.AuthorName, &m.Content, &m.Pinned, &m.CreatedAt)
 	return m, err
 }
 
-// List 返回最近动态（创建时间倒序），limit <= 0 表示全部。
+// List 返回最近动态（置顶优先，其内创建时间倒序），limit <= 0 表示全部。
 func (r *MomentRepository) List(limit int) ([]*moment.Moment, error) {
-	query := momentSelect + " ORDER BY m.created_at DESC, m.id DESC"
+	query := momentSelect + " ORDER BY m.pinned DESC, m.created_at DESC, m.id DESC"
 	var args []any
 	if limit > 0 {
 		query += " LIMIT ?"
@@ -89,6 +89,22 @@ func (r *MomentRepository) Delete(id int64) error {
 	res, err := r.db.Exec("DELETE FROM moments WHERE id = ?", id)
 	if err != nil {
 		return fmt.Errorf("delete moment %d: %w", id, err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return moment.ErrNotFound
+	}
+	return nil
+}
+
+// SetPinned 设置动态置顶标记（仅改 pinned 列，不动时间戳），不存在返回 moment.ErrNotFound。
+func (r *MomentRepository) SetPinned(id int64, pinned bool) error {
+	res, err := r.db.Exec("UPDATE moments SET pinned = ? WHERE id = ?", pinned, id)
+	if err != nil {
+		return fmt.Errorf("set pinned moment %d: %w", id, err)
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {

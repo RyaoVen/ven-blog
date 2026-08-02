@@ -21,13 +21,13 @@ func NewPostRepository(db *sql.DB) *PostRepository {
 }
 
 // 列表/详情查询联表 users 取作者名；标签经 post_tags/tags 表单独批量填充。
-const postSelect = `SELECT p.id, p.author_id, u.username, p.title, p.category, p.summary, p.content, p.cover_url, p.created_at, p.updated_at
+const postSelect = `SELECT p.id, p.author_id, u.username, p.title, p.category, p.summary, p.content, p.cover_url, p.pinned, p.created_at, p.updated_at
 FROM posts p JOIN users u ON u.id = p.author_id`
 
 // scanPost 从行扫描文章（列序与 postSelect 一致）。
 func scanPost(row interface{ Scan(...any) error }) (*post.Post, error) {
 	p := &post.Post{}
-	err := row.Scan(&p.ID, &p.AuthorID, &p.AuthorName, &p.Title, &p.Category, &p.Summary, &p.Content, &p.CoverURL, &p.CreatedAt, &p.UpdatedAt)
+	err := row.Scan(&p.ID, &p.AuthorID, &p.AuthorName, &p.Title, &p.Category, &p.Summary, &p.Content, &p.CoverURL, &p.Pinned, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
 }
 
@@ -46,7 +46,7 @@ func (r *PostRepository) ListPaged(category string, page, pageSize int) ([]*post
 		return nil, 0, fmt.Errorf("count posts: %w", err)
 	}
 
-	query := postSelect + where + " ORDER BY p.created_at DESC, p.id DESC"
+	query := postSelect + where + " ORDER BY p.pinned DESC, p.created_at DESC, p.id DESC"
 	if pageSize > 0 {
 		if page < 1 {
 			page = 1
@@ -278,6 +278,22 @@ func (r *PostRepository) Delete(id int64) error {
 	return nil
 }
 
+// SetPinned 设置文章置顶标记（仅改 pinned 列，不动时间戳），不存在返回 post.ErrNotFound。
+func (r *PostRepository) SetPinned(id int64, pinned bool) error {
+	res, err := r.db.Exec("UPDATE posts SET pinned = ? WHERE id = ?", pinned, id)
+	if err != nil {
+		return fmt.Errorf("set pinned post %d: %w", id, err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return post.ErrNotFound
+	}
+	return nil
+}
+
 // AllTags 返回全部标签名（字典序）。
 func (r *PostRepository) AllTags() ([]string, error) {
 	rows, err := r.db.Query("SELECT name FROM tags ORDER BY name")
@@ -309,7 +325,7 @@ func (r *PostRepository) Stats() (int, int, error) {
 // ListFavorites 返回某用户收藏的文章（收藏时间倒序，联表作者与标签）。
 func (r *PostRepository) ListFavorites(userID int64) ([]*post.Post, error) {
 	rows, err := r.db.Query(
-		`SELECT p.id, p.author_id, u.username, p.title, p.category, p.summary, p.content, p.cover_url, p.created_at, p.updated_at
+		`SELECT p.id, p.author_id, u.username, p.title, p.category, p.summary, p.content, p.cover_url, p.pinned, p.created_at, p.updated_at
 		FROM favorites f
 		JOIN posts p ON p.id = f.post_id
 		JOIN users u ON u.id = p.author_id
