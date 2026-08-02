@@ -10,11 +10,11 @@ bubbletea TUI 为主、子命令为辅：环境检测 → 配置 → 构建 → 
 | 命令 | 说明 |
 | --- | --- |
 | `deploy` | 启动 TUI 主界面 |
-| `deploy check` | 环境检测：go/node/npm 版本、MySQL 3306、端口 3000/8080、.env.local |
+| `deploy check` | 环境检测：go/node/npm 版本、MySQL 3306、Node/Go 端口（默认 3000/8080，随配置）、.env.local |
 | `deploy config` | 查看/生成 `.env.local`（无文件时交互问答） |
 | `deploy config --set KEY=VALUE [--set K2=V2]` | 追加/覆盖配置项（保留已有键，校验 BLOG_MYSQL_DSN） |
 | `deploy build` | Node（`npm ci` + `npm run build`）→ Go（`go build -o bin/`） |
-| `deploy start` | 编排启动：Node 先起 → 等 `/pages` 就绪（30s）→ Go 后起 |
+| `deploy start` | 编排启动：Node 先起 → 等 `/pages` 就绪（30s）→ Go 后起 → 等 `/api/site` 就绪（15s） |
 | `deploy stop` | 强杀停止（读取 `.deploy/*.pid`） |
 | `deploy restart` | 停止后重新启动 |
 | `deploy status` | 进程存活 + 端口状态 |
@@ -45,13 +45,21 @@ GOOS=darwin GOARCH=arm64 go build -o deploy-darwin .
 ## 实现说明
 
 - `core/`：纯逻辑（可单测）——`envfile.go`（.env.local 手写解析/序列化，KEY=VALUE、`#` 注释、引号剥离）、
-  `config.go`（默认值 `VEN_INTERNAL_TOKEN=development-token` + DSN 必填校验）、
+  `config.go`（默认值 `VEN_INTERNAL_TOKEN=development-token` + DSN 必填校验 + 端口解析）、
   `detect.go`（环境检测）、`build.go`（构建编排）、`proc.go`（进程管理）、`logs.go`（tail）
 - `tui/`：bubbletea 界面——`app.go` 主模型（状态面板 + 菜单）、`runview.go` 执行视图（io.Pipe 实时输出）、
   `logsview.go` 日志视图
 - 环境变量来自 `.env.local`，注入 Node/Go 子进程（文件值覆盖系统环境）
 - PID 写 `.deploy/node.pid`、`.deploy/go.pid`；stdout/stderr 重定向 `logs/node.log`、`logs/go.log`
-- Node 就绪判定：`GET /pages`（`X-Ven-Internal-Token`，缺省 `development-token`）1s×30
+- **端口可配**：Node 端口读 `VEN_NODE_PORT`（默认 3000，与 Node 侧 config.ts 同读）；
+  Go 端口从 `VEN_LISTEN_ADDR` 解析（`:8080`/`0.0.0.0:8080` 均可，默认 8080）。
+  start/stop/status/check 全链路一致，子进程环境自动带上配置
+- **就绪等待**：Node——`GET /pages`（`X-Ven-Internal-Token`，缺省 `development-token`）1s×30；
+  Go——`GET /api/site` 1s×15（2xx/4xx 都算网关活着；DSN 错/MySQL 挂时 Go 秒退或起不来，
+  会区分「进程秒退」与「未就绪」提示并指向 logs/go.log，同时提示 Node 如何一并停止）
+- **进程 detach**：Windows 子进程带 `CREATE_NEW_PROCESS_GROUP|DETACHED_PROCESS`（`proc_sysattr_windows.go`）、
+  POSIX 带 `Setpgid`（`proc_sysattr_unix.go`）——关闭终端/Ctrl+C 不会波及服务进程；
+  stop 仍按 PID 强杀有效（Windows `TerminateProcess`，失败 `taskkill /T /F` 连进程树一起杀）
 - Windows 进程管理：`tasklist` 判定存活（按 PID 精确匹配，无本地化差异）、
   `TerminateProcess`/`taskkill /T /F` 强杀；POSIX：`kill(pid, 0)` 探测 + SIGKILL
 

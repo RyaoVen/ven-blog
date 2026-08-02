@@ -3,17 +3,23 @@ package core
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
 // 关键环境变量名。
 const (
-	EnvDSN       = "BLOG_MYSQL_DSN"
-	EnvToken     = "VEN_INTERNAL_TOKEN"
-	DefaultToken = "development-token"
+	EnvDSN         = "BLOG_MYSQL_DSN"
+	EnvToken       = "VEN_INTERNAL_TOKEN"
+	EnvNodePort    = "VEN_NODE_PORT"    // Node SSR worker 监听端口（默认 3000，Node 侧 config.ts 同读）
+	EnvListenAddr  = "VEN_LISTEN_ADDR"  // Go 网关监听地址（形如 ":8080"，解析出端口，默认 8080）
+	DefaultToken   = "development-token"
+	DefaultNodePort = 3000
+	DefaultGoPort   = 8080
 )
 
 // Defaults 返回未配置时的默认值。
@@ -67,6 +73,29 @@ func (c *Config) Validate() error {
 
 // InternalToken 返回内部令牌（未配置时回退 development-token）。
 func (c *Config) InternalToken() string { return c.Get(EnvToken) }
+
+// NodePort 返回 Node worker 端口：VEN_NODE_PORT，空/非法值回退 3000（对齐 Node 侧 config.ts 语义）。
+func (c *Config) NodePort() int {
+	if raw := c.Get(EnvNodePort); raw != "" {
+		if p, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil && p > 0 && p < 65536 {
+			return p
+		}
+	}
+	return DefaultNodePort
+}
+
+// GoPort 返回 Go 网关端口：从 VEN_LISTEN_ADDR 解析（":8080"/"0.0.0.0:8080"/"127.0.0.1:8080" 均可），
+// 空/无法解析时回退 8080。
+func (c *Config) GoPort() int {
+	if raw := c.Get(EnvListenAddr); raw != "" {
+		if _, port, err := net.SplitHostPort(raw); err == nil {
+			if p, perr := strconv.Atoi(port); perr == nil && p > 0 && p < 65536 {
+				return p
+			}
+		}
+	}
+	return DefaultGoPort
+}
 
 // Env 返回注入子进程的环境：os.Environ() + .env.local（文件值覆盖系统环境）。
 func (c *Config) Env() []string {

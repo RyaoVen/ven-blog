@@ -136,3 +136,50 @@ func TestIsRootAndRoot(t *testing.T) {
 		t.Error("含 frame/go、frame/node 的目录应是仓库根")
 	}
 }
+
+func TestNodePortParsing(t *testing.T) {
+	cases := []struct {
+		name string
+		env  map[string]string
+		want int
+	}{
+		{"未配置回退默认", nil, DefaultNodePort},
+		{"空值回退默认", map[string]string{EnvNodePort: ""}, DefaultNodePort},
+		{"非法值回退默认", map[string]string{EnvNodePort: "abc"}, DefaultNodePort},
+		{"越界回退默认", map[string]string{EnvNodePort: "70000"}, DefaultNodePort},
+		{"合法值", map[string]string{EnvNodePort: "3100"}, 3100},
+		{"带空白", map[string]string{EnvNodePort: " 3200 "}, 3200},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &Config{Values: tc.env}
+			if got := c.NodePort(); got != tc.want {
+				t.Errorf("NodePort() = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestGoPortParsing(t *testing.T) {
+	cases := []struct {
+		name string
+		env  map[string]string
+		want int
+	}{
+		{"未配置回退默认", nil, DefaultGoPort},
+		{"空值回退默认", map[string]string{EnvListenAddr: ""}, DefaultGoPort},
+		{"冒号端口", map[string]string{EnvListenAddr: ":8080"}, 8080},
+		{"带 host", map[string]string{EnvListenAddr: "0.0.0.0:9090"}, 9090},
+		{"带 127 host", map[string]string{EnvListenAddr: "127.0.0.1:8081"}, 8081},
+		{"非法回退默认", map[string]string{EnvListenAddr: "8080"}, DefaultGoPort},
+		{"越界回退默认", map[string]string{EnvListenAddr: ":65536"}, DefaultGoPort},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &Config{Values: tc.env}
+			if got := c.GoPort(); got != tc.want {
+				t.Errorf("GoPort() = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}

@@ -53,14 +53,27 @@ type Status struct {
 }
 
 // GetStatus 汇总当前状态：PID 文件 + 存活判定 + 端口探测。
+// 端口从 .env.local 读取（VEN_NODE_PORT / VEN_LISTEN_ADDR），读取失败回退默认值。
 func GetStatus(root string) Status {
+	cfg, _ := LoadConfig(root)
+	nodePort := DefaultNodePort
+	goPort := DefaultGoPort
+	if cfg != nil {
+		nodePort = cfg.NodePort()
+		goPort = cfg.GoPort()
+	}
 	return Status{
 		Node:     readProcState(root, ProcNode),
 		Go:       readProcState(root, ProcGo),
-		Port3000: PortOpen("127.0.0.1:3000", 300*time.Millisecond),
-		Port8080: PortOpen("127.0.0.1:8080", 300*time.Millisecond),
+		Port3000: PortOpen(addrOf(nodePort), 300*time.Millisecond),
+		Port8080: PortOpen(addrOf(goPort), 300*time.Millisecond),
 		MySQL:    PortOpen("127.0.0.1:3306", 300*time.Millisecond),
 	}
+}
+
+// addrOf 端口 → 探测地址。
+func addrOf(port int) string {
+	return fmt.Sprintf("127.0.0.1:%d", port)
 }
 
 func readProcState(root string, name ProcName) ProcState {
@@ -133,17 +146,33 @@ func KillProcess(pid int) error {
 
 // WaitNodeReady 轮询 GET /pages（带 X-Ven-Internal-Token 头），timeout 内返回 200 即就绪。
 // ctx 取消时立即返回 ctx.Err()（用于 Ctrl+C 中断启动流程）。
-func WaitNodeReady(ctx context.Context, token string, timeout time.Duration, w io.Writer) error {
+func WaitNodeReady(ctx context.Context, token string, port int, timeout time.Duration, w io.Writer) error {
+	url := fmt.Sprintf("http://127.0.0.1:%d/pages", port)
+	return waitHTTPReady(ctx, url, token, func(code int) bool { return code == http.StatusOK }, timeout, w)
+}
+
+// WaitGoReady 轮询 GET /api/site，timeout 内任何 2xx/4xx 响应即判定网关活着
+// （网关进程在但配置/路由异常时返回 4xx 也算活着——"活着"与"健康"分开，失败提示交给调用方区分）。
+// ctx 取消时立即返回 ctx.Err()。
+func WaitGoReady(ctx context.Context, port int, timeout time.Duration, w io.Writer) error {
+	url := fmt.Sprintf("http://127.0.0.1:%d/api/site", port)
+	return waitHTTPReady(ctx, url, "", func(code int) bool { return code >= 200 && code < 500 }, timeout, w)
+}
+
+// waitHTTPReady 通用就绪等待：按 ok 判定响应码，轮询直到超时或 ctx 取消。
+func waitHTTPReady(ctx context.Context, url, token string, ok func(code int) bool, timeout time.Duration, w io.Writer) error {
 	client := &http.Client{Timeout: 2 * time.Second}
-	const url = "http://127.0.0.1:3000/pages"
 	deadline := time.Now().Add(timeout)
 	for {
 		req, err := http.NewRequest(http.MethodGet, url, nil)
 		if err == nil {
-			req.Header.Set("X-Ven-Internal-Token", token)
+			if token != "" {
+				req.Header.Set("X-Ven-Internal-Token", token)
+			}
 			if resp, rerr := client.Do(req); rerr == nil {
+				code := resp.StatusCode
 				resp.Body.Close()
-				if resp.StatusCode == http.StatusOK {
+				if ok(code) {
 					return nil
 				}
 			}
@@ -154,27 +183,23 @@ func WaitNodeReady(ctx context.Context, token string, timeout time.Duration, w i
 		default:
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("Node worker 未在 %s 内就绪（GET %s 未返回 200）", timeout, url)
+			return fmt.Errorf("%s 未在 %s 内就绪（GET %s 未满足条件）", url, timeout, url)
 		}
-		fmt.Fprintf(w, "  等待 Node worker 就绪（GET /pages，%s 超时）...\n", time.Until(deadline).Round(time.Second))
+		fmt.Fprintf(w, "  等待 %s 就绪（%s 超时）...\n", url, time.Until(deadline).Round(time.Second))
 		time.Sleep(time.Second)
 	}
 }
 
-// Start 编排启动：Node 先起 → 等 /pages 就绪（30s）→ Go 后起。
+// Start 编排启动：Node 先起 → 等 /pages 就绪（30s）→ Go 后起 → 等 /api/site 就绪（15s）。
 // 环境变量从 .env.local 注入；stdout/stderr 重定向 logs/；PID 写 .deploy/。
+// 子进程 detach（Windows: CREATE_NEW_PROCESS_GROUP|DETACHED_PROCESS；POSIX: Setpgid），
+// 关闭终端/Ctrl+C 不会波及，stop 按 PID 文件强杀仍有效。
 // ctx 取消时中止流程并清理已启动的进程。
+// preflight 顺序：先查本地确定条件（配置/构建产物），端口冲突放最后——
+// 保证缺配置/缺产物的报错不受真实端口环境影响，也让用户先看到更可能的根因。
 func Start(ctx context.Context, root string, w io.Writer) error {
 	if !IsRoot(root) {
 		return fmt.Errorf("未找到仓库根（缺少 frame/go、frame/node），请在仓库内运行")
-	}
-
-	st := GetStatus(root)
-	if st.Node.Alive || st.Port3000 {
-		return fmt.Errorf("Node worker 已在运行（PID %d 或 :3000 被占用），请先 stop", st.Node.PID)
-	}
-	if st.Go.Alive || st.Port8080 {
-		return fmt.Errorf("Go 网关已在运行（PID %d 或 :8080 被占用），请先 stop", st.Go.PID)
 	}
 
 	cfg, err := LoadConfig(root)
@@ -184,12 +209,21 @@ func Start(ctx context.Context, root string, w io.Writer) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
+	nodePort, goPort := cfg.NodePort(), cfg.GoPort()
 
 	if _, err := os.Stat(filepath.Join(NodeDir(root), "dist", "main.js")); err != nil {
 		return fmt.Errorf("缺少 Node 构建产物 frame/node/dist/main.js，请先 build")
 	}
 	if _, err := os.Stat(BinPath(root)); err != nil {
 		return fmt.Errorf("缺少 Go 构建产物 %s，请先 build", BinPath(root))
+	}
+
+	st := GetStatus(root)
+	if st.Node.Alive || st.Port3000 {
+		return fmt.Errorf("Node worker 已在运行（PID %d 或 :%d 被占用），请先 stop", st.Node.PID, nodePort)
+	}
+	if st.Go.Alive || st.Port8080 {
+		return fmt.Errorf("Go 网关已在运行（PID %d 或 :%d 被占用），请先 stop", st.Go.PID, goPort)
 	}
 
 	for _, d := range []string{filepath.Join(root, ".deploy"), filepath.Join(root, "logs")} {
@@ -199,7 +233,7 @@ func Start(ctx context.Context, root string, w io.Writer) error {
 	}
 
 	// 1) Node worker
-	fmt.Fprintln(w, "==> 启动 Node SSR worker（node dist/main.js，:3000）...")
+	fmt.Fprintf(w, "==> 启动 Node SSR worker（node dist/main.js，:%d）...\n", nodePort)
 	nodeLog, err := openLog(LogPath(root, ProcNode))
 	if err != nil {
 		return err
@@ -210,6 +244,7 @@ func Start(ctx context.Context, root string, w io.Writer) error {
 	nodeCmd.Env = cfg.Env()
 	nodeCmd.Stdout = nodeLog
 	nodeCmd.Stderr = nodeLog
+	nodeCmd.SysProcAttr = sysProcAttr()
 	if err := nodeCmd.Start(); err != nil {
 		nodeLog.Close()
 		return fmt.Errorf("启动 Node 失败: %w", err)
@@ -223,14 +258,14 @@ func Start(ctx context.Context, root string, w io.Writer) error {
 	fmt.Fprintf(w, "  Node worker PID=%d\n", nodePid)
 
 	// 2) 等 Node 就绪
-	if err := WaitNodeReady(ctx, cfg.InternalToken(), 30*time.Second, w); err != nil {
+	if err := WaitNodeReady(ctx, cfg.InternalToken(), nodePort, 30*time.Second, w); err != nil {
 		_ = KillProcess(nodePid)
 		fmt.Fprintln(w, "  已清理未就绪的 Node 进程")
 		return err
 	}
 
 	// 3) Go 网关
-	fmt.Fprintln(w, "==> 启动 Go 网关（bin/ven_hybird，:8080）...")
+	fmt.Fprintf(w, "==> 启动 Go 网关（bin/ven_hybird，:%d）...\n", goPort)
 	goLog, err := openLog(LogPath(root, ProcGo))
 	if err != nil {
 		return err
@@ -241,6 +276,7 @@ func Start(ctx context.Context, root string, w io.Writer) error {
 	goCmd.Env = cfg.Env()
 	goCmd.Stdout = goLog
 	goCmd.Stderr = goLog
+	goCmd.SysProcAttr = sysProcAttr()
 	if err := goCmd.Start(); err != nil {
 		goLog.Close()
 		return fmt.Errorf("启动 Go 网关失败: %w", err)
@@ -252,6 +288,18 @@ func Start(ctx context.Context, root string, w io.Writer) error {
 		return fmt.Errorf("写 PID 文件失败: %w", err)
 	}
 	fmt.Fprintf(w, "  Go 网关 PID=%d\n", goPid)
+
+	// 4) 等 Go 就绪（15s）：DSN 错/MySQL 挂时 Go 可能秒退或起不来，这里给出区分提示
+	if err := WaitGoReady(ctx, goPort, 15*time.Second, w); err != nil {
+		hint := "查看日志 logs/go.log 排查（常见：BLOG_MYSQL_DSN 错误、MySQL 未启动）"
+		if IsProcessAlive(goPid) {
+			fmt.Fprintf(w, "  Go 网关进程仍在（PID %d）但未就绪——%s\n", goPid, hint)
+		} else {
+			fmt.Fprintf(w, "  Go 网关启动后立即退出（PID %d 已不在）——%s\n", goPid, hint)
+		}
+		fmt.Fprintf(w, "  Node worker 仍在运行（PID %d），可用 deploy stop 一并停止\n", nodePid)
+		return err
+	}
 	fmt.Fprintln(w, "==> 启动完成。日志: logs/node.log、logs/go.log；停止: deploy stop")
 	return nil
 }
@@ -265,6 +313,8 @@ func openLog(path string) (*os.File, error) {
 }
 
 // Stop 按 PID 文件强杀进程（Go 先、Node 后），并清理 PID 文件。
+// 子进程已 detach（独立进程组/无控制台），这里仍按 PID 强杀：
+// Windows 走 TerminateProcess，失败时 taskkill /T /F 按 PID 连子进程树一起杀——detach 不影响按 PID 定位。
 func Stop(root string, w io.Writer) error {
 	var failed []string
 	for _, name := range []ProcName{ProcGo, ProcNode} {
