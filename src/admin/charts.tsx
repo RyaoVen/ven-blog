@@ -22,6 +22,14 @@ export interface CategoryCount {
 const mono = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 const ACCENT = "#0d9488";
 
+/** 增量卡三列网格：≤480px 纵向堆叠（组件自注入） */
+const deltaCss = `
+.ven-delta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+@media (max-width: 480px) {
+    .ven-delta-grid { grid-template-columns: 1fr; }
+}
+`;
+
 /* ===== 折线图（近 7/30/365 日注册数） ===== */
 export function LineChart({ data, height = 180 }: { data: DayCount[]; height?: number }) {
     const width = 720;
@@ -78,18 +86,21 @@ export function DeltaCards({ deltas }: { deltas: { yesterday: number; week: numb
         ["较上月", deltas.month],
     ];
     return (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-            {items.map(([label, n]) => (
-                <div key={label} className="ven-card" style={{ padding: "14px 18px" }}>
-                    <div className="ven-meta" style={{ marginBottom: 6 }}>
-                        {label}新增用户
+        <>
+            <style>{deltaCss}</style>
+            <div className="ven-delta-grid">
+                {items.map(([label, n]) => (
+                    <div key={label} className="ven-card" style={{ padding: "14px 18px" }}>
+                        <div className="ven-meta" style={{ marginBottom: 6 }}>
+                            {label}新增用户
+                        </div>
+                        <div style={{ fontFamily: mono, fontSize: 22, fontWeight: 700, color: n > 0 ? v.accent : v.textSecondary }}>
+                            {n > 0 ? `+${n}` : n}
+                        </div>
                     </div>
-                    <div style={{ fontFamily: mono, fontSize: 22, fontWeight: 700, color: n > 0 ? v.accent : v.textSecondary }}>
-                        {n > 0 ? `+${n}` : n}
-                    </div>
-                </div>
-            ))}
-        </div>
+                ))}
+            </div>
+        </>
     );
 }
 
@@ -143,35 +154,37 @@ export function CalendarHeatmap({ data, weeks = 53 }: { data: HeatDay[]; weeks?:
     const step = cell + gap;
 
     return (
-        <svg
-            viewBox={`0 0 ${weeks * step + 30} ${7 * step + 4}`}
-            style={{ display: "block", width: "100%", height: "auto" }}
-            role="img"
-            aria-label="发布日历热力图"
-        >
-            {["一", "三", "五", "日"].map((label, i) => (
-                <text key={label} x={0} y={[1, 3, 5, 6][i] * step + cell - 2} fontSize="9" fill={v.textMuted} fontFamily={mono}>
-                    {label}
-                </text>
-            ))}
-            {cells.map((col, x) =>
-                col.map((day, y) =>
-                    day ? (
-                        <rect
-                            key={`${x}-${y}`}
-                            x={22 + x * step}
-                            y={y * step}
-                            width={cell}
-                            height={cell}
-                            rx="2"
-                            fill={HEAT_LEVELS[heatLevel(day.posts)]}
-                        >
-                            <title>{`${day.date}：${day.posts} 篇 · ${day.chars} 字`}</title>
-                        </rect>
-                    ) : null,
-                ),
-            )}
-        </svg>
+        <div style={{ overflowX: "auto" }}>
+            <svg
+                viewBox={`0 0 ${weeks * step + 30} ${7 * step + 4}`}
+                style={{ display: "block", width: "100%", minWidth: 500, height: "auto" }}
+                role="img"
+                aria-label="发布日历热力图"
+            >
+                {["一", "三", "五", "日"].map((label, i) => (
+                    <text key={label} x={0} y={[1, 3, 5, 6][i] * step + cell - 2} fontSize="9" fill={v.textMuted} fontFamily={mono}>
+                        {label}
+                    </text>
+                ))}
+                {cells.map((col, x) =>
+                    col.map((day, y) =>
+                        day ? (
+                            <rect
+                                key={`${x}-${y}`}
+                                x={22 + x * step}
+                                y={y * step}
+                                width={cell}
+                                height={cell}
+                                rx="2"
+                                fill={HEAT_LEVELS[heatLevel(day.posts)]}
+                            >
+                                <title>{`${day.date}：${day.posts} 篇 · ${day.chars} 字`}</title>
+                            </rect>
+                        ) : null,
+                    ),
+                )}
+            </svg>
+        </div>
     );
 }
 
@@ -193,7 +206,7 @@ export function RadarChart({ data, size = 240 }: { data: CategoryCount[]; size?:
     const valuePoints = data.map((d, i) => pointOf(i, (d.count / max) * radius)).join(" ");
 
     return (
-        <svg viewBox={`0 0 ${size} ${size}`} style={{ display: "block", width: size, height: size, margin: "0 auto" }} role="img" aria-label="分类发布雷达图">
+        <svg viewBox={`0 0 ${size} ${size}`} style={{ display: "block", width: "100%", maxWidth: size, height: "auto", margin: "0 auto" }} role="img" aria-label="分类发布雷达图">
             {[0.33, 0.66, 1].map((ratio) => (
                 <polygon
                     key={ratio}
