@@ -25,7 +25,7 @@ export default function UserProfilePage({ bootstrap }: PageAppProps) {
             <section style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
                 <LetterAvatar name={user.username} avatarUrl={user.avatarUrl} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                         <h1 style={{ fontSize: 28, margin: 0 }}>{user.username}</h1>
                         <span className="ven-chip">{user.role}</span>
                     </div>
@@ -36,7 +36,8 @@ export default function UserProfilePage({ bootstrap }: PageAppProps) {
                     <div
                         style={{
                             display: "flex",
-                            gap: 32,
+                            flexWrap: "wrap",
+                            gap: "8px 32px",
                             marginTop: 20,
                             paddingTop: 16,
                             borderTop: `1px solid ${v.border}`,
