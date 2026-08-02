@@ -117,11 +117,6 @@ code, pre { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, 
 .ven-btn-danger { color: var(--danger); }
 .ven-btn-danger:hover { color: var(--danger); border-color: var(--danger); }
 
-/* 触控兜底：≤720px 触屏设备上所有 ven-btn（含 padding 3px 的小按钮）最小触控高度 40px；
-   保持原有 padding 语义，仅加触控下限，桌面端不受影响 */
-@media (max-width: 720px) {
-    .ven-btn { min-height: 40px; }
-}
 
 .ven-input {
     width: 100%; padding: 8px 12px; font-size: 14px; font-family: inherit;
