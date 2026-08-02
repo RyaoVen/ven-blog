@@ -15,7 +15,7 @@ export function SearchBar({
     children?: ReactNode;
 }) {
     return (
-        <div style={{ display: "flex", gap: 10, marginBottom: 18, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: "8px 10px", marginBottom: 18, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ position: "relative", flex: 1, maxWidth: 320 }}>
                 <SearchIcon
                     size={13}
