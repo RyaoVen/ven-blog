@@ -14,19 +14,44 @@ import (
 	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/subscribeapp"
 	"ven_hybird/build/application/userapp"
+	"ven_hybird/build/domain/comment"
 	"ven_hybird/build/domain/post"
 	"ven_hybird/hybrid"
 )
 
 // adminCommentView 后台评论管理视图（含所属文章标题与审核状态）。
 type adminCommentView struct {
-	ID        string    `json:"id"`
-	PostID    string    `json:"postId"`
-	PostTitle string    `json:"postTitle"`
-	Username  string    `json:"username"`
-	Content   string    `json:"content"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID             string    `json:"id"`
+	PostID         string    `json:"postId"`
+	PostTitle      string    `json:"postTitle"`
+	Username       string    `json:"username"`
+	Content        string    `json:"content"`
+	Status         string    `json:"status"`
+	RejectedReason string    `json:"rejectedReason"`
+	CreatedAt      time.Time `json:"createdAt"`
+}
+
+// toAdminCommentView 领域实体 → 后台评论管理视图。
+func toAdminCommentView(c *comment.Comment) adminCommentView {
+	return adminCommentView{
+		ID:             strconv.FormatInt(c.ID, 10),
+		PostID:         strconv.FormatInt(c.PostID, 10),
+		PostTitle:      c.PostTitle,
+		Username:       c.Username,
+		Content:        c.Content,
+		Status:         c.Status,
+		RejectedReason: c.RejectedReason,
+		CreatedAt:      c.CreatedAt,
+	}
+}
+
+// toAdminCommentViews 批量转换。
+func toAdminCommentViews(list []*comment.Comment) []adminCommentView {
+	views := make([]adminCommentView, 0, len(list))
+	for _, cm := range list {
+		views = append(views, toAdminCommentView(cm))
+	}
+	return views
 }
 
 // RegisterAdmin 注册后台页面（动态页，仅 author）。
@@ -221,41 +246,24 @@ func RegisterAdmin(
 		return err
 	}
 
-	// 评论管理（全量 + 待审核）
+	// 评论管理（全量 + 待审核 + 被驳回）
 	if err := a.Page("/admin/comments", admin, func(c *hybrid.PageCtx) error {
 		list, err := comments.ListAll(100)
 		if err != nil {
 			return err
 		}
-		views := make([]adminCommentView, 0, len(list))
-		for _, cm := range list {
-			views = append(views, adminCommentView{
-				ID:        strconv.FormatInt(cm.ID, 10),
-				PostID:    strconv.FormatInt(cm.PostID, 10),
-				PostTitle: cm.PostTitle,
-				Username:  cm.Username,
-				Content:   cm.Content,
-				Status:    cm.Status,
-				CreatedAt: cm.CreatedAt,
-			})
-		}
+		views := toAdminCommentViews(list)
 		pending, err := comments.ListPending()
 		if err != nil {
 			return err
 		}
-		pendingViews := make([]adminCommentView, 0, len(pending))
-		for _, cm := range pending {
-			pendingViews = append(pendingViews, adminCommentView{
-				ID:        strconv.FormatInt(cm.ID, 10),
-				PostID:    strconv.FormatInt(cm.PostID, 10),
-				PostTitle: cm.PostTitle,
-				Username:  cm.Username,
-				Content:   cm.Content,
-				Status:    cm.Status,
-				CreatedAt: cm.CreatedAt,
-			})
+		pendingViews := toAdminCommentViews(pending)
+		rejected, err := comments.ListRejected()
+		if err != nil {
+			return err
 		}
-		return c.JSON(map[string]any{"comments": views, "pending": pendingViews})
+		rejectedViews := toAdminCommentViews(rejected)
+		return c.JSON(map[string]any{"comments": views, "pending": pendingViews, "rejected": rejectedViews})
 	}); err != nil {
 		return err
 	}
