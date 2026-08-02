@@ -119,6 +119,39 @@ export const markdownCss = `
 .ven-admonition-note { border-left-color: var(--accent); }
 .ven-admonition-note .ven-admonition-title { color: var(--accent); }
 
+/* 链接块卡片：:::link URL + 标题/简介/图标 */
+.ven-linkcard {
+    display: flex; align-items: center; gap: 14px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--bg-subtle); padding: 14px 16px; margin: 0 0 16px;
+    text-decoration: none !important; color: var(--text);
+    transition: border-color 0.22s var(--ease-out), transform 0.26s var(--ease-out);
+}
+.ven-linkcard:hover { border-color: var(--accent); transform: translateY(-1px); }
+.ven-linkcard-icon {
+    width: 40px; height: 40px; border-radius: 3px; object-fit: cover; flex-shrink: 0;
+    border: 1px solid var(--border); background: var(--bg);
+}
+.ven-linkcard-icon-fallback {
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--text-muted, #a8a29e);
+}
+.ven-linkcard-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ven-linkcard-title {
+    font-weight: 650; font-size: 14.5px; line-height: 1.4;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ven-linkcard-desc {
+    font-size: 13px; color: var(--text-secondary); line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ven-linkcard-host {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px; color: var(--text-muted, #a8a29e); letter-spacing: 0.04em;
+    transition: color 0.22s ease;
+}
+.ven-linkcard:hover .ven-linkcard-host { color: var(--accent); }
+
 /* ===== hljs 配色（GitHub light 取向，克制） ===== */
 .hljs-comment, .hljs-quote { color: #6e7781; font-style: italic; }
 .hljs-keyword, .hljs-selector-tag, .hljs-doctag, .hljs-template-tag { color: #cf222e; }

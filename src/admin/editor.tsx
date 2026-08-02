@@ -47,14 +47,14 @@ export function PostEditor({ post, categories }: { post: Post | null; categories
     const [submitting, setSubmitting] = useState(false);
     const [preview, setPreview] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [linkModalOpen, setLinkModalOpen] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
     const contentRef = useRef<HTMLTextAreaElement>(null);
 
     const contentImages = useMemo(() => contentImagesOf(content), [content]);
 
-    // insertImage 把图片 Markdown 插到 textarea 光标处（预览态/无光标时追加末尾）
-    function insertImage(url: string) {
-        const snippet = `![](${url})`;
+    // insertSnippet 把片段插到 textarea 光标处（预览态/无光标时追加末尾）
+    function insertSnippet(snippet: string) {
         const ta = contentRef.current;
         if (!ta) {
             setContent((prev) => prev + snippet);
@@ -63,6 +63,16 @@ export function PostEditor({ post, categories }: { post: Post | null; categories
         const start = ta.selectionStart;
         const end = ta.selectionEnd;
         setContent((prev) => prev.slice(0, start) + snippet + prev.slice(end));
+    }
+
+    // insertImage 把图片 Markdown 插到光标处
+    function insertImage(url: string) {
+        insertSnippet(`![](${url})`);
+    }
+
+    // insertLinkCard 把链接块插到光标处（:::link URL + 标题/简介/图标 三行）
+    function insertLinkCard(link: { url: string; title: string; desc: string; icon: string }) {
+        insertSnippet(`\n:::link ${link.url}\n${link.title}\n${link.desc}\n${link.icon}\n:::\n`);
     }
 
     async function onPickImage(event: ChangeEvent<HTMLInputElement>) {
@@ -161,7 +171,7 @@ export function PostEditor({ post, categories }: { post: Post | null; categories
                 <textarea
                     ref={contentRef}
                     className="ven-input"
-                    placeholder="正文（Markdown：代码块/表格/列表/引用/:::warning 警告、:::tip 提示、:::note 注意）"
+                    placeholder="正文（Markdown：代码块/表格/列表/引用/:::warning 警告、:::tip 提示、:::note 注意、:::link 链接块）"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     rows={18}
@@ -178,6 +188,9 @@ export function PostEditor({ post, categories }: { post: Post | null; categories
                 </button>
                 <button className="ven-btn" type="button" disabled={uploading} onClick={() => fileRef.current?.click()}>
                     {uploading ? "上传中…" : "插入图片"}
+                </button>
+                <button className="ven-btn" type="button" onClick={() => setLinkModalOpen(true)}>
+                    插入链接块
                 </button>
                 <input
                     ref={fileRef}
@@ -199,7 +212,167 @@ export function PostEditor({ post, categories }: { post: Post | null; categories
                 categories={categories}
                 contentImages={contentImages}
             />
+            <LinkBlockModal
+                open={linkModalOpen}
+                onClose={() => setLinkModalOpen(false)}
+                onInsert={(link) => {
+                    insertLinkCard(link);
+                    setLinkModalOpen(false);
+                }}
+            />
         </form>
+    );
+}
+
+/* ===== 链接块弹窗：填 URL → 服务端解析站名/简介/图标 → 可修改后插入 ===== */
+interface LinkDraft {
+    url: string;
+    title: string;
+    desc: string;
+    icon: string;
+}
+
+function LinkBlockModal({
+    open,
+    onClose,
+    onInsert,
+}: {
+    open: boolean;
+    onClose: () => void;
+    onInsert: (link: LinkDraft) => void;
+}) {
+    const [url, setUrl] = useState("");
+    const [draft, setDraft] = useState<LinkDraft | null>(null);
+    const [parsing, setParsing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    // 每次打开重置
+    useEffect(() => {
+        if (open) {
+            setUrl("");
+            setDraft(null);
+            setError(null);
+        }
+    }, [open]);
+
+    async function resolve() {
+        const target = url.trim();
+        if (!/^https?:\/\/\S+$/i.test(target)) {
+            setError("请输入 http(s) 链接");
+            return;
+        }
+        setParsing(true);
+        setError(null);
+        try {
+            const resp = await fetch(`/api/admin/linkpreview?url=${encodeURIComponent(target)}`);
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok) {
+                setError(data?.error === "fetch failed" ? "抓取失败（目标站不可达或拒绝）" : (data?.error ?? "解析失败"));
+                return;
+            }
+            setDraft({ url: data.url || target, title: data.title ?? "", desc: data.desc ?? "", icon: data.icon ?? "" });
+        } catch {
+            setError("网络错误，请重试");
+        } finally {
+            setParsing(false);
+        }
+    }
+
+    return (
+        <Modal open={open} onClose={onClose} width={480}>
+            <h3 style={{ margin: "0 0 16px", fontSize: 17 }}>插入链接块</h3>
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                <input
+                    className="ven-input"
+                    style={{ flex: 1 }}
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                            e.preventDefault();
+                            resolve();
+                        }
+                    }}
+                    placeholder="https://…"
+                    autoFocus
+                />
+                <button className="ven-btn ven-btn-primary" type="button" disabled={parsing || !url.trim()} onClick={resolve}>
+                    {parsing ? "解析中…" : "解析"}
+                </button>
+            </div>
+            {error && <p style={{ color: v.danger, fontSize: 13, margin: "0 0 12px" }}>{error}</p>}
+            {draft && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {/* 卡片预览 */}
+                    <div
+                        className="ven-card"
+                        style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}
+                    >
+                        {draft.icon ? (
+                            <img
+                                src={draft.icon}
+                                alt=""
+                                style={{ width: 36, height: 36, borderRadius: 3, objectFit: "cover", border: `1px solid ${v.border}` }}
+                                onError={(e) => ((e.target as HTMLImageElement).style.visibility = "hidden")}
+                            />
+                        ) : (
+                            <span
+                                style={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: 3,
+                                    border: `1px solid ${v.border}`,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: v.textMuted,
+                                    flexShrink: 0,
+                                }}
+                            >
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                                    <circle cx="12" cy="12" r="9" />
+                                    <path d="M3 12h18M12 3c2.5 2.6 4 5.7 4 9s-1.5 6.4-4 9c-2.5-2.6-4-5.7-4-9s1.5-6.4 4-9z" />
+                                </svg>
+                            </span>
+                        )}
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{ fontWeight: 650, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {draft.title || "（无标题）"}
+                            </div>
+                            <div className="ven-meta" style={{ fontSize: 11 }}>
+                                {(() => {
+                                    try {
+                                        return new URL(draft.url).host;
+                                    } catch {
+                                        return draft.url;
+                                    }
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+                    <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+                        网站名
+                        <input className="ven-input" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+                    </label>
+                    <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+                        网站简介
+                        <textarea className="ven-input" rows={2} value={draft.desc} onChange={(e) => setDraft({ ...draft, desc: e.target.value })} />
+                    </label>
+                    <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+                        图标 URL
+                        <input className="ven-input" value={draft.icon} onChange={(e) => setDraft({ ...draft, icon: e.target.value })} />
+                    </label>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                        <button className="ven-btn" type="button" onClick={onClose}>
+                            取消
+                        </button>
+                        <button className="ven-btn ven-btn-primary" type="button" onClick={() => onInsert(draft)}>
+                            插入
+                        </button>
+                    </div>
+                </div>
+            )}
+        </Modal>
     );
 }
 
