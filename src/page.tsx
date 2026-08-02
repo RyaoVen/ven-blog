@@ -134,14 +134,14 @@ function Hero({ state }: { state: HomeState }) {
                 <p className="ven-meta" style={{ margin: 0 }}>
                     PERSONAL SITE / VEN-BLOG
                 </p>
-                <h1 style={{ fontSize: 52, letterSpacing: "-0.03em", margin: "16px 0 18px" }}>
+                <h1 style={{ fontSize: "clamp(36px, 8vw, 52px)", letterSpacing: "-0.03em", margin: "16px 0 18px" }}>
                     RyaoVen 的博客
                 </h1>
                 <p style={{ fontSize: 16, color: v.textSecondary, maxWidth: 520, marginBottom: 28 }}>
                     记录技术与生活。聊聊框架设计、后端工程与渲染链路，本站由自研 VenHybird
                     框架驱动——SSR 直出、SPA 接管、ISR 物化、SSE 实时推送。
                 </p>
-                <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <a href="/posts" className="ven-btn ven-btn-primary">
                         开始阅读
                     </a>
@@ -150,9 +150,11 @@ function Hero({ state }: { state: HomeState }) {
                     </a>
                 </div>
             </div>
-            <Tilt max={10}>
-                <HeroAuthorCard state={state} />
-            </Tilt>
+            <div className="ven-hero-art">
+                <Tilt max={10}>
+                    <HeroAuthorCard state={state} />
+                </Tilt>
+            </div>
         </div>
     );
 }
@@ -161,7 +163,7 @@ function Hero({ state }: { state: HomeState }) {
 function HeroAuthorCard({ state }: { state: HomeState }) {
     const { author } = state;
     return (
-        <div className="ven-frame" style={{ width: 330, padding: 14, flexShrink: 0 }}>
+        <div className="ven-frame" style={{ padding: 14 }}>
             <svg className="ven-frame-corners" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <path d="M12 1 H1 V12" fill="none" strokeWidth="1" vectorEffect="non-scaling-stroke" />
                 <path d="M88 1 H99 V12" fill="none" strokeWidth="1" vectorEffect="non-scaling-stroke" />
@@ -283,7 +285,7 @@ function DualLists({ state }: { state: HomeState }) {
             <div
                 style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
                     gap: 48,
                 }}
             >
@@ -423,13 +425,13 @@ function Dashboard({ state }: { state: HomeState }) {
                     <StatCard label="累计字数" value={state.stats.words} unit="字" />
                     <StatCard label="运营时长" durationSince={state.stats.launchAt} fallbackDays={state.stats.days} />
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 28 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 28 }}>
                     <div>
                         <p className="ven-meta" style={{ margin: "0 0 12px" }}>
                             收藏的句子
                         </p>
                         <Typewriter items={state.quotes} />
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
+                        <div className="ven-dash-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
                             <a
                                 href={state.stats.latestID ? `/posts/${state.stats.latestID}` : "/posts"}
                                 className="ven-card ven-card-hover ven-clickable"
@@ -638,7 +640,7 @@ function Subscribe() {
     return (
         <Reveal>
             <ListHeader title="订阅本站" moreHref="/rss.xml" />
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 28, marginTop: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 28, marginTop: 24 }}>
                 <div className="ven-card" style={{ padding: "22px 24px" }}>
                     <p className="ven-meta" style={{ margin: "0 0 8px" }}>
                         邮箱订阅

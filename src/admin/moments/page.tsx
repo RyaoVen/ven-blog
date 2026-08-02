@@ -167,10 +167,12 @@ export default function AdminMomentsPage({ bootstrap }: PageAppProps) {
                     {filtered.map((m) => (
                         <li
                             key={m.id}
+                            className="ven-admin-row"
                             style={{
                                 display: "flex",
                                 justifyContent: "space-between",
-                                gap: 16,
+                                gap: "10px 16px",
+                                flexWrap: "wrap",
                                 padding: "12px 0",
                                 borderBottom: `1px solid ${v.border}`,
                             }}

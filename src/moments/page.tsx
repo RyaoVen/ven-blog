@@ -55,7 +55,7 @@ export default function MomentsPage({ bootstrap }: PageAppProps) {
                                     padding: "18px 22px",
                                 }}
                             >
-                                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px 12px", flexWrap: "wrap", marginBottom: 12 }}>
                                     <MomentAvatar name={m.authorName} />
                                     <span style={{ fontWeight: 550 }}>{m.authorName}</span>
                                     {m.pinned && (
@@ -74,7 +74,7 @@ export default function MomentsPage({ bootstrap }: PageAppProps) {
                                                 e.stopPropagation();
                                                 toggleLike(m.id);
                                             }}
-                                            className="ven-meta"
+                                            className="ven-meta ven-inline-action"
                                             style={{
                                                 display: "inline-flex",
                                                 alignItems: "center",

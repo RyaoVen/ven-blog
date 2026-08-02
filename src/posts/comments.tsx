@@ -114,7 +114,7 @@ export function CommentsSection({
                             <span className="ven-chip">回复 @{replyTo}</span>
                             <button
                                 type="button"
-                                className="ven-meta"
+                                className="ven-meta ven-inline-action"
                                 style={{ border: "none", background: "none", cursor: "pointer", padding: 0 }}
                                 onClick={() => setReplyTo(null)}
                             >
@@ -208,7 +208,7 @@ function CommentItem({
                     {canReply && (
                         <button
                             type="button"
-                            className="ven-meta"
+                            className="ven-meta ven-inline-action"
                             style={{ border: "none", background: "none", cursor: "pointer", padding: 0 }}
                             onClick={onReply}
                         >
@@ -218,7 +218,7 @@ function CommentItem({
                     {canDelete && (
                         <button
                             type="button"
-                            className="ven-meta"
+                            className="ven-meta ven-inline-action"
                             style={{ border: "none", background: "none", cursor: "pointer", padding: 0, color: v.danger, display: "inline-flex", alignItems: "center", gap: 4 }}
                             onClick={onDelete}
                         >
