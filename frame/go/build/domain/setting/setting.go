@@ -18,6 +18,7 @@ const (
 	KeySMTPFromName      = "smtp_from_name"      // 发件人名称
 	KeyAuthorEmail       = "author_email"        // 作者个人邮箱（@ 通知收件 + author 账号绑定）
 	KeySiteIcon          = "site_icon"           // 站点图标 URL（favicon + 导航品牌标）
+	KeyUGCModeration     = "ugc_ai_moderation"   // AI 自动审核开关（"off" 为关；未设置视为开）
 )
 
 // Repository 设置仓储接口（领域层定义，基础设施层实现）。
