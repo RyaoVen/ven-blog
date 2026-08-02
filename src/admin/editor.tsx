@@ -179,7 +179,7 @@ export function PostEditor({ post, categories }: { post: Post | null; categories
                 />
             )}
             {error && <p style={{ color: v.danger, fontSize: 14, margin: 0 }}>{error}</p>}
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                 <button className="ven-btn ven-btn-primary" type="submit" disabled={submitting}>
                     {submitting ? "保存中…" : editing ? "保存" : "发布"}
                 </button>
