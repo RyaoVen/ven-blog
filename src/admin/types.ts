@@ -23,6 +23,7 @@ export interface AdminComment {
     username: string;
     content: string;
     status: string;
+    rejectedReason?: string;
     createdAt: string;
 }
 
@@ -65,6 +66,25 @@ export interface AdminPostsState {
 export interface AdminCommentsState {
     comments: AdminComment[];
     pending: AdminComment[];
+    rejected: AdminComment[];
+}
+
+/** 后台留言管理视图（与 Go 侧 adminGuestbookView JSON 同形） */
+export interface AdminGuestbookEntry {
+    id: string;
+    userId: string;
+    username: string;
+    content: string;
+    status: string;
+    rejectedReason?: string;
+    createdAt: string;
+}
+
+/** 留言板管理 initialState */
+export interface AdminGuestbookState {
+    entries: AdminGuestbookEntry[];
+    pending: AdminGuestbookEntry[];
+    rejected: AdminGuestbookEntry[];
 }
 
 /** 动态管理 initialState */

@@ -704,7 +704,7 @@ function ModerationSection({ initial }: { initial: boolean }) {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ on: next }),
             });
-            show(next ? "已开启评论审核" : "已关闭评论审核");
+            show(next ? "已开启评论与留言审核" : "已关闭评论与留言审核");
         } finally {
             setSaving(false);
         }
@@ -712,10 +712,10 @@ function ModerationSection({ initial }: { initial: boolean }) {
 
     return (
         <section className="ven-card" style={sectionStyle}>
-            <SectionTitle>评论审核</SectionTitle>
+            <SectionTitle>评论与留言审核</SectionTitle>
             <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }}>
                 <input type="checkbox" checked={on} disabled={saving} onChange={(e) => toggle(e.target.checked)} style={{ width: 16, height: 16, accentColor: "#0d9488" }} />
-                开启评论审核（开启后，所有新评论需经你人工审核通过才会公开显示）
+                开启评论与留言审核（开启后，新评论与新留言需人工审核通过才会公开显示）
             </label>
             <div style={{ marginTop: 10 }}>{node}</div>
         </section>

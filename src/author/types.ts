@@ -40,6 +40,7 @@ export interface GuestbookEntry {
     userId: string;
     username: string;
     content: string;
+    status?: string;
     createdAt: string;
 }
 

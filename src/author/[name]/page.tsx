@@ -388,6 +388,7 @@ function GuestbookSection({ state }: { state: AuthorHomeState }) {
     const [error, setError] = useState<string | null>(null);
     const [deleting, setDeleting] = useState<GuestbookEntry | null>(null);
     const [justPosted, setJustPosted] = useState(false);
+    const [pendingNotice, setPendingNotice] = useState(false);
 
     // SSE 推送刷新 initialState 后同步
     useEffect(() => setEntries(state.guestbook), [state.guestbook]);
@@ -408,7 +409,8 @@ function GuestbookSection({ state }: { state: AuthorHomeState }) {
                 return;
             }
             setDraft("");
-            setEntries((l) => [data as GuestbookEntry, ...l]);
+            setEntries((l) => [data as GuestbookEntry, ...l]); // 即时上屏（pending 本地可见，公开列表待审核后出现）
+            setPendingNotice((data as GuestbookEntry).status === "pending");
             setJustPosted(true);
             window.setTimeout(() => setJustPosted(false), 1800);
         } catch {
@@ -447,6 +449,9 @@ function GuestbookSection({ state }: { state: AuthorHomeState }) {
                         required
                     />
                     {error && <p style={{ color: v.danger, fontSize: 13, margin: 0 }}>{error}</p>}
+                    {pendingNotice && (
+                        <p style={{ color: v.accent, fontSize: 13, margin: 0 }}>留言已提交，待作者审核通过后展示</p>
+                    )}
                     <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                         <button className="ven-btn ven-btn-primary" type="submit" disabled={submitting}>
                             {submitting ? "发表中…" : "发表留言"}
@@ -475,10 +480,11 @@ function GuestbookSection({ state }: { state: AuthorHomeState }) {
                             style={{ padding: "12px 0 12px 12px", borderBottom: `1px solid ${v.border}` }}
                         >
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                                <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-                                    <span style={{ fontWeight: 650, fontSize: 14 }}>{e.username}</span>
-                                    <span className="ven-meta">{formatDateTime(e.createdAt)}</span>
-                                </div>
+                            <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+                                <span style={{ fontWeight: 650, fontSize: 14 }}>{e.username}</span>
+                                <span className="ven-meta">{formatDateTime(e.createdAt)}</span>
+                                {e.status === "pending" && <span className="ven-chip">待审核</span>}
+                            </div>
                                 {(viewer?.userId === e.userId || role === "author") && (
                                     <button
                                         type="button"
