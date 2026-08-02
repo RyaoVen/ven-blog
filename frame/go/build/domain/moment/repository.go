@@ -13,6 +13,8 @@ type Repository interface {
 	Create(m *Moment) error
 	// Delete 删除动态，不存在返回 ErrNotFound。
 	Delete(id int64) error
+	// SetPinned 设置置顶标记（置顶列表优先，不影响其余排序），不存在返回 ErrNotFound。
+	SetPinned(id int64, pinned bool) error
 	// Count 返回动态总数（后台统计）。
 	Count() (int, error)
 	// DailyCounts 近 days 天每日发布数（日期升序，不足补零）。
