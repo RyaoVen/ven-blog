@@ -273,6 +273,19 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
     .ven-tagbox { position: static !important; }
 }
 
+/* 移动端触控：小屏按钮与行内文字操作（点赞/回复/删除等）目标高度 ≥40px */
+@media (max-width: 720px) {
+    .ven-btn { min-height: 40px; }
+    .ven-inline-action { min-height: 40px; }
+}
+
+/* 作者页友链双行磁吸：小屏退化为普通横滚列表（卡片横滚查看，不整页溢出） */
+@media (max-width: 720px) {
+    .ven-links { height: auto !important; }
+    .ven-links-sticky { position: static !important; }
+    .ven-links-row { overflow-x: auto !important; }
+}
+
 /* 主题切换纯圆按钮：svg 居中；悬浮向左展开显字（固定容器不挤动兄弟组件）。
  * hover 展开仅桌面（hover: hover）启用，避免触屏点按后标签卡在展开态 */
 .ven-theme-wrap { position: relative; width: 32px; height: 32px; flex-shrink: 0; }

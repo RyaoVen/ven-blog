@@ -43,8 +43,8 @@ export const markdownCss = `
 }
 .ven-prose blockquote p { margin: 8px 0; }
 
-/* 表格 */
-.ven-prose table { border-collapse: collapse; width: 100%; margin: 0 0 16px; font-size: 14px; }
+/* 表格（display:block + overflow-x:auto：小屏超宽表格在容器内横滚，不撑破页面） */
+.ven-prose table { display: block; border-collapse: collapse; width: 100%; margin: 0 0 16px; font-size: 14px; overflow-x: auto; }
 .ven-prose th, .ven-prose td { border: 1px solid var(--border-strong); padding: 6px 12px; text-align: left; }
 .ven-prose th { background: var(--bg-subtle); font-weight: 650; }
 

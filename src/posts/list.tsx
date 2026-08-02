@@ -60,7 +60,7 @@ export function PostList({ posts }: { posts: Post[] }) {
                             </a>
                         </div>
                         <p style={{ margin: "8px 0 12px", fontSize: 14, color: v.textSecondary }}>{excerptOf(p)}</p>
-                        <div className="ven-meta" style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                        <div className="ven-meta" style={{ display: "flex", gap: "8px 14px", alignItems: "center", flexWrap: "wrap" }}>
                             <a
                                 className="ven-chip"
                                 href={`/posts?category=${encodeURIComponent(p.category)}`}
