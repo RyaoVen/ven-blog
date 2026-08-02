@@ -18,6 +18,7 @@ type MomentView struct {
 	ID         string    `json:"id"`
 	Content    string    `json:"content"`
 	AuthorName string    `json:"authorName"`
+	Pinned     bool      `json:"pinned"`
 	CreatedAt  time.Time `json:"createdAt"`
 }
 
@@ -27,6 +28,7 @@ func toMomentView(m *moment.Moment) MomentView {
 		ID:         strconv.FormatInt(m.ID, 10),
 		Content:    m.Content,
 		AuthorName: m.AuthorName,
+		Pinned:     m.Pinned,
 		CreatedAt:  m.CreatedAt,
 	}
 }

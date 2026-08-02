@@ -19,6 +19,7 @@ type PostView struct {
 	CoverURL   string    `json:"coverUrl"`
 	AuthorName string    `json:"authorName"`
 	Tags       []string  `json:"tags"`
+	Pinned     bool      `json:"pinned"`
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
 }
@@ -38,6 +39,7 @@ func toPostView(p *post.Post) PostView {
 		CoverURL:   p.CoverURL,
 		AuthorName: p.AuthorName,
 		Tags:       tags,
+		Pinned:     p.Pinned,
 		CreatedAt:  p.CreatedAt,
 		UpdatedAt:  p.UpdatedAt,
 	}
