@@ -154,6 +154,78 @@ function admonitionPlugin(md: MarkdownIt): void {
     }
 }
 
+/** 链接块：:::link URL + 三行（标题/简介/图标，可留空）+ ::: —— 解析结果随正文持久化，渲染期零网络请求 */
+const LINK_CARD_OPEN = ":::link";
+
+function isSafeURL(raw: string): boolean {
+    return /^https?:\/\/\S+$/i.test(raw);
+}
+
+/** 链接块渲染：图标（缺省 globe SVG）+ 标题 + 简介 + 域名；全字段转义，URL 仅放行 http(s) */
+function renderLinkCard(url: string, title: string, desc: string, icon: string): string {
+    if (!isSafeURL(url)) {
+        return `<p>${escapeHtml(`${LINK_CARD_OPEN} ${url}`)}</p>\n`;
+    }
+    let host = "";
+    try {
+        host = new URL(url).host;
+    } catch {
+        host = url;
+    }
+    const iconHTML = icon && (isSafeURL(icon) || icon.startsWith("/"))
+        ? `<img class="ven-linkcard-icon" src="${escapeHtml(icon)}" alt="" loading="lazy" />`
+        : `<span class="ven-linkcard-icon ven-linkcard-icon-fallback"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 4 5.7 4 9s-1.5 6.4-4 9c-2.5-2.6-4-5.7-4-9s1.5-6.4 4-9z"/></svg></span>`;
+    return (
+        `<a class="ven-linkcard" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">` +
+        iconHTML +
+        `<span class="ven-linkcard-main">` +
+        `<span class="ven-linkcard-title">${escapeHtml(title || host)}</span>` +
+        (desc ? `<span class="ven-linkcard-desc">${escapeHtml(desc)}</span>` : "") +
+        `<span class="ven-linkcard-host">${escapeHtml(host)} ↗</span>` +
+        `</span></a>\n`
+    );
+}
+
+function linkCardPlugin(md: MarkdownIt): void {
+    md.block.ruler.before("fence", "linkcard", (state, startLine, endLine, silent) => {
+        const start = state.bMarks[startLine] + state.tShift[startLine];
+        const max = state.eMarks[startLine];
+        if (state.src.slice(start, start + LINK_CARD_OPEN.length) !== LINK_CARD_OPEN) {
+            return false;
+        }
+        const url = state.src.slice(start + LINK_CARD_OPEN.length, max).trim();
+        // 收集正文行直到 ::: 收尾（三行：标题/简介/图标，均可空）
+        let closeLine = -1;
+        const body: string[] = [];
+        for (let line = startLine + 1; line < endLine; line++) {
+            const lineStart = state.bMarks[line] + state.tShift[line];
+            const lineEnd = state.eMarks[line];
+            const text = state.src.slice(lineStart, lineEnd);
+            if (text.trim() === ":::") {
+                closeLine = line;
+                break;
+            }
+            body.push(text.trim());
+        }
+        if (closeLine < 0) {
+            return false;
+        }
+        if (!silent) {
+            const token = state.push("linkcard", "", 0);
+            token.block = true;
+            token.map = [startLine, closeLine + 1];
+            token.meta = { url, body };
+        }
+        state.line = closeLine + 1;
+        return true;
+    });
+    md.renderer.rules.linkcard = (tokens, idx) => {
+        const { url, body } = tokens[idx].meta as { url: string; body: string[] };
+        const lines = body.filter((l) => l !== "");
+        return renderLinkCard(url, lines[0] ?? "", lines[1] ?? "", lines[2] ?? "");
+    };
+}
+
 /** 共享渲染实例（无状态，toc 经 env 传递） */
 const md = new MarkdownIt({
     html: false,
@@ -163,7 +235,8 @@ const md = new MarkdownIt({
 })
     .use(underlinePlugin)
     .use(headingAnchorPlugin)
-    .use(admonitionPlugin);
+    .use(admonitionPlugin)
+    .use(linkCardPlugin);
 
 // 结构化代码块：头部（语言标识 + 复制 + 展开/收起）+ 行号栏 + 行线 + hljs 高亮，默认收起。
 // 交互（复制/切换）由 Layout 的全局委托监听处理，SSR 输出即完整结构。
