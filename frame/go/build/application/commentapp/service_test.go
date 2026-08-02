@@ -8,13 +8,15 @@ import (
 )
 
 // fakeRepo 内存实现 comment.Repository（测试用）。
+// reviewed 模拟 ai_reviewed_at：MarkAIReviewed 打标，ListUnreviewedPending 排除已打标。
 type fakeRepo struct {
-	byID map[int64]*comment.Comment
-	next int64
+	byID     map[int64]*comment.Comment
+	reviewed map[int64]bool
+	next     int64
 }
 
 func newFakeRepo() *fakeRepo {
-	return &fakeRepo{byID: map[int64]*comment.Comment{}, next: 1}
+	return &fakeRepo{byID: map[int64]*comment.Comment{}, reviewed: map[int64]bool{}, next: 1}
 }
 
 func (f *fakeRepo) add(c *comment.Comment) *comment.Comment {
@@ -64,6 +66,24 @@ func (f *fakeRepo) ListPending() ([]*comment.Comment, error) {
 		}
 	}
 	return out, nil
+}
+
+func (f *fakeRepo) ListUnreviewedPending() ([]*comment.Comment, error) {
+	out := make([]*comment.Comment, 0)
+	for _, c := range f.byID {
+		if c.Status == comment.StatusPending && !f.reviewed[c.ID] {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeRepo) MarkAIReviewed(id int64) error {
+	// 与真仓储一致：仅 pending 行打标，幂等，不存在也不报错。
+	if c, ok := f.byID[id]; ok && c.Status == comment.StatusPending {
+		f.reviewed[id] = true
+	}
+	return nil
 }
 
 func (f *fakeRepo) ListRejected() ([]*comment.Comment, error) {

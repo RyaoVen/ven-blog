@@ -3,6 +3,8 @@ package interfaces
 
 import (
 	"errors"
+	"net/url"
+	"os"
 	"strconv"
 
 	"ven_hybird/build/application/settingsapp"
@@ -25,6 +27,10 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		if err != nil {
 			return err
 		}
+		aiModeration, err := settings.AIModeration()
+		if err != nil {
+			return err
+		}
 		categories, err := settings.Categories()
 		if err != nil {
 			return err
@@ -41,6 +47,17 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		if err != nil {
 			return err
 		}
+		llmBaseURL, llmAPIKey, llmModel, err := settings.LLMConfig()
+		if err != nil {
+			return err
+		}
+		if llmBaseURL == "" {
+			llmBaseURL = os.Getenv("BLOG_LLM_BASE_URL")
+		}
+		if llmModel == "" {
+			llmModel = os.Getenv("BLOG_LLM_MODEL")
+		}
+		llmKeySet := llmAPIKey != "" || os.Getenv("BLOG_LLM_API_KEY") != ""
 		profile := map[string]any{"username": "", "bio": "", "avatarUrl": ""}
 		if userID, _, ok := c.User(); ok {
 			if uid, parseErr := strconv.ParseInt(userID, 10, 64); parseErr == nil {
@@ -50,11 +67,15 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 			}
 		}
 		return c.JSON(map[string]any{
-			"content":    content,
-			"moderation": moderation,
-			"categories": categories,
-			"profile":    profile,
-			"siteIcon":   siteIcon,
+			"content":      content,
+			"moderation":   moderation,
+			"aiModeration": aiModeration,
+			"categories":   categories,
+			"profile":      profile,
+			"siteIcon":     siteIcon,
+			"llm": map[string]any{
+				"baseUrl": llmBaseURL, "model": llmModel, "keySet": llmKeySet,
+			},
 			"email": map[string]any{
 				"host": host, "port": port, "user": smtpUser,
 				"fromName": fromName, "passwordSet": host != "" || smtpUser != "",
@@ -110,6 +131,46 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 			return c.Error(500, "internal error")
 		}
 		return c.JSON(200, map[string]any{"ok": true, "on": in.On})
+	}); err != nil {
+		return err
+	}
+
+	// AI 自动审核开关（worker 每 tick 现查，改设置即时生效）
+	if err := a.Put("/admin/settings/ai-moderation", admin, func(c *hybrid.ApiCtx) error {
+		var in struct {
+			On bool `json:"on"`
+		}
+		if err := c.Bind(&in); err != nil {
+			return c.Error(400, "bad body")
+		}
+		if err := settings.SetAIModeration(in.On); err != nil {
+			return c.Error(500, "internal error")
+		}
+		return c.JSON(200, map[string]any{"ok": true, "on": in.On})
+	}); err != nil {
+		return err
+	}
+
+	// LLM 配置（OpenAI 兼容端点/模型/API key；key 为空保留原值不回传）
+	if err := a.Put("/admin/settings/llm", admin, func(c *hybrid.ApiCtx) error {
+		var in struct {
+			BaseURL string `json:"baseUrl"`
+			APIKey  string `json:"apiKey"`
+			Model   string `json:"model"`
+		}
+		if err := c.Bind(&in); err != nil {
+			return c.Error(400, "bad body")
+		}
+		if in.BaseURL != "" {
+			u, err := url.Parse(in.BaseURL)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+				return c.Error(400, "invalid base url")
+			}
+		}
+		if err := settings.SetLLMConfig(in.BaseURL, in.APIKey, in.Model); err != nil {
+			return c.Error(500, "internal error")
+		}
+		return c.JSON(200, map[string]any{"ok": true})
 	}); err != nil {
 		return err
 	}

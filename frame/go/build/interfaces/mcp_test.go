@@ -113,7 +113,7 @@ func newMCPTestEnv(t *testing.T, authenticate func(rawKey string) (int64, error)
 		server:      server,
 		postRepo:    &fakePostRepo{posts: map[int64]*post.Post{}},
 		momentRepo:  &fakeMomentRepo{moments: map[int64]*moment.Moment{}},
-		commentRepo: &fakeCommentRepo{comments: map[int64]*comment.Comment{}},
+		commentRepo: &fakeCommentRepo{comments: map[int64]*comment.Comment{}, reviewed: map[int64]bool{}},
 		settingRepo: &fakeSettingRepo{values: map[string]string{}},
 		userRepo:    newFakeUserRepo(),
 	}
@@ -479,10 +479,12 @@ func (r *fakeMomentRepo) Count() (int, error) {
 func (r *fakeMomentRepo) DailyCounts(days int) (map[string]int, error) { return nil, nil }
 
 // fakeCommentRepo 实现 comment.Repository。
+// reviewed 模拟 ai_reviewed_at：MarkAIReviewed 打标，ListUnreviewedPending 排除已打标。
 type fakeCommentRepo struct {
 	mu       sync.Mutex
 	next     int64
 	comments map[int64]*comment.Comment
+	reviewed map[int64]bool
 	listErr  error
 }
 
@@ -547,6 +549,32 @@ func (r *fakeCommentRepo) ListPending() ([]*comment.Comment, error) {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil
+}
+
+func (r *fakeCommentRepo) ListUnreviewedPending() ([]*comment.Comment, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.listErr != nil {
+		return nil, r.listErr
+	}
+	var out []*comment.Comment
+	for _, c := range r.comments {
+		if c.Status == comment.StatusPending && !r.reviewed[c.ID] {
+			out = append(out, c)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}
+
+func (r *fakeCommentRepo) MarkAIReviewed(id int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	// 与真仓储一致：仅 pending 行打标，幂等，不存在也不报错。
+	if c, ok := r.comments[id]; ok && c.Status == comment.StatusPending {
+		r.reviewed[id] = true
+	}
+	return nil
 }
 
 func (r *fakeCommentRepo) ListRejected() ([]*comment.Comment, error) {

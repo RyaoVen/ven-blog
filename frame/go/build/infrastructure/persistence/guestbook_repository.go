@@ -110,6 +110,35 @@ func (r *GuestbookRepository) ListPending() ([]*guestbook.Entry, error) {
 	return r.listWhere(guestbook.StatusPending, true, 0)
 }
 
+// ListUnreviewedPending 返回 AI 未判的待审留言（worker 队列；创建时间正序）。
+func (r *GuestbookRepository) ListUnreviewedPending() ([]*guestbook.Entry, error) {
+	rows, err := r.db.Query(
+		guestbookSelect+" WHERE g.status = ? AND g.ai_reviewed_at IS NULL ORDER BY g.created_at ASC, g.id ASC",
+		guestbook.StatusPending,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list unreviewed pending guestbook: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	entries := make([]*guestbook.Entry, 0)
+	for rows.Next() {
+		e, err := scanEntry(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan guestbook entry: %w", err)
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
+}
+
+// MarkAIReviewed 给待审留言打"AI 已判"标记（仅 pending 行，幂等）。
+func (r *GuestbookRepository) MarkAIReviewed(id int64) error {
+	if _, err := r.db.Exec("UPDATE guestbook SET ai_reviewed_at = NOW() WHERE id = ? AND status = ?", id, guestbook.StatusPending); err != nil {
+		return fmt.Errorf("mark ai reviewed of guestbook entry %d: %w", id, err)
+	}
+	return nil
+}
+
 // ListRejected 返回被驳回留言（创建时间正序）。
 func (r *GuestbookRepository) ListRejected() ([]*guestbook.Entry, error) {
 	return r.listWhere(guestbook.StatusRejected, true, 0)

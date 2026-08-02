@@ -171,23 +171,38 @@ func Register(a *hybrid.App) error {
 }
 
 // registerModerator 组装自动审核 worker：构造 llm 客户端 → moderationapp → handler → 启动 ticker。
-// 启动条件：BLOG_LLM_API_KEY 非空（settings 键开关 ugc_ai_moderation 在每次 tick 现查，改设置即时生效）。
+// LLM 配置 settings 键优先、env（BLOG_LLM_*）兜底，每次判定现取（设置页改动即时生效）；
+// worker 常启动，每 tick 现查 AI 开关与 API key 是否就绪，未就绪则停手。
 func registerModerator(a *hybrid.App, comments *commentapp.Service, gb *guestbookapp.Service,
 	settings *settingsapp.Service, mail mailer.Mailer, authorNameFn func() string) error {
-	if os.Getenv("BLOG_LLM_API_KEY") == "" {
-		return nil
+	llmConfigFn := func() (llm.Config, error) {
+		baseURL, apiKey, model, err := settings.LLMConfig()
+		if err != nil {
+			return llm.Config{}, err
+		}
+		if baseURL == "" {
+			baseURL = os.Getenv("BLOG_LLM_BASE_URL")
+		}
+		if apiKey == "" {
+			apiKey = os.Getenv("BLOG_LLM_API_KEY")
+		}
+		if model == "" {
+			model = os.Getenv("BLOG_LLM_MODEL")
+		}
+		return llm.Config{BaseURL: baseURL, APIKey: apiKey, Model: model}, nil
 	}
-	llmClient, err := llm.NewClient() // 读 BLOG_LLM_BASE_URL/API_KEY/MODEL（默认 DeepSeek 兼容端点）
-	if err != nil {
-		return fmt.Errorf("build: llm client: %w", err)
-	}
+	llmClient := llm.NewClient(llmConfigFn)
 	svc := moderationapp.NewService(comments, gb, llmClient)
 	handler := moderator.NewHandler(svc, settings, mail, a, authorNameFn, siteURLFromEnv(), moderator.Options{
 		Interval: moderator.IntervalFromEnv(), // BLOG_MODERATOR_INTERVAL，默认 5m
 		Batch:    moderator.BatchFromEnv(),    // BLOG_MODERATOR_BATCH，默认 20
 		Enabled: func() bool {
 			on, err := settings.AIModeration()
-			return err == nil && on
+			if err != nil || !on {
+				return false
+			}
+			cfg, err := llmConfigFn()
+			return err == nil && cfg.APIKey != ""
 		},
 	})
 	handler.Start() // 内部 go 协程，不阻塞注册与启动

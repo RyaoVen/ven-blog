@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -38,10 +39,9 @@ func recordServer(t *testing.T, status int, content string) (*httptest.Server, *
 }
 
 func newTestClient(baseURL string) *Client {
-	return &Client{
-		cfg:  Config{BaseURL: baseURL, APIKey: "test-key", Model: "test-model"},
-		http: &http.Client{Timeout: 30 * time.Second},
-	}
+	return NewClient(func() (Config, error) {
+		return Config{BaseURL: baseURL, APIKey: "test-key", Model: "test-model"}, nil
+	})
 }
 
 func TestReviewRequestShape(t *testing.T) {
@@ -143,8 +143,8 @@ func TestReviewTimeout(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := &Client{
-		cfg:  Config{BaseURL: srv.URL, APIKey: "k", Model: "m"},
-		http: &http.Client{Timeout: 50 * time.Millisecond},
+		configFn: func() (Config, error) { return Config{BaseURL: srv.URL, APIKey: "k", Model: "m"}, nil },
+		http:     &http.Client{Timeout: 50 * time.Millisecond},
 	}
 	if _, err := c.Review(context.Background(), moderation.Request{Host: moderation.HostComment, HostTitle: "t", Content: "c"}); err == nil {
 		t.Fatal("want error on timeout, got nil")
@@ -196,28 +196,53 @@ func TestReviewNetworkError(t *testing.T) {
 	}
 }
 
-func TestNewClientEnv(t *testing.T) {
-	t.Setenv("BLOG_LLM_API_KEY", "")
-	if _, err := NewClient(); err == nil {
-		t.Fatal("NewClient without API key should error")
+func TestReviewMissingAPIKeyIsError(t *testing.T) {
+	// API key 未配置：直接报错不发请求（worker 视为判定失败，绝不放行/驳回）
+	c := NewClient(func() (Config, error) { return Config{BaseURL: "http://127.0.0.1:1/v1"}, nil })
+	_, err := c.Review(context.Background(), moderation.Request{Host: moderation.HostComment, HostTitle: "t", Content: "c"})
+	if err == nil || !strings.Contains(err.Error(), "api key is not configured") {
+		t.Fatalf("want api-key-not-configured error, got %v", err)
 	}
-	t.Setenv("BLOG_LLM_API_KEY", "k")
-	t.Setenv("BLOG_LLM_BASE_URL", "")
-	t.Setenv("BLOG_LLM_MODEL", "")
-	c, err := NewClient()
-	if err != nil {
-		t.Fatalf("NewClient: %v", err)
+}
+
+func TestReviewConfigErrorIsError(t *testing.T) {
+	// configFn 出错（如 settings 读取失败）→ 无法判定 → error
+	c := NewClient(func() (Config, error) { return Config{}, errors.New("settings down") })
+	_, err := c.Review(context.Background(), moderation.Request{Host: moderation.HostComment, HostTitle: "t", Content: "c"})
+	if err == nil || !strings.Contains(err.Error(), "load config") {
+		t.Fatalf("want load-config error, got %v", err)
 	}
-	if c.cfg.BaseURL != "https://api.deepseek.com/v1" || c.cfg.Model != "deepseek-chat" {
-		t.Fatalf("defaults: BaseURL=%q Model=%q", c.cfg.BaseURL, c.cfg.Model)
+}
+
+// roundTripFunc 拦截传输层（验证默认端点用，不走真实网络）。
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestReviewEmptyBaseURLAndModelFallBackToDefaults(t *testing.T) {
+	// 空 BaseURL/Model 时默认值在 Review 内回退：请求发往默认端点、使用默认模型
+	var gotURL string
+	var gotBody chatRequest
+	c := &Client{
+		configFn: func() (Config, error) { return Config{APIKey: "k"}, nil },
+		http: &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			gotURL = r.URL.String()
+			body, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(body, &gotBody)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(`{"choices":[{"message":{"content":"{\"verdict\":\"approve\",\"reason\":\"\"}"}}]}`)),
+				Header:     make(http.Header),
+			}, nil
+		})},
 	}
-	t.Setenv("BLOG_LLM_BASE_URL", "http://localhost:9999/v1")
-	t.Setenv("BLOG_LLM_MODEL", "gpt-test")
-	c, err = NewClient()
-	if err != nil {
-		t.Fatalf("NewClient: %v", err)
+	if _, err := c.Review(context.Background(), moderation.Request{Host: moderation.HostComment, HostTitle: "t", Content: "c"}); err != nil {
+		t.Fatalf("Review: %v", err)
 	}
-	if c.cfg.BaseURL != "http://localhost:9999/v1" || c.cfg.Model != "gpt-test" {
-		t.Fatalf("env override: BaseURL=%q Model=%q", c.cfg.BaseURL, c.cfg.Model)
+	if gotURL != defaultBaseURL+"/chat/completions" {
+		t.Fatalf("url = %q, want %q", gotURL, defaultBaseURL+"/chat/completions")
+	}
+	if gotBody.Model != defaultModel {
+		t.Fatalf("model = %q, want %q", gotBody.Model, defaultModel)
 	}
 }

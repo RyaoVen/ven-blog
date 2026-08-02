@@ -53,13 +53,22 @@ export interface EmailConfig {
     authorEmail: string;
 }
 
+/** LLM 配置（AI 审核；apiKey 不下发，只给 keySet） */
+export interface LLMConfig {
+    baseUrl: string;
+    model: string;
+    keySet: boolean;
+}
+
 /** 设置页 initialState */
 export interface AdminSettingsState {
     content: SettingsContent;
     moderation: boolean;
+    aiModeration: boolean;
     categories: string[];
     profile: SettingsProfile;
     email: EmailConfig;
+    llm: LLMConfig;
     siteIcon: string;
 }
 

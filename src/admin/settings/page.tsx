@@ -1,4 +1,4 @@
-/** 后台-设置页：账号安全 / 作者资料 / 内容配置 / 文章分类 / 评论审核 / API 访问密钥 */
+/** 后台-设置页：账号安全 / 作者资料 / 邮箱 / AI 审核（LLM）/ 内容配置 / 文章分类 / 评论审核 / API 访问密钥 */
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import type { PageAppProps } from "../../app/pageApp";
@@ -40,9 +40,11 @@ export default function AdminSettingsPage({ bootstrap }: PageAppProps) {
     const state = (bootstrap.initialState ?? {
         content: { paragraphs: [], skills: [], friends: [], quotes: [], projects: [], github: "" },
         moderation: false,
+        aiModeration: false,
         categories: [],
         profile: { username: "", bio: "", avatarUrl: "" },
         email: { host: "", port: "", user: "", fromName: "", passwordSet: false, authorEmail: "" },
+        llm: { baseUrl: "", model: "", keySet: false },
         siteIcon: "",
     }) as AdminSettingsState;
     return (
@@ -51,11 +53,107 @@ export default function AdminSettingsPage({ bootstrap }: PageAppProps) {
             <PasswordSection />
             <ProfileSection profile={state.profile} />
             <EmailSection config={state.email} />
+            <LLMSection config={state.llm} aiOn={state.aiModeration} />
             <ContentSection content={state.content} />
             <CategoriesSection categories={state.categories} />
             <ModerationSection initial={state.moderation} />
             <KeysSection />
         </AdminLayout>
+    );
+}
+
+/* ===== AI 审核（LLM 配置 + 开关） ===== */
+function LLMSection({ config, aiOn }: { config: AdminSettingsState["llm"]; aiOn: boolean }) {
+    const [baseUrl, setBaseUrl] = useState(config.baseUrl);
+    const [model, setModel] = useState(config.model);
+    const [apiKey, setApiKey] = useState("");
+    const [on, setOn] = useState(aiOn);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const { show, node } = useToast();
+
+    async function toggle(next: boolean) {
+        setOn(next);
+        try {
+            await fetch("/api/admin/settings/ai-moderation", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ on: next }),
+            });
+            show(next ? "已开启 AI 自动审核" : "已关闭 AI 自动审核");
+        } catch {
+            /* 静默：开关状态本地已切 */
+        }
+    }
+
+    async function onSubmit(event: FormEvent) {
+        event.preventDefault();
+        setSubmitting(true);
+        setError(null);
+        try {
+            const resp = await fetch("/api/admin/settings/llm", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ baseUrl: baseUrl.trim(), apiKey: apiKey.trim(), model: model.trim() }),
+            });
+            if (!resp.ok) {
+                const data = await resp.json().catch(() => null);
+                setError(data?.error === "invalid base url" ? "端点 URL 格式不正确" : (data?.error ?? "保存失败"));
+                return;
+            }
+            setApiKey("");
+            show("LLM 配置已保存（下一轮审核起生效）");
+        } catch {
+            setError("网络错误，请重试");
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    return (
+        <section className="ven-card" style={sectionStyle}>
+            <SectionTitle>AI 自动审核（LLM）</SectionTitle>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer", marginBottom: 16 }}>
+                <input type="checkbox" checked={on} onChange={(e) => toggle(e.target.checked)} style={{ width: 16, height: 16, accentColor: "#0d9488" }} />
+                开启 AI 自动审核（新评论/留言先经 LLM 判定：明显违规自动驳回、正常自动放行、不确定转人工）
+            </label>
+            <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
+                    <input
+                        className="ven-input"
+                        placeholder="OpenAI 兼容端点（默认 https://api.deepseek.com/v1）"
+                        value={baseUrl}
+                        onChange={(e) => setBaseUrl(e.target.value)}
+                    />
+                    <input
+                        className="ven-input"
+                        placeholder="模型（默认 deepseek-chat）"
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                    />
+                </div>
+                <input
+                    className="ven-input"
+                    type="password"
+                    placeholder={config.keySet ? "API Key（已设置，留空保持不变）" : "API Key（必填，审核 worker 依赖）"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    autoComplete="new-password"
+                />
+                {error && <p style={{ color: v.danger, fontSize: 13, margin: 0 }}>{error}</p>}
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <button className="ven-btn ven-btn-primary" type="submit" disabled={submitting}>
+                        {submitting ? "保存中…" : "保存 LLM 配置"}
+                    </button>
+                    {node}
+                    {!config.keySet && !apiKey && (
+                        <span className="ven-meta" style={{ color: v.danger }}>
+                            未配置 API Key，AI 审核不会运行
+                        </span>
+                    )}
+                </div>
+            </form>
+        </section>
     );
 }
 
@@ -717,7 +815,7 @@ function ModerationSection({ initial }: { initial: boolean }) {
             <SectionTitle>评论与留言审核</SectionTitle>
             <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }}>
                 <input type="checkbox" checked={on} disabled={saving} onChange={(e) => toggle(e.target.checked)} style={{ width: 16, height: 16, accentColor: "#0d9488" }} />
-                开启评论与留言审核（开启后，新评论与新留言需人工审核通过才会公开显示）
+                开启评论与留言审核（开启后，新评论与新留言先进入待审队列——配置 AI 审核则由 LLM 先判，不确定与失败的转人工）
             </label>
             <div style={{ marginTop: 10 }}>{node}</div>
         </section>

@@ -12,43 +12,34 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"ven_hybird/build/domain/moderation"
 )
 
-// Config 客户端配置（env 驱动，见 docs/agent-design/unit-4-moderator-worker.md §9 配置总表）。
+// Config 客户端配置（settings 键优先、env 兜底，见 docs/agent-design/unit-4-moderator-worker.md §9 配置总表）。
 type Config struct {
-	BaseURL string // BLOG_LLM_BASE_URL，默认 https://api.deepseek.com/v1
-	APIKey  string // BLOG_LLM_API_KEY（必填；为空时构造返回错误，worker 不启动）
-	Model   string // BLOG_LLM_MODEL，默认 deepseek-chat
+	BaseURL string // OpenAI 兼容端点，默认 https://api.deepseek.com/v1
+	APIKey  string // API key（为空时 Review 返回错误，worker 视为判定失败）
+	Model   string // 模型名，默认 deepseek-chat
 }
 
-// NewClient 从环境变量构造客户端；APIKey 为空返回错误。
-func NewClient() (*Client, error) {
-	cfg := Config{
-		BaseURL: os.Getenv("BLOG_LLM_BASE_URL"),
-		APIKey:  os.Getenv("BLOG_LLM_API_KEY"),
-		Model:   os.Getenv("BLOG_LLM_MODEL"),
-	}
-	if cfg.BaseURL == "" {
-		cfg.BaseURL = "https://api.deepseek.com/v1"
-	}
-	if cfg.Model == "" {
-		cfg.Model = "deepseek-chat"
-	}
-	if cfg.APIKey == "" {
-		return nil, errors.New("llm: BLOG_LLM_API_KEY is not set")
-	}
-	return &Client{cfg: cfg, http: &http.Client{Timeout: 30 * time.Second}}, nil
+// 默认值（settings/env 均未配置时回退）。
+const (
+	defaultBaseURL = "https://api.deepseek.com/v1"
+	defaultModel   = "deepseek-chat"
+)
+
+// NewClient 构造客户端；configFn 每次判定现取配置（设置页改动即时生效，无需重启）。
+func NewClient(configFn func() (Config, error)) *Client {
+	return &Client{configFn: configFn, http: &http.Client{Timeout: 30 * time.Second}}
 }
 
 // Client 实现 domain/moderation.Moderator。
 type Client struct {
-	cfg  Config
-	http *http.Client // Timeout: 30s 硬超时兜底（同时尊重 ctx 取消）
+	configFn func() (Config, error)
+	http     *http.Client // Timeout: 30s 硬超时兜底（同时尊重 ctx 取消）
 }
 
 // chatMessage 请求消息。
@@ -76,8 +67,21 @@ type chatResponse struct {
 
 // Review 判定一条内容；所有无法判定的情况都返回 error。
 func (c *Client) Review(ctx context.Context, req moderation.Request) (moderation.Verdict, error) {
+	cfg, err := c.configFn()
+	if err != nil {
+		return moderation.Verdict{}, fmt.Errorf("llm: load config: %w", err)
+	}
+	if cfg.APIKey == "" {
+		return moderation.Verdict{}, errors.New("llm: api key is not configured")
+	}
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = defaultBaseURL
+	}
+	if cfg.Model == "" {
+		cfg.Model = defaultModel
+	}
 	payload := chatRequest{
-		Model:       c.cfg.Model,
+		Model:       cfg.Model,
 		Temperature: 0,
 		ResponseFormat: map[string]string{
 			"type": "json_object",
@@ -89,11 +93,11 @@ func (c *Client) Review(ctx context.Context, req moderation.Request) (moderation
 		return moderation.Verdict{}, fmt.Errorf("llm: marshal request: %w", err)
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		strings.TrimRight(c.cfg.BaseURL, "/")+"/chat/completions", bytes.NewReader(body))
+		strings.TrimRight(cfg.BaseURL, "/")+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return moderation.Verdict{}, fmt.Errorf("llm: build request: %w", err)
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
+	httpReq.Header.Set("Authorization", "Bearer "+cfg.APIKey)
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.http.Do(httpReq)

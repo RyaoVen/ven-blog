@@ -141,14 +141,57 @@ func (h *Handler) batch() int {
 }
 
 // sendSummary 发送摘要邮件；收件人缺失/发送失败都只记日志，不阻断本轮。
+// 去重：已报告过的条目（settings 键 moderator_reported，kind:id）不再进邮件——
+// LLM 持续故障或条目长期待人工时不会每轮刷相同内容；发送成功后把本轮条目键落库。
 func (h *Handler) sendSummary(result *moderationapp.Result) {
 	to, err := h.settings.AuthorEmail()
 	if err != nil || to == "" {
 		log.Printf("moderator: summary email skipped: no author email (err=%v)", err)
 		return
 	}
-	subject, text := buildSummaryEmail(result, h.siteURL)
+	filtered, newKeys := h.filterUnreported(result)
+	if len(newKeys) == 0 {
+		return // 全部报告过，本轮无新增异常
+	}
+	subject, text := buildSummaryEmail(filtered, h.siteURL)
 	if err := h.mailer.Send(to, subject, text); err != nil {
 		log.Printf("moderator: summary email to %s failed: %v", to, err)
+		return // 发送失败不落键，下轮重报
 	}
+	if err := h.settings.AppendModeratorReported(newKeys); err != nil {
+		log.Printf("moderator: persist reported keys failed: %v", err)
+	}
+}
+
+// filterUnreported 过滤已报告条目：返回只含新增异常的 Result 副本与其条目键（kind:id）。
+// 读取已报告键失败时按"全部未报告"处理（宁可多发，不漏报）。
+func (h *Handler) filterUnreported(result *moderationapp.Result) (*moderationapp.Result, []string) {
+	reported, err := h.settings.ModeratorReported()
+	if err != nil {
+		reported = map[string]bool{}
+	}
+	filtered := &moderationapp.Result{
+		Processed: result.Processed,
+		Approved:  result.Approved,
+	}
+	keys := make([]string, 0, result.Rejected+result.Uncertain+result.Failed)
+	keep := func(items []moderationapp.Item) []moderationapp.Item {
+		out := make([]moderationapp.Item, 0, len(items))
+		for _, it := range items {
+			key := it.Kind + ":" + strconv.FormatInt(it.ID, 10)
+			if reported[key] {
+				continue
+			}
+			keys = append(keys, key)
+			out = append(out, it)
+		}
+		return out
+	}
+	filtered.RejectedItems = keep(result.RejectedItems)
+	filtered.UncertainItems = keep(result.UncertainItems)
+	filtered.FailedItems = keep(result.FailedItems)
+	filtered.Rejected = len(filtered.RejectedItems)
+	filtered.Uncertain = len(filtered.UncertainItems)
+	filtered.Failed = len(filtered.FailedItems)
+	return filtered, keys
 }

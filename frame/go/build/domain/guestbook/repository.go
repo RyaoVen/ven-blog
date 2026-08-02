@@ -18,6 +18,10 @@ type Repository interface {
 	ListAll(limit int) ([]*Entry, error)
 	// ListPending 返回待审核留言（创建时间正序，先审先到的）。
 	ListPending() ([]*Entry, error)
+	// ListUnreviewedPending 返回 AI 未判的待审留言（worker 队列；AI 判过 uncertain 的不在内）。
+	ListUnreviewedPending() ([]*Entry, error)
+	// MarkAIReviewed 给待审留言打"AI 已判"标记（uncertain 交人工后不再重复提交 LLM）。
+	MarkAIReviewed(id int64) error
 	// ListRejected 返回被驳回留言（创建时间正序）。
 	ListRejected() ([]*Entry, error)
 	// Get 按 ID 取留言，不存在返回 ErrNotFound（删除前归属校验用）。
