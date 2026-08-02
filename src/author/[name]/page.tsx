@@ -280,6 +280,10 @@ function FriendLinksSection({ state }: { state: AuthorHomeState }) {
     // 吸附段顶到视口正中后开始驱动：第一行左移、第二行反向右移
     useEffect(() => {
         const onScroll = () => {
+            // 小屏退化为普通横滚列表（CSS 覆盖 sticky/高度），跳过磁吸驱动
+            if (window.matchMedia("(max-width: 720px)").matches) {
+                return;
+            }
             const sec = sectionRef.current;
             if (!sec || runway <= 0) {
                 return;
@@ -310,17 +314,17 @@ function FriendLinksSection({ state }: { state: AuthorHomeState }) {
     const row2 = state.friendLinks.filter((_, i) => i % 2 === 1);
 
     return (
-        <section ref={sectionRef} style={{ marginBottom: 120, height: `calc(100vh + ${runway}px)` }}>
-            <div style={{ position: "sticky", top: "calc(50vh - 170px)" }}>
+        <section ref={sectionRef} className="ven-links" style={{ marginBottom: 120, height: `calc(100vh + ${runway}px)` }}>
+            <div className="ven-links-sticky" style={{ position: "sticky", top: "calc(50vh - 170px)" }}>
                 <SectionHeader title="友链" meta="LINKS" />
-                <div style={{ overflow: "hidden", marginBottom: 18 }}>
+                <div className="ven-links-row" style={{ overflow: "hidden", marginBottom: 18 }}>
                     <div ref={row1Ref} style={{ display: "flex", gap: 16, width: "max-content" }}>
                         {row1.map((f, i) => (
                             <FriendCard key={i} link={f} />
                         ))}
                     </div>
                 </div>
-                <div style={{ overflow: "hidden" }}>
+                <div className="ven-links-row" style={{ overflow: "hidden" }}>
                     <div ref={row2Ref} style={{ display: "flex", gap: 16, width: "max-content" }}>
                         {row2.map((f, i) => (
                             <FriendCard key={i} link={f} />
@@ -488,7 +492,7 @@ function GuestbookSection({ state }: { state: AuthorHomeState }) {
                                 {(viewer?.userId === e.userId || role === "author") && (
                                     <button
                                         type="button"
-                                        className="ven-meta"
+                                        className="ven-meta ven-inline-action"
                                         style={{
                                             border: "none",
                                             background: "none",
