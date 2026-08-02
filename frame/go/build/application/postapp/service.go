@@ -143,6 +143,11 @@ func (s *Service) Delete(id int64) error {
 	return s.repo.Delete(id)
 }
 
+// SetPinned 设置文章置顶标记（置顶列表优先展示），不存在返回 post.ErrNotFound。
+func (s *Service) SetPinned(id int64, pinned bool) error {
+	return s.repo.SetPinned(id, pinned)
+}
+
 // ValidationError 用例入参校验失败（映射为 400）。
 type ValidationError struct{ Message string }
 
