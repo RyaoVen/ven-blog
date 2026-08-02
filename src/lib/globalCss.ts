@@ -273,7 +273,8 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
     .ven-tagbox { position: static !important; }
 }
 
-/* 主题切换纯圆按钮：svg 居中；悬浮向左展开显字（固定容器不挤动兄弟组件） */
+/* 主题切换纯圆按钮：svg 居中；悬浮向左展开显字（固定容器不挤动兄弟组件）。
+ * hover 展开仅桌面（hover: hover）启用，避免触屏点按后标签卡在展开态 */
 .ven-theme-wrap { position: relative; width: 32px; height: 32px; flex-shrink: 0; }
 .ven-theme-toggle {
     position: absolute; right: 0; top: 0;
@@ -284,13 +285,19 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
     cursor: pointer; overflow: hidden; white-space: nowrap;
     transition: width 0.26s var(--ease-out), padding 0.26s var(--ease-out), background 0.22s var(--ease-out), border-color 0.22s var(--ease-out);
 }
-.ven-theme-toggle:hover { width: auto; padding: 0 12px; background: var(--bg-inset); }
 .ven-theme-label {
     font-size: 12px; font-family: inherit;
     max-width: 0; opacity: 0; overflow: hidden;
     transition: max-width 0.26s var(--ease-out), opacity 0.22s var(--ease-out), margin-left 0.26s var(--ease-out);
 }
-.ven-theme-toggle:hover .ven-theme-label { max-width: 48px; opacity: 1; margin-left: 6px; }
+@media (hover: hover) {
+    .ven-theme-toggle:hover { width: auto; padding: 0 12px; background: var(--bg-inset); }
+    .ven-theme-toggle:hover .ven-theme-label { max-width: 48px; opacity: 1; margin-left: 6px; }
+}
+/* 触控小屏：主题钮放大到 40px 目标区 */
+@media (max-width: 900px) {
+    .ven-theme-wrap, .ven-theme-toggle { width: 40px; height: 40px; }
+}
 
 /* 弹窗遮罩毛玻璃 */
 .ven-modal-overlay {
@@ -302,14 +309,21 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
     background: rgba(12, 10, 9, 0.6);
 }
 
-/* hero 区布局：左文案右动态 SVG（窄屏收起 SVG） */
+/* hero 区布局：左文案右作者卡（.ven-hero-art 命中作者卡外层，窄屏改纵向排布、卡片自适应不溢出） */
 .ven-hero { display: flex; align-items: center; justify-content: space-between; gap: 32px; }
+.ven-hero-art { width: 330px; flex-shrink: 0; }
 @media (max-width: 720px) {
-    .ven-hero-art { display: none; }
+    .ven-hero { flex-direction: column; align-items: stretch; gap: 28px; }
+    .ven-hero-art { width: 100%; }
 }
 
-/* 顶部导航：左右组件贴窗口两侧，搜索栏绝对居中；窄屏回归流式 */
-/* 顶部导航：三列 grid——左右贴边、搜索真居中不重叠；≤1100px 搜索折到第二行 */
+/* 仪表盘卡片行（最新文章 + Nixie 时钟）：≤480px 单列，避免时钟被挤压 */
+@media (max-width: 480px) {
+    .ven-dash-grid { grid-template-columns: 1fr !important; }
+}
+
+/* 顶部导航：三列 grid——左右贴边、搜索真居中不重叠；≤1100px 搜索折到第二行；
+ * ≤720px 导航/账号操作收进汉堡抽屉（.ven-menu-btn） */
 .ven-header { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; }
 .ven-header > *:first-child { justify-self: start; }
 .ven-header > *:last-child { justify-self: end; }
@@ -319,6 +333,77 @@ textarea.ven-input { resize: vertical; line-height: 1.7; }
 @media (max-width: 1100px) {
     .ven-header { grid-template-columns: 1fr auto; }
     .ven-header-search { grid-column: 1 / -1; order: 3; width: 100%; max-width: 380px; margin: 8px auto 0; justify-self: center; }
+}
+
+/* ===== 移动端导航：汉堡按钮 + 滑出抽屉 ===== */
+.ven-menu-btn {
+    display: none;
+    align-items: center; justify-content: center;
+    width: 40px; height: 40px; padding: 0;
+    border: 1px solid var(--border-strong); border-radius: 999px;
+    background: var(--bg); color: var(--text);
+    cursor: pointer;
+    transition: background 0.22s var(--ease-out), border-color 0.22s var(--ease-out);
+}
+.ven-menu-btn:hover { background: var(--bg-inset); border-color: var(--text-secondary); }
+@media (max-width: 720px) {
+    .ven-header-nav,
+    .ven-header-actions > :not(.ven-menu-btn) { display: none; }
+    .ven-menu-btn { display: inline-flex; }
+}
+
+/* 抽屉遮罩：毛玻璃（与弹窗同款）；抽屉本体右侧滑入，z-index 压住导航、低于弹窗 */
+@keyframes ven-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ven-drawer-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.ven-drawer-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(250, 250, 249, 0.68);
+    backdrop-filter: blur(22px) saturate(132%);
+    -webkit-backdrop-filter: blur(22px) saturate(132%);
+    animation: ven-fade-in 0.24s var(--ease-out);
+}
+[data-theme="dark"] .ven-drawer-overlay { background: rgba(12, 10, 9, 0.6); }
+.ven-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 501;
+    width: min(320px, 84vw);
+    display: flex; flex-direction: column;
+    background: var(--bg);
+    border-left: 1px solid var(--border);
+    box-shadow: -12px 0 32px rgba(28, 25, 23, 0.1);
+    animation: ven-drawer-in 0.28s var(--ease-out);
+}
+[data-theme="dark"] .ven-drawer { box-shadow: -12px 0 32px rgba(0, 0, 0, 0.45); }
+.ven-drawer-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+}
+.ven-drawer-close {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; padding: 0;
+    border: 1px solid var(--border-strong); border-radius: 999px;
+    background: var(--bg); color: var(--text);
+    cursor: pointer;
+    transition: background 0.22s var(--ease-out), border-color 0.22s var(--ease-out);
+}
+.ven-drawer-close:hover { background: var(--bg-inset); border-color: var(--text-secondary); }
+.ven-drawer-body { flex: 1; overflow-y: auto; padding: 6px 18px 20px; }
+.ven-drawer-nav { display: flex; flex-direction: column; border-bottom: 1px solid var(--border); }
+.ven-drawer-nav-link {
+    display: flex; align-items: center; gap: 12;
+    padding: 13px 0; font-size: 16px; font-weight: 550;
+    color: var(--text); text-decoration: none;
+    border-bottom: 1px solid var(--border);
+    transition: color 0.22s var(--ease-out);
+}
+.ven-drawer-nav-link:last-child { border-bottom: none; }
+.ven-drawer-nav-link:hover { color: var(--accent); }
+.ven-drawer-actions { display: flex; flex-direction: column; gap: 12; padding: 16px 0 0; }
+.ven-drawer-actions .ven-btn { width: 100%; padding: 11px 16px; font-size: 14px; }
+.ven-drawer-profile a {
+    width: 100%; padding: 11px 0;
+    justify-content: flex-start;
+    border-top: 1px solid var(--border);
 }
 
 /* ===== 首页整屏板块（滚动磁吸仅首页注入，离开页面解除） ===== */

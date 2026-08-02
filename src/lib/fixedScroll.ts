@@ -34,6 +34,8 @@ export function useFixedSections(containerRef: RefObject<HTMLElement | null>, co
 
     // 滚轮：累积 delta 超阈值切一屏；锁窗内阻断惯性尾
     useEffect(() => {
+        // ≤900px 面板已是普通流式布局（非整屏），禁用 touch/wheel 整屏切换，交还原生滚动
+        const mq = window.matchMedia("(max-width: 900px)");
         let acc = 0;
         let accTimer: number | null = null;
         const resetAcc = () => {
@@ -41,6 +43,9 @@ export function useFixedSections(containerRef: RefObject<HTMLElement | null>, co
             accTimer = null;
         };
         const onWheel = (e: WheelEvent) => {
+            if (mq.matches) {
+                return;
+            }
             if (lockRef.current) {
                 e.preventDefault();
                 return;
@@ -66,6 +71,9 @@ export function useFixedSections(containerRef: RefObject<HTMLElement | null>, co
             touchY = e.touches[0].clientY;
         };
         const onTouchEnd = (e: TouchEvent) => {
+            if (mq.matches) {
+                return;
+            }
             const dy = touchY - e.changedTouches[0].clientY;
             if (Math.abs(dy) > TOUCH_THRESHOLD) {
                 goTo(indexRef.current + (dy > 0 ? 1 : -1));
