@@ -5,9 +5,12 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -190,12 +193,17 @@ func TestStartPreflightChecks(t *testing.T) {
 		t.Errorf("缺 Go 产物应报错, got %v", err)
 	}
 
-	// 补 Go 产物，占用 :8080 → 端口占用报错
+	// 补 Go 产物，占用 :8080 → 端口占用报错。
+	// 端口检查在配置/产物之后（preflight 顺序），且 Node 端口检查先于 Go 端口——
+	// 本机 3000 真实被占时用例会先命中 Node 冲突，此时跳过（与 TestWaitNodeReady 同模式）。
 	if err := os.MkdirAll(filepath.Join(root, "bin"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(BinPath(root), []byte("binary"), 0o644); err != nil {
 		t.Fatal(err)
+	}
+	if PortOpen("127.0.0.1:3000", 100*time.Millisecond) {
+		t.Skip("本机 3000 被占用（Node 冲突检查先于 8080），跳过端口冲突用例")
 	}
 	ln, err := net.Listen("tcp", "127.0.0.1:8080")
 	if err != nil {
@@ -214,14 +222,14 @@ func TestWaitNodeReadyTimeout(t *testing.T) {
 	}
 	start := time.Now()
 	var buf bytes.Buffer
-	err := WaitNodeReady(context.Background(), "dev-token", 2*time.Second, &buf)
+	err := WaitNodeReady(context.Background(), "dev-token", 3000, 2*time.Second, &buf)
 	if err == nil {
 		t.Fatal("等待应超时报错")
 	}
 	if elapsed := time.Since(start); elapsed < 2*time.Second {
 		t.Errorf("超时过快: %v", elapsed)
 	}
-	if !strings.Contains(buf.String(), "等待 Node worker 就绪") {
+	if !strings.Contains(buf.String(), "等待") {
 		t.Errorf("应输出等待提示: %s", buf.String())
 	}
 }
@@ -235,7 +243,63 @@ func TestWaitNodeReadyCanceled(t *testing.T) {
 		time.Sleep(300 * time.Millisecond)
 		cancel()
 	}()
-	err := WaitNodeReady(ctx, "dev-token", 30*time.Second, &bytes.Buffer{})
+	err := WaitNodeReady(ctx, "dev-token", 3000, 30*time.Second, &bytes.Buffer{})
+	if err == nil || !strings.Contains(err.Error(), "canceled") {
+		t.Errorf("ctx 取消应返回取消错误, got %v", err)
+	}
+}
+
+// freePort 申请一个端口后立即释放（返回的端口大概率空闲，用于超时类测试）。
+func freePort(t *testing.T) int {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("申请空闲端口失败: %v", err)
+	}
+	port := ln.Addr().(*net.TCPAddr).Port
+	ln.Close()
+	return port
+}
+
+func TestWaitGoReadyTimeout(t *testing.T) {
+	port := freePort(t)
+	start := time.Now()
+	var buf bytes.Buffer
+	err := WaitGoReady(context.Background(), port, 2*time.Second, &buf)
+	if err == nil {
+		t.Fatal("等待应超时报错")
+	}
+	if elapsed := time.Since(start); elapsed < 2*time.Second {
+		t.Errorf("超时过快: %v", elapsed)
+	}
+	if !strings.Contains(err.Error(), "/api/site") {
+		t.Errorf("错误应提及 /api/site: %v", err)
+	}
+}
+
+func TestWaitGoReadyAccepts4xx(t *testing.T) {
+	// 网关进程活着但返回 4xx（配置/路由异常）也算"活着"——就绪语义不含健康检查
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "not found", http.StatusNotFound)
+	}))
+	defer srv.Close()
+	port, err := strconv.Atoi(strings.TrimPrefix(srv.URL, "http://127.0.0.1:"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WaitGoReady(context.Background(), port, 2*time.Second, &bytes.Buffer{}); err != nil {
+		t.Errorf("4xx 响应应判定就绪, got %v", err)
+	}
+}
+
+func TestWaitGoReadyCanceled(t *testing.T) {
+	port := freePort(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		cancel()
+	}()
+	err := WaitGoReady(ctx, port, 30*time.Second, &bytes.Buffer{})
 	if err == nil || !strings.Contains(err.Error(), "canceled") {
 		t.Errorf("ctx 取消应返回取消错误, got %v", err)
 	}

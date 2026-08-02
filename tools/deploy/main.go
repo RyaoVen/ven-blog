@@ -84,6 +84,11 @@ func cmdCheck(root string) error {
 
 func cmdStatus(root string) error {
 	st := core.GetStatus(root)
+	cfg, _ := core.LoadConfig(root)
+	nodePort, goPort := core.DefaultNodePort, core.DefaultGoPort
+	if cfg != nil {
+		nodePort, goPort = cfg.NodePort(), cfg.GoPort()
+	}
 	line := func(name string, p core.ProcState, port int, portOK bool) {
 		state := "stopped"
 		if p.Alive {
@@ -99,8 +104,8 @@ func cmdStatus(root string) error {
 		}
 		fmt.Printf("%-6s PID %-8s %-7s :%d %s\n", name, pid, state, port, portState)
 	}
-	line("node", st.Node, 3000, st.Port3000)
-	line("go", st.Go, 8080, st.Port8080)
+	line("node", st.Node, nodePort, st.Port3000)
+	line("go", st.Go, goPort, st.Port8080)
 	db := "不可达"
 	if st.MySQL {
 		db = "可达"
