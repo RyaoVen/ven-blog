@@ -10,6 +10,7 @@ import (
 	"ven_hybird/build/domain/user"
 
 	"ven_hybird/build/application/commentapp"
+	"ven_hybird/build/application/apikeyapp"
 	"ven_hybird/build/application/emailauth"
 	"ven_hybird/build/application/guestbookapp"
 	"ven_hybird/build/application/interactionapp"
@@ -46,6 +47,7 @@ func Register(a *hybrid.App) error {
 	guestbookRepo := persistence.NewGuestbookRepository(db)
 	settingsRepo := persistence.NewSettingsRepository(db)
 	emailCodeRepo := persistence.NewEmailCodeRepository(db)
+	apiKeyRepo := persistence.NewApiKeyRepository(db)
 	if err := persistence.SeedUsers(userRepo); err != nil {
 		return fmt.Errorf("build: seed users: %w", err)
 	}
@@ -83,6 +85,7 @@ func Register(a *hybrid.App) error {
 	moments := momentapp.NewService(momentRepo)
 	subscribe := subscribeapp.NewService(subscriberRepo)
 	guestbook := guestbookapp.NewService(guestbookRepo)
+	apiKeys := apikeyapp.NewService(apiKeyRepo)
 
 	// 接口层注册（发文归属经 c.User() 取调用者，框架会话已携带用户身份）
 	interfaces.RegisterAuth(a, users)
@@ -142,7 +145,10 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterMoments(a, moments, comments, interactions); err != nil {
 		return err
 	}
-	return interfaces.RegisterAdmin(a, posts, comments, interactions, moments, subscribe, users, settings)
+	if err := interfaces.RegisterAdmin(a, posts, comments, interactions, moments, subscribe, users, settings); err != nil {
+		return err
+	}
+	return interfaces.RegisterKeysAdmin(a, apiKeys)
 }
 
 // siteURLFromEnv 返回站点对外 URL（BLOG_SITE_URL，RSS 链接拼接用；默认本地开发地址）。
