@@ -4,13 +4,21 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import type { PageAppProps } from "../../app/pageApp";
 import { CheckIcon } from "../../lib/icons";
 import { ConfirmModal, Modal } from "../../lib/modal";
-import { EditorBlock, RowShell } from "../editorBlocks";
+import { EditorBlock, RowShell, rowShellCss } from "../editorBlocks";
 import { v } from "../../lib/theme";
 import { AdminLayout } from "../adminLayout";
 import { formatDateTime } from "../../lib/format";
 import type { AdminSettingsState, ApiKeyView, SettingsContent } from "../settingsTypes";
 
 const sectionStyle = { padding: "22px 24px", marginBottom: 24 } as const;
+
+/** 页面级窄屏样式：双列输入（2fr 1fr）≤480px 收敛单列；RowShell 固定宽输入 ≤480px 满宽 */
+const settingsCss = rowShellCss + `
+.ven-grid-pair { display: grid; grid-template-columns: 2fr 1fr; gap: 10; }
+@media (max-width: 480px) {
+    .ven-grid-pair { grid-template-columns: 1fr; }
+}
+`;
 
 function SectionTitle({ children }: { children: string }) {
     return (
@@ -49,6 +57,7 @@ export default function AdminSettingsPage({ bootstrap }: PageAppProps) {
     }) as AdminSettingsState;
     return (
         <AdminLayout route={bootstrap.route}>
+            <style>{settingsCss}</style>
             <SiteSection siteIcon={state.siteIcon} username={state.profile.username} />
             <PasswordSection />
             <ProfileSection profile={state.profile} />
@@ -118,7 +127,7 @@ function LLMSection({ config, aiOn }: { config: AdminSettingsState["llm"]; aiOn:
                 开启 AI 自动审核（新评论/留言先经 LLM 判定：明显违规自动驳回、正常自动放行、不确定转人工）
             </label>
             <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
+                <div className="ven-grid-pair">
                     <input
                         className="ven-input"
                         placeholder="OpenAI 兼容端点（默认 https://api.deepseek.com/v1）"
@@ -352,7 +361,7 @@ function EmailSection({ config }: { config: AdminSettingsState["email"] }) {
                 <p className="ven-meta" style={{ margin: 0 }}>
                     网站发件邮箱（SMTP 代理，用于发送验证码与 @ 通知）
                 </p>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }}>
+                <div className="ven-grid-pair">
                     <input className="ven-input" placeholder="SMTP 主机（如 smtp.qq.com）" value={host} onChange={(e) => setHost(e.target.value)} />
                     <input className="ven-input" placeholder="端口（465/587）" value={port} onChange={(e) => setPort(e.target.value)} />
                 </div>
@@ -588,7 +597,7 @@ function ContentSection({ content }: { content: SettingsContent }) {
                     {quotes.map((q, i) => (
                         <RowShell key={i} onRemove={() => setQuotes((l) => l.filter((_, x) => x !== i))}>
                             <input className="ven-input" style={{ flex: 1, minWidth: 200 }} value={q.text} onChange={(e) => setQuotes((l) => l.map((x, xi) => (xi === i ? { ...x, text: e.target.value } : x)))} placeholder="句子" />
-                            <input className="ven-input" style={{ width: 160 }} value={q.source} onChange={(e) => setQuotes((l) => l.map((x, xi) => (xi === i ? { ...x, source: e.target.value } : x)))} placeholder="出处" />
+                            <input className="ven-input ven-fw" style={{ width: 160 }} value={q.source} onChange={(e) => setQuotes((l) => l.map((x, xi) => (xi === i ? { ...x, source: e.target.value } : x)))} placeholder="出处" />
                         </RowShell>
                     ))}
                 </EditorBlock>
@@ -698,10 +707,10 @@ function CategoriesSection({ categories }: { categories: string[] }) {
     return (
         <section className="ven-card" style={sectionStyle}>
             <SectionTitle>文章分类</SectionTitle>
-            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
                 <input
                     className="ven-input"
-                    style={{ maxWidth: 240 }}
+                    style={{ maxWidth: 240, flex: 1 }}
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), add())}
@@ -716,12 +725,12 @@ function CategoriesSection({ categories }: { categories: string[] }) {
             ) : (
                 <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
                     {items.map((c) => (
-                        <li key={c} style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${v.border}` }}>
+                        <li key={c} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: "8px 0", borderBottom: `1px solid ${v.border}` }}>
                             {editing?.old === c ? (
                                 <>
                                     <input
                                         className="ven-input"
-                                        style={{ maxWidth: 240 }}
+                                        style={{ maxWidth: 240, flex: 1 }}
                                         value={editing.next}
                                         onChange={(e) => setEditing({ old: c, next: e.target.value })}
                                         onKeyDown={(e) => {
@@ -933,10 +942,10 @@ function KeysSection() {
                 程序化调用（agent / 脚本）使用的凭据，请求头携带 <code style={mono}>Authorization: Bearer ven_xxx</code>。
                 服务端只保存哈希，明文仅在生成时展示一次；吊销立即生效。
             </p>
-            <form onSubmit={create} style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <form onSubmit={create} style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
                 <input
                     className="ven-input"
-                    style={{ maxWidth: 240 }}
+                    style={{ maxWidth: 240, flex: 1 }}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="用途备注（如 zcode-agent）"

@@ -117,6 +117,7 @@ code, pre { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, 
 .ven-btn-danger { color: var(--danger); }
 .ven-btn-danger:hover { color: var(--danger); border-color: var(--danger); }
 
+
 .ven-input {
     width: 100%; padding: 8px 12px; font-size: 14px; font-family: inherit;
     border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
