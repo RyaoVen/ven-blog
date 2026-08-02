@@ -88,10 +88,12 @@ export default function AdminPostsPage({ bootstrap }: PageAppProps) {
                     {filtered.map((p) => (
                         <li
                             key={p.id}
+                            className="ven-admin-post-row"
                             style={{
                                 display: "flex",
                                 alignItems: "baseline",
-                                gap: 14,
+                                gap: "6px 14px",
+                                flexWrap: "wrap",
                                 padding: "12px 0",
                                 borderBottom: `1px solid ${v.border}`,
                             }}
@@ -117,32 +119,34 @@ export default function AdminPostsPage({ bootstrap }: PageAppProps) {
                             <span className="ven-meta" style={{ flexShrink: 0 }}>
                                 阅读 {p.hits ?? 0} · 赞 {p.likes ?? 0} · 藏 {p.favorites ?? 0}
                             </span>
-                            <button
-                                type="button"
-                                className="ven-btn"
-                                style={{
-                                    padding: "3px 12px",
-                                    fontSize: 12,
-                                    flexShrink: 0,
-                                    ...(p.pinned ? { color: v.accent, borderColor: v.accent } : {}),
-                                }}
-                                disabled={pinning === p.id}
-                                onClick={() => togglePin(p)}
-                            >
-                                {p.pinned ? "取消置顶" : "置顶"}
-                            </button>
-                            <a href={`/admin/posts/${p.id}/edit`} className="ven-btn" style={{ padding: "3px 12px", fontSize: 12 }}>
-                                编辑
-                            </a>
-                            <button
-                                type="button"
-                                className="ven-btn ven-btn-danger"
-                                style={{ padding: "3px 12px", fontSize: 12 }}
-                                onClick={() => setDeleting(p)}
-                            >
-                                <TrashIcon size={12} />
-                                删除
-                            </button>
+                            <div style={{ display: "flex", gap: 8, flexShrink: 0, alignItems: "center" }}>
+                                <button
+                                    type="button"
+                                    className="ven-btn"
+                                    style={{
+                                        padding: "3px 12px",
+                                        fontSize: 12,
+                                        flexShrink: 0,
+                                        ...(p.pinned ? { color: v.accent, borderColor: v.accent } : {}),
+                                    }}
+                                    disabled={pinning === p.id}
+                                    onClick={() => togglePin(p)}
+                                >
+                                    {p.pinned ? "取消置顶" : "置顶"}
+                                </button>
+                                <a href={`/admin/posts/${p.id}/edit`} className="ven-btn" style={{ padding: "3px 12px", fontSize: 12 }}>
+                                    编辑
+                                </a>
+                                <button
+                                    type="button"
+                                    className="ven-btn ven-btn-danger"
+                                    style={{ padding: "3px 12px", fontSize: 12 }}
+                                    onClick={() => setDeleting(p)}
+                                >
+                                    <TrashIcon size={12} />
+                                    删除
+                                </button>
+                            </div>
                         </li>
                     ))}
                 </ul>
