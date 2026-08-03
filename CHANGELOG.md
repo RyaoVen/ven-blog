@@ -2,6 +2,26 @@
 
 本仓库版本采用语义化版本（SemVer）。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [v1.2.5] - 2026-08-03
+
+> 注：v1.2.2 之后未单独发布 v1.2.3/v1.2.4，全部变更并入本版。
+
+### 安全加固（安全评审批次）
+
+- **存储型 XSS**：markdown admonition 自定义标题未转义（评论/动态/文章可注入）——补 escapeHtml + 渲染单测
+- **内部通道**：VEN_INTERNAL_TOKEN 强制配置（空/默认值 development-token 拒绝启动）、回调鉴权去 fail-open、渲染回调校验 route 归属（防缓存投毒）
+- **网关高可用**：Node pattern 拉取失败不再 fatal（磁盘持久化回退启动）、Node 熔断（连续失败快速失败 503 + 半开探测恢复）、页面缓存 stale-while-revalidate（Node 抖动期发过期缓存+异步刷新）
+- **认证加固**：登录失败限速锁定（用户名+IP 15 分钟 5 次）、发码限速（邮箱 1 次/分 + IP 每日上限）、种子 author 密码强制配置（未配拒绝启动）、reader 密码 env 可配
+- **SSRF**：linkpreview 连接前 DNS 校验拦截私网/回环/云元数据 + 重定向逐跳校验 + 端口白名单
+- **会话与跳转**：鉴权 cookie 加 Secure（VEN_COOKIE_SECURE 可配）、登录 next 参数 Open Redirect 修复（站内路径白名单）
+- **健壮性**：fiber.Recover 中间件（handler panic → 统一 500）+ 事件总线/SSE goroutine panic 兜底、点赞/收藏 toggle 写优先幂等（消除并发竞态）
+
+### 部署与工程
+
+- deploy config 向导：VEN_INTERNAL_TOKEN 回车自动生成强随机值（或手动输入）、author 密码必填
+- deploy 工具 token 必填校验（对齐网关强制语义）
+- CI flake 修复：auth 测试请求显式 5s 超时（-race 下 fiber Test 1s 超时）
+
 ## [v1.2.2] - 2026-08-03
 
 ### 新增
