@@ -144,6 +144,13 @@ function pathOf(url: string): string {
     return url.split("?", 1)[0] || "/";
 }
 
+/** 站内路径校验：须以单个 `/` 开头。
+ * 拒绝 `//` 开头（协议相对 URL 会跳到外部域）与反斜杠（浏览器把 `\` 当 `/` 解析，`/\evil.com` 等价 `//evil.com`）。
+ * 登录/注册 next 参数与 navigate 入口共用，防 Open Redirect。 */
+export function isInternalPath(url: string): boolean {
+    return url.startsWith("/") && !url.startsWith("//") && !url.includes("\\");
+}
+
 /** 解析查询参数 */
 function queryOf(url: string): Record<string, string> {
     const query: Record<string, string> = {};
@@ -171,6 +178,11 @@ function setLoading(loading: boolean): void {
  * @param options.key - history 条目 key（popstate 恢复用）
  */
 export function navigate(url: string, options?: { replace?: boolean; key?: string }): void {
+    // 安全：外部 URL（非站内路径）一律拒绝——防止 next 参数等把用户带到外部域（Open Redirect）
+    if (!isInternalPath(url)) {
+        console.warn(`[ven-router] 拒绝外部跳转: ${url}`);
+        return;
+    }
     if (!matchPage(url)) {
         window.location.href = url;
         return;

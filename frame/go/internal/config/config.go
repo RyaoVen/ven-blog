@@ -23,6 +23,7 @@ type Config struct {
 	RedisPassword     string        // Redis 密码，环境变量: VEN_REDIS_PASSWORD
 	RedisDB           int           // Redis 数据库编号，环境变量: VEN_REDIS_DB
 	SessionTTL        time.Duration // 会话有效期，环境变量: VEN_SESSION_TTL
+	CookieSecure      bool          // 鉴权 cookie 是否带 Secure 标志（仅 HTTPS 发送；本地 http 开发置 false），环境变量: VEN_COOKIE_SECURE
 	PageCacheTTL      time.Duration // 动态页内存缓存有效期，环境变量: VEN_PAGE_CACHE_TTL
 	EventQuietWindow  time.Duration // 事件总线 debounce 静默窗口，环境变量: VEN_EVENT_QUIET_WINDOW
 	EventMaxWait      time.Duration // 事件总线持续变更最大等待（强制 flush），环境变量: VEN_EVENT_MAX_WAIT
@@ -44,6 +45,7 @@ func Load() (Config, error) {
 		RedisPassword:     getenv("VEN_REDIS_PASSWORD", ""),
 		RedisDB:           integer("VEN_REDIS_DB", 0),
 		SessionTTL:        duration("VEN_SESSION_TTL", 24*time.Hour),
+		CookieSecure:      boolean("VEN_COOKIE_SECURE", true),
 		PageCacheTTL:      duration("VEN_PAGE_CACHE_TTL", time.Minute),
 		EventQuietWindow:  duration("VEN_EVENT_QUIET_WINDOW", 5*time.Second),
 		EventMaxWait:      duration("VEN_EVENT_MAX_WAIT", 30*time.Second),

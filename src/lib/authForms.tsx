@@ -3,7 +3,7 @@
  * onSuccess 缺省时按 SPA 跳转到 nextUrl（或 /posts）；弹窗场景传 reload 闭包。 */
 
 import { FormEvent, useEffect, useState } from "react";
-import { navigate } from "../app/router";
+import { isInternalPath, navigate } from "../app/router";
 import { v } from "./theme";
 
 interface AuthFormProps {
@@ -30,7 +30,9 @@ function useSubmit(done: (nextUrl?: string) => void, nextUrl?: string) {
             if (!resp.ok) {
                 return data?.error as string;
             }
-            done(nextUrl);
+            // next 只认站内路径（单个 `/` 开头，拒绝 `//evil.com` 协议相对与外链），
+            // 非法时回退 undefined，由 done 落到默认页（/posts）——防登录/注册成功被带到外部域
+            done(isInternalPath(nextUrl ?? "") ? nextUrl : undefined);
             return null;
         } catch {
             return "网络错误，请重试";
