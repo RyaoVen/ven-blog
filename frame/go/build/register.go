@@ -110,16 +110,16 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterHome(a, posts, moments, authorFn, settings); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterSiteInfo(a, authorFn, settings); err != nil {
+	if err := interfaces.RegisterSiteInfo(a, authorFn, settings, func() string { return siteURLOf(settings) }); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterSubscribe(a, subscribe, posts, siteURLFromEnv()); err != nil {
+	if err := interfaces.RegisterSubscribe(a, subscribe, posts, siteURLOf(settings)); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterPages(a, posts, comments, interactions, settings); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterInteractions(a, comments, interactions, emailAuth, settings, siteURLFromEnv()); err != nil {
+	if err := interfaces.RegisterInteractions(a, comments, interactions, emailAuth, settings, siteURLOf(settings)); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterSearch(a, posts); err != nil {
@@ -150,7 +150,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterMeEmail(a, users); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterMomentComments(a, comments, emailAuth, settings, siteURLFromEnv()); err != nil {
+	if err := interfaces.RegisterMomentComments(a, comments, emailAuth, settings, siteURLOf(settings)); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterMomentLikes(a, interactions); err != nil {
@@ -210,7 +210,7 @@ func registerModerator(a *hybrid.App, comments *commentapp.Service, gb *guestboo
 	}
 	llmClient := llm.NewClient(llmConfigFn)
 	svc := moderationapp.NewService(comments, gb, llmClient)
-	handler := moderator.NewHandler(svc, settings, mail, a, authorNameFn, siteURLFromEnv(), moderator.Options{
+	handler := moderator.NewHandler(svc, settings, mail, a, authorNameFn, siteURLOf(settings), moderator.Options{
 		Interval: moderator.IntervalFromEnv(), // BLOG_MODERATOR_INTERVAL，默认 5m
 		Batch:    moderator.BatchFromEnv(),    // BLOG_MODERATOR_BATCH，默认 20
 		Enabled: func() bool {
@@ -226,12 +226,19 @@ func registerModerator(a *hybrid.App, comments *commentapp.Service, gb *guestboo
 	return nil
 }
 
-// siteURLFromEnv 返回站点对外 URL（BLOG_SITE_URL，RSS 链接拼接用；默认本地开发地址）。
-func siteURLFromEnv() string {
+// defaultSiteURL 本地开发默认地址（设置键与 env 均未配置时兜底）。
+const defaultSiteURL = "http://127.0.0.1:8080"
+
+// siteURLOf 返回站点对外 URL（RSS/邮件链接拼接用）：
+// 设置键 site_url 优先，env BLOG_SITE_URL 兜底，最后回退本地开发默认地址。
+func siteURLOf(settings *settingsapp.Service) string {
+	if u, err := settings.SiteURL(); err == nil && u != "" {
+		return u
+	}
 	if u := os.Getenv("BLOG_SITE_URL"); u != "" {
 		return u
 	}
-	return "http://127.0.0.1:8080"
+	return defaultSiteURL
 }
 
 // registerRoles 注册博客角色（须在页面注册前完成）。
