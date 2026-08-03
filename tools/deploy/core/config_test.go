@@ -26,8 +26,16 @@ func TestDefaultsAndValidate(t *testing.T) {
 		t.Error("缺少 DSN 应报错")
 	}
 	c.Values[EnvDSN] = "root:x@tcp(127.0.0.1:3306)/ven_blog?parseTime=true"
+	if err := c.Validate(); err == nil {
+		t.Error("DSN 已配置但 token 缺失应报错")
+	}
+	c.Values[EnvToken] = "test-secret"
 	if err := c.Validate(); err != nil {
-		t.Errorf("DSN 已配置仍报错: %v", err)
+		t.Errorf("DSN+token 已配置仍报错: %v", err)
+	}
+	c.Values[EnvToken] = "development-token"
+	if err := c.Validate(); err == nil {
+		t.Error("默认值 development-token 应报错")
 	}
 }
 
