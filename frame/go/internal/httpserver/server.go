@@ -208,14 +208,14 @@ func (s *Server) GrantAuthWithUser(ctx *fiber.Ctx, role, userID string) error {
 	if err != nil {
 		return err
 	}
-	auth.SetAuthCookies(ctx, token, role, s.sessions.TTL())
+	auth.SetAuthCookies(ctx, token, role, s.sessions.TTL(), s.config.CookieSecure)
 	return nil
 }
 
 // RevokeAuth 注销当前请求的会话并清除鉴权 cookie（登出）。
 func (s *Server) RevokeAuth(ctx *fiber.Ctx) {
 	s.sessions.Revoke(ctx.Cookies(auth.AuthCookieName))
-	auth.ClearAuthCookies(ctx)
+	auth.ClearAuthCookies(ctx, s.config.CookieSecure)
 }
 
 // CookieAuth 从请求的 ven_auth cookie 中解析用户角色：
