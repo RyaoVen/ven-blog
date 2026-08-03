@@ -75,19 +75,14 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 			}
 		}
 		return c.JSON(map[string]any{
-			"content":      content,
-			"moderation":   moderation,
-			"aiModeration": aiModeration,
-			"authEnabled":  authEnabled,
-			"commentsEnabled": commentsEnabled,
-
 			"content":         content,
 			"moderation":      moderation,
-			"commentsEnabled": commentsEnabled,
 			"aiModeration":    aiModeration,
-			"categories":   categories,
-			"profile":      profile,
-			"siteIcon":     siteIcon,
+			"authEnabled":     authEnabled,
+			"commentsEnabled": commentsEnabled,
+			"categories":      categories,
+			"profile":         profile,
+			"siteIcon":        siteIcon,
 			"llm": map[string]any{
 				"baseUrl": llmBaseURL, "model": llmModel, "keySet": llmKeySet,
 			},
@@ -370,7 +365,7 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		}
 		// 资料展示在首页/作者主页/动态页（ISR 静态页 DataChange 失效再生），失效刷新 + SSE
 		a.InvalidatePage("/")
-		a.InvalidatePage("/author/"+usernameOf(a, users, userID))
+		a.InvalidatePage("/author/" + usernameOf(a, users, userID))
 		_ = a.DataChange("/moments")
 		return c.JSON(200, map[string]any{"ok": true})
 	})
