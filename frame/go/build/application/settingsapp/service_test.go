@@ -36,6 +36,42 @@ func (f *fakeRepo) Set(key, value string) error {
 // 接口合规断言。
 var _ setting.Repository = (*fakeRepo)(nil)
 
+func TestAuthEnabled(t *testing.T) {
+	t.Run("default on when unset", func(t *testing.T) {
+		svc := NewService(newFakeRepo())
+		on, err := svc.AuthEnabled()
+		if err != nil {
+			t.Fatalf("AuthEnabled: %v", err)
+		}
+		if !on {
+			t.Fatal("unset key: AuthEnabled = false, want true (默认开)")
+		}
+	})
+
+	t.Run("explicit on and off roundtrip", func(t *testing.T) {
+		repo := newFakeRepo()
+		svc := NewService(repo)
+		if err := svc.SetAuthEnabled(true); err != nil {
+			t.Fatalf("SetAuthEnabled(true): %v", err)
+		}
+		if repo.values[setting.KeyUserAuthEnabled] != "on" {
+			t.Fatalf("SetAuthEnabled(true) wrote %q, want on", repo.values[setting.KeyUserAuthEnabled])
+		}
+		if on, _ := svc.AuthEnabled(); !on {
+			t.Fatal("after SetAuthEnabled(true): AuthEnabled = false, want true")
+		}
+		if err := svc.SetAuthEnabled(false); err != nil {
+			t.Fatalf("SetAuthEnabled(false): %v", err)
+		}
+		if repo.values[setting.KeyUserAuthEnabled] != "off" {
+			t.Fatalf("SetAuthEnabled(false) wrote %q, want off", repo.values[setting.KeyUserAuthEnabled])
+		}
+		if on, _ := svc.AuthEnabled(); on {
+			t.Fatal("after SetAuthEnabled(false): AuthEnabled = true, want false")
+		}
+	})
+}
+
 // 未设置（库里无键）时评论总开关默认开。
 func TestCommentsEnabledDefaultOn(t *testing.T) {
 	svc := NewService(newFakeRepo())

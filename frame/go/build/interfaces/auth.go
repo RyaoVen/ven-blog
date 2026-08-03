@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/userapp"
 	"ven_hybird/build/domain/user"
 	"ven_hybird/hybrid"
@@ -20,7 +21,7 @@ type credentialsInput struct {
 }
 
 // RegisterAuth 注册认证接口。
-func RegisterAuth(a *hybrid.App, users *userapp.Service) {
+func RegisterAuth(a *hybrid.App, users *userapp.Service, settings *settingsapp.Service) {
 	// 全站受 role 守卫的页面仅 /admin/*（博客页面均公开，登录走导航弹窗与 /login 落地页），
 	// 故 401 跳转统一指向后台独立登入页
 	a.SetLoginRedirect("/admin/login")
@@ -40,7 +41,13 @@ func RegisterAuth(a *hybrid.App, users *userapp.Service) {
 		}
 		return grantAuthJSON(ctx, a, u)
 	})
+	// 公开注册受用户注册登录开关（user_auth_enabled）约束：关闭时 403。
+	// 仅拦注册与邮箱验证码通道（auth.go / emailauth.go），账号密码登录 /auth/login 保留——
+	// 前台与后台 /admin/login 共用此接口，是作者登录通道，不能关。
 	server.App().Post("/auth/register", func(ctx *fiber.Ctx) error {
+		if enabled, err := settings.AuthEnabled(); err != nil || !enabled {
+			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "registration disabled"})
+		}
 		var in credentialsInput
 		if err := ctx.BodyParser(&in); err != nil {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "bad body"})

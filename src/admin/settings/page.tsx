@@ -50,6 +50,7 @@ export default function AdminSettingsPage({ bootstrap }: PageAppProps) {
         moderation: false,
         commentsEnabled: true,
         aiModeration: false,
+        authEnabled: true,
         categories: [],
         profile: { username: "", bio: "", avatarUrl: "" },
         email: { host: "", port: "", user: "", fromName: "", passwordSet: false, authorEmail: "" },
@@ -68,6 +69,7 @@ export default function AdminSettingsPage({ bootstrap }: PageAppProps) {
             <CategoriesSection categories={state.categories} />
             <CommentsToggleSection initial={state.commentsEnabled} />
             <ModerationSection initial={state.moderation} />
+            <AuthToggleSection initial={state.authEnabled} />
             <KeysSection />
         </AdminLayout>
     );
@@ -866,6 +868,40 @@ function ModerationSection({ initial }: { initial: boolean }) {
             <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }}>
                 <input type="checkbox" checked={on} disabled={saving} onChange={(e) => toggle(e.target.checked)} style={{ width: 16, height: 16, accentColor: "#0d9488" }} />
                 开启评论与留言审核（开启后，新评论与新留言先进入待审队列——配置 AI 审核则由 LLM 先判，不确定与失败的转人工）
+            </label>
+            <div style={{ marginTop: 10 }}>{node}</div>
+        </section>
+    );
+}
+
+/* ===== 用户注册登录（一键关闭公开注册登录；作者账号登录保留） ===== */
+function AuthToggleSection({ initial }: { initial: boolean }) {
+    const [on, setOn] = useState(initial);
+    const [saving, setSaving] = useState(false);
+    const { show, node } = useToast();
+
+    async function toggle(next: boolean) {
+        setOn(next);
+        setSaving(true);
+        try {
+            await fetch("/api/admin/settings/auth-enabled", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ on: next }),
+            });
+            // 登录入口经 /api/site 前端现取（模块级缓存一次），导航隐藏需刷新页面生效
+            show(next ? "已开启用户注册登录" : "已关闭用户注册登录（刷新页面后导航入口隐藏）");
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <section className="ven-card" style={sectionStyle}>
+            <SectionTitle>用户注册登录</SectionTitle>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }}>
+                <input type="checkbox" checked={on} disabled={saving} onChange={(e) => toggle(e.target.checked)} style={{ width: 16, height: 16, accentColor: "#0d9488" }} />
+                允许访客注册与登录（关闭后：注册、邮箱验证码登录接口全部拒绝，导航隐藏登录/注册入口；作者账号登录不受影响，后台入口保留）
             </label>
             <div style={{ marginTop: 10 }}>{node}</div>
         </section>

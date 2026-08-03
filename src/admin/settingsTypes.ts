@@ -67,6 +67,7 @@ export interface AdminSettingsState {
     /** 评论总开关（一键关闭全站评论区；false 时读者侧隐藏评论区、接口拒绝新评论） */
     commentsEnabled: boolean;
     aiModeration: boolean;
+    authEnabled: boolean;
     categories: string[];
     profile: SettingsProfile;
     email: EmailConfig;

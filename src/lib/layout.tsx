@@ -120,11 +120,13 @@ const styles = {
     },
 } as const;
 
-/** 站点信息（导航品牌标/作者头像/favicon/评论总开关用；模块级缓存，全站只取一次） */
+/** 站点信息（导航品牌标/作者头像/favicon/注册登录开关/评论总开关用；模块级缓存，全站只取一次） */
 export interface SiteInfo {
     name: string;
     authorName: string;
     icon: string;
+    /** 用户注册登录开关（false 表示公开注册登录已关闭；接口缺省视为开） */
+    authEnabled: boolean;
     /** 评论总开关（false 表示全站评论区已关闭；接口缺省/拉取失败视为开） */
     commentsEnabled: boolean;
 }
@@ -138,6 +140,27 @@ function fetchSiteInfo(): Promise<SiteInfo | null> {
             .catch(() => null);
     }
     return siteInfoPromise;
+}
+
+/**
+ * 用户注册登录开关（/api/site 现取；SSR 与首渲染默认开，挂载后拉取更新——与 useRole 同手法，避免 hydration mismatch）。
+ * 关闭时：导航隐藏登录/注册入口，/login、/register 页显示关闭提示；作者账号登录（/admin/login）不受影响。
+ */
+export function useAuthEnabled(): boolean {
+    const [enabled, setEnabled] = useState(true);
+    useEffect(() => {
+        let cancelled = false;
+        fetchSiteInfo().then((data) => {
+            if (!cancelled && data) {
+                // 旧版服务端不下发该字段时视为开，保持兼容
+                setEnabled(data.authEnabled !== false);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+    return enabled;
 }
 
 /** 站点公开信息（共享同一模块级请求；评论区等组件据此判断评论总开关） */
@@ -264,6 +287,7 @@ function ProfileEntry() {
 
 export function Layout({ children }: { children: ReactNode }) {
     const role = useRole();
+    const authEnabled = useAuthEnabled();
     const [authView, setAuthView] = useState<"login" | "register" | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
     useCardGlow();
@@ -400,7 +424,7 @@ export function Layout({ children }: { children: ReactNode }) {
                                 注销（{role}）
                             </button>
                         </>
-                    ) : (
+                    ) : authEnabled ? (
                         <>
                             <button type="button" className="ven-btn" onClick={() => setAuthView("login")}>
                                 <LoginIcon />
@@ -411,7 +435,7 @@ export function Layout({ children }: { children: ReactNode }) {
                                 注册
                             </button>
                         </>
-                    )}
+                    ) : null}
                     <button type="button" className="ven-menu-btn" onClick={() => setMenuOpen(true)} aria-label="打开菜单">
                         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
                             <path d="M2 4.5 H16 M2 9 H16 M2 13.5 H16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -473,7 +497,7 @@ export function Layout({ children }: { children: ReactNode }) {
                                             注销（{role}）
                                         </button>
                                     </>
-                                ) : (
+                                ) : authEnabled ? (
                                     <>
                                         <button type="button" className="ven-btn" onClick={() => { setAuthView("login"); setMenuOpen(false); }}>
                                             <LoginIcon />
@@ -484,7 +508,7 @@ export function Layout({ children }: { children: ReactNode }) {
                                             注册
                                         </button>
                                     </>
-                                )}
+                                ) : null}
                             </div>
                         </div>
                     </div>
