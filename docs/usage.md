@@ -17,7 +17,7 @@
 
 - Go 1.25+、Node 22+（npm）、MySQL 8（本地或可达）
 - `.env.local`（仓库根，gitignore）：`cp env.local.example .env.local` 后填 `BLOG_MYSQL_DSN`
-- 首次启动用户表为空时自动种子 author 账号（`BLOG_AUTHOR_NAME`/`BLOG_AUTHOR_PASSWORD`，默认 `author`/`author123`）
+- 首次启动用户表为空时自动种子 author 账号（`BLOG_AUTHOR_NAME` 默认 `author`；`BLOG_AUTHOR_PASSWORD` **必配**，未配置拒绝启动）；种子 reader 密码 `BLOG_READER_PASSWORD` 可配（默认 `reader123`）
 
 ## 快速部署
 
@@ -50,7 +50,8 @@ cd frame/go && go run .
 | 变量 | 必填 | 默认 | 说明 |
 | --- | --- | --- | --- |
 | `BLOG_MYSQL_DSN` | ✅ | — | `root:密码@tcp(127.0.0.1:3306)/ven_blog?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci` |
-| `BLOG_AUTHOR_NAME` / `BLOG_AUTHOR_PASSWORD` | 可选 | author / author123 | 种子 author（仅首次） |
+| `BLOG_AUTHOR_NAME` / `BLOG_AUTHOR_PASSWORD` | 首次启动必配（密码） | author / — | 种子 author（仅首次；未配密码拒绝启动） |
+| `BLOG_READER_PASSWORD` | 可选 | reader123 | 种子 reader 密码（仅首次） |
 | `VEN_INTERNAL_TOKEN` | 生产必改 | development-token | Go↔Node 内部调用令牌，两侧一致 |
 | `BLOG_SITE_URL` | 可选 | http://127.0.0.1:8080 | RSS/邮件链接拼接 |
 | `VEN_NODE_PORT` | 可选 | 3000 | Node worker 端口（Node 与部署工具同读） |

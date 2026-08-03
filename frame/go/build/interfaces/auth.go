@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"ven_hybird/build/application/ratelimit"
 	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/userapp"
 	"ven_hybird/build/domain/user"
@@ -21,7 +22,9 @@ type credentialsInput struct {
 }
 
 // RegisterAuth 注册认证接口。
-func RegisterAuth(a *hybrid.App, users *userapp.Service, settings *settingsapp.Service) {
+// loginLimit 是登录失败限速器（组装根注入）：用户名+IP 维度，失败达阈值后锁定一段时间，
+// 成功登录清零——防密码暴力破解，不误伤正常用户（只对失败计数）。
+func RegisterAuth(a *hybrid.App, users *userapp.Service, settings *settingsapp.Service, loginLimit *ratelimit.Limiter) {
 	// 全站受 role 守卫的页面仅 /admin/*（博客页面均公开，登录走导航弹窗与 /login 落地页），
 	// 故 401 跳转统一指向后台独立登入页
 	a.SetLoginRedirect("/admin/login")
@@ -32,13 +35,20 @@ func RegisterAuth(a *hybrid.App, users *userapp.Service, settings *settingsapp.S
 		if err := ctx.BodyParser(&in); err != nil {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "bad body"})
 		}
+		// 锁定判定先行：已超失败阈值直接 429（不再校验凭据，防爆破/撞库）
+		loginKey := in.Username + "|" + ctx.IP()
+		if loginLimit.Blocked(loginKey) {
+			return ctx.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"error": "too many failed attempts, try again later"})
+		}
 		u, err := users.Authenticate(in.Username, in.Password)
 		if errors.Is(err, userapp.ErrInvalidCredentials) {
+			loginLimit.Allow(loginKey) // 只对失败计数，成功登录清零
 			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid credentials"})
 		}
 		if err != nil {
 			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal error"})
 		}
+		loginLimit.Reset(loginKey)
 		return grantAuthJSON(ctx, a, u)
 	})
 	// 公开注册受用户注册登录开关（user_auth_enabled）约束：关闭时 403。

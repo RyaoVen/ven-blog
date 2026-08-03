@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"ven_hybird/build/application/emailauth"
+	"ven_hybird/build/application/ratelimit"
 	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/userapp"
 	"ven_hybird/build/domain/user"
@@ -26,7 +27,8 @@ type emailLoginInput struct {
 
 // RegisterEmailAuth 注册邮箱认证接口（raw fiber，不走 /api 前缀）。
 // siteURL 用于验证码邮件模板站点信息（生产走 BLOG_SITE_URL 环境变量）。
-func RegisterEmailAuth(a *hybrid.App, emailAuthSvc *emailauth.Service, users *userapp.Service, settings *settingsapp.Service, siteURL string) {
+// codePerEmail/codePerIP 是发码限速器（组装根注入）：每邮箱 1 次/分钟、每 IP 每日上限，防刷验证码。
+func RegisterEmailAuth(a *hybrid.App, emailAuthSvc *emailauth.Service, users *userapp.Service, settings *settingsapp.Service, siteURL string, codePerEmail, codePerIP *ratelimit.Limiter) {
 	server := a.Server()
 
 	// 签发验证码（不泄露邮箱是否注册）；受用户注册登录开关约束，关闭时 403
@@ -38,6 +40,13 @@ func RegisterEmailAuth(a *hybrid.App, emailAuthSvc *emailauth.Service, users *us
 		if err := ctx.BodyParser(&in); err != nil {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "bad body"})
 		}
+		// 限速：两个维度都先判定后计数，任一超限即 429（避免"邮箱名额已扣但被 IP 维度拦下"的错位）
+		ip := ctx.IP()
+		if codePerEmail.Blocked(in.Email) || codePerIP.Blocked(ip) {
+			return ctx.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"error": "too many requests, try again later"})
+		}
+		codePerEmail.Allow(in.Email)
+		codePerIP.Allow(ip)
 		err := emailAuthSvc.RequestCode(in.Email, siteURL)
 		var vErr *emailauth.ValidationError
 		if errors.As(err, &vErr) {
