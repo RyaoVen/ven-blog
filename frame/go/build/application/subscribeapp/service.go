@@ -42,3 +42,16 @@ func (e *ValidationError) Error() string { return e.Message }
 func (s *Service) Count() (int, error) {
 	return s.repo.Count()
 }
+
+// Subscribers 全部订阅邮箱（新文章发布邮件通知取收件人用，按订阅先后顺序）。
+func (s *Service) Subscribers() ([]string, error) {
+	list, err := s.repo.List()
+	if err != nil {
+		return nil, err
+	}
+	emails := make([]string, 0, len(list))
+	for _, sub := range list {
+		emails = append(emails, sub.Email)
+	}
+	return emails, nil
+}
