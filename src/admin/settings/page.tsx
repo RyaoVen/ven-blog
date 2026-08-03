@@ -56,11 +56,12 @@ export default function AdminSettingsPage({ bootstrap }: PageAppProps) {
         email: { host: "", port: "", user: "", fromName: "", passwordSet: false, authorEmail: "" },
         llm: { baseUrl: "", model: "", keySet: false },
         siteIcon: "",
+        siteUrl: "",
     }) as AdminSettingsState;
     return (
         <AdminLayout route={bootstrap.route}>
             <style>{settingsCss}</style>
-            <SiteSection siteIcon={state.siteIcon} username={state.profile.username} />
+            <SiteSection siteIcon={state.siteIcon} siteUrl={state.siteUrl} username={state.profile.username} />
             <PasswordSection />
             <ProfileSection profile={state.profile} />
             <EmailSection config={state.email} />
@@ -171,11 +172,13 @@ function LLMSection({ config, aiOn }: { config: AdminSettingsState["llm"]; aiOn:
 }
 
 /* ===== 站点与用户名 ===== */
-function SiteSection({ siteIcon, username }: { siteIcon: string; username: string }) {
+function SiteSection({ siteIcon, siteUrl, username }: { siteIcon: string; siteUrl: string; username: string }) {
     const [icon, setIcon] = useState(siteIcon);
+    const [url, setUrl] = useState(siteUrl);
     const [name, setName] = useState(username);
     const [uploading, setUploading] = useState(false);
     const [savingIcon, setSavingIcon] = useState(false);
+    const [savingUrl, setSavingUrl] = useState(false);
     const [savingName, setSavingName] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
@@ -225,6 +228,33 @@ function SiteSection({ siteIcon, username }: { siteIcon: string; username: strin
             setError("网络错误，请重试");
         } finally {
             setSavingIcon(false);
+        }
+    }
+
+    async function saveUrl() {
+        const next = url.trim();
+        if (next === siteUrl) {
+            return;
+        }
+        setSavingUrl(true);
+        setError(null);
+        try {
+            const resp = await fetch("/api/admin/settings/site", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: next }),
+            });
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok) {
+                setError(data?.error === "invalid site url" ? "地址格式不正确（需以 http:// 或 https:// 开头）" : (data?.error ?? "保存失败"));
+                return;
+            }
+            setUrl(next);
+            show("站点公网地址已保存（重启后 RSS/邮件链接生效）");
+        } catch {
+            setError("网络错误，请重试");
+        } finally {
+            setSavingUrl(false);
         }
     }
 
@@ -305,6 +335,23 @@ function SiteSection({ siteIcon, username }: { siteIcon: string; username: strin
                         {savingIcon ? "保存中…" : "保存图标"}
                     </button>
                 )}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxWidth: 360, marginBottom: 18 }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+                    站点公网地址（邮件 @ 通知与 RSS 链接拼接使用）
+                    <input
+                        className="ven-input"
+                        placeholder="https://blog.example.com（未设置时回退 BLOG_SITE_URL/本地地址）"
+                        value={url}
+                        onChange={(e) => setUrl(e.target.value)}
+                    />
+                </label>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <button className="ven-btn ven-btn-primary" type="button" disabled={savingUrl || url.trim() === siteUrl} onClick={saveUrl}>
+                        {savingUrl ? "保存中…" : "保存站点地址"}
+                    </button>
+                    {node}
+                </div>
             </div>
             <form onSubmit={saveUsername} style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 360 }}>
                 <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>

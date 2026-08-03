@@ -73,6 +73,8 @@ export interface AdminSettingsState {
     email: EmailConfig;
     llm: LLMConfig;
     siteIcon: string;
+    /** 站点公网地址（设置键原始值；未设置时空串——RSS/邮件链接回退 env/默认） */
+    siteUrl: string;
 }
 
 /** API 访问密钥（与 Go 侧 apikeyapp.KeyView JSON 同形；永不含明文） */

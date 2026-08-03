@@ -120,11 +120,13 @@ const styles = {
     },
 } as const;
 
-/** 站点信息（导航品牌标/作者头像/favicon/注册登录开关/评论总开关用；模块级缓存，全站只取一次） */
+/** 站点信息（导航品牌标/作者头像/favicon/注册登录开关/评论总开关/公网地址用；模块级缓存，全站只取一次） */
 export interface SiteInfo {
     name: string;
     authorName: string;
     icon: string;
+    /** 站点公网地址（设置键优先、env 兜底、默认本地地址） */
+    siteUrl: string;
     /** 用户注册登录开关（false 表示公开注册登录已关闭；接口缺省视为开） */
     authEnabled: boolean;
     /** 评论总开关（false 表示全站评论区已关闭；接口缺省/拉取失败视为开） */
