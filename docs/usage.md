@@ -55,6 +55,7 @@ cd frame/go && go run .
 | `BLOG_SITE_URL` | 可选 | http://127.0.0.1:8080 | RSS/邮件链接拼接 |
 | `VEN_NODE_PORT` | 可选 | 3000 | Node worker 端口（Node 与部署工具同读） |
 | `VEN_LISTEN_ADDR` | 可选 | :8080 | Go 网关监听地址 |
+| `VEN_COOKIE_SECURE` | 可选 | true | 鉴权 cookie 带 Secure 标志（仅 HTTPS 发送）；本地 http 开发设 `false`，否则登录不上 |
 | `BLOG_LLM_BASE_URL` / `BLOG_LLM_API_KEY` / `BLOG_LLM_MODEL` | 可选 | DeepSeek / — / deepseek-chat | 自动审核 LLM（OpenAI 兼容；**配了 API_KEY 才启动 worker**） |
 | `BLOG_MODERATOR_INTERVAL` | 可选 | 5m | 审核轮询间隔 |
 | `BLOG_MODERATOR_BATCH` | 可选 | 20 | 每类宿主（评论/留言板）每轮处理上限 |
