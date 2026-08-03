@@ -31,6 +31,12 @@ func (f *fakeMailer) Send(to, subject, text string) error {
 	return f.err
 }
 
+func (f *fakeMailer) SendHTML(to, subject, html string) error {
+	f.to, f.subject, f.text = to, subject, html
+	f.sent = true
+	return f.err
+}
+
 // fakeModerator 预置判定序列；耗尽回退 pending。
 type fakeModerator struct {
 	verdicts []moderation.Verdict
@@ -278,8 +284,8 @@ func TestRunOnceSendsSummaryMail(t *testing.T) {
 	if !strings.HasPrefix(mail.subject, "ven-blog 内容审核摘要（") {
 		t.Fatalf("subject = %q", mail.subject)
 	}
-	for _, want := range []string{"【自动驳回】", "包含广告引流链接", "【需人工复核】", "【判定失败】",
-		"处理入口：https://blog.example.com/admin/comments"} {
+	for _, want := range []string{"自动驳回", "包含广告引流链接", "需人工复核", "判定失败",
+		`href="https://blog.example.com/admin/comments"`, "前往管理面板"} {
 		if !strings.Contains(mail.text, want) {
 			t.Fatalf("mail text missing %q:\n%s", want, mail.text)
 		}

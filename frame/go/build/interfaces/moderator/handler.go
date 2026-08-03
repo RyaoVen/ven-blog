@@ -14,9 +14,10 @@ import (
 	"ven_hybird/build/application/settingsapp"
 )
 
-// Mailer 发送窄接口（与 emailauth/service.go:24-27 同形；register.go 注入 SMTPMailer）。
+// Mailer 发送窄接口（与 emailauth/service.go 同形；register.go 注入 SMTPMailer）。
 type Mailer interface {
 	Send(to, subject, text string) error
+	SendHTML(to, subject, html string) error
 }
 
 // Invalidator 失效声明窄接口（hybrid.App 满足；见 hybrid/staticPage.go:62）。
@@ -153,8 +154,8 @@ func (h *Handler) sendSummary(result *moderationapp.Result) {
 	if len(newKeys) == 0 {
 		return // 全部报告过，本轮无新增异常
 	}
-	subject, text := buildSummaryEmail(filtered, h.siteURL)
-	if err := h.mailer.Send(to, subject, text); err != nil {
+	subject, html := buildSummaryEmail(filtered, h.siteURL)
+	if err := h.mailer.SendHTML(to, subject, html); err != nil {
 		log.Printf("moderator: summary email to %s failed: %v", to, err)
 		return // 发送失败不落键，下轮重报
 	}

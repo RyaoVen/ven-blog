@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"ven_hybird/build/application/emailhtml"
 	"ven_hybird/build/domain/emailcode"
 	"ven_hybird/build/domain/user"
 )
@@ -19,11 +20,14 @@ const (
 	codeTTL        = 10 * time.Minute
 	maxAttempts    = 5
 	codeNumberBase = 1000000
+	// siteName 邮件站点名（模板参数注入，模板本身不依赖 settings）。
+	siteName = "ven-blog"
 )
 
 // Mailer 发送接口（与 infrastructure/mailer 同形，应用层不反向依赖具体实现）。
 type Mailer interface {
 	Send(to, subject, text string) error
+	SendHTML(to, subject, html string) error
 }
 
 // Service 邮箱验证码用例服务。
@@ -39,7 +43,8 @@ func NewService(codes emailcode.Repository, users user.Repository, mailer Mailer
 }
 
 // RequestCode 给邮箱签发验证码并发送（无论邮箱是否注册都返回成功——不泄露账号存在性）。
-func (s *Service) RequestCode(email string) error {
+// siteURL 为站点对外 URL（调用方传入，用于邮件模板站点信息）。
+func (s *Service) RequestCode(email, siteURL string) error {
 	if msg := user.ValidateEmail(email); msg != "" {
 		return &ValidationError{Message: msg}
 	}
@@ -52,9 +57,9 @@ func (s *Service) RequestCode(email string) error {
 		return err
 	}
 	subject := "ven-blog 登录验证码"
-	text := fmt.Sprintf("你的登录验证码是：%s（10 分钟内有效，请勿泄露）。\n\n如果不是本人操作，请忽略本邮件。", code)
+	html := emailhtml.RenderVerificationCode(siteName, siteURL, code, "10 分钟内有效，请勿泄露。如果不是本人操作，请忽略本邮件。")
 	// 发送失败不阻断流程（日志记录）；未配置 SMTP 时 mailer 降级日志输出验证码
-	if err := s.mailer.Send(email, subject, text); err != nil {
+	if err := s.mailer.SendHTML(email, subject, html); err != nil {
 		log.Printf("emailauth: send code to %s failed: %v", email, err)
 	}
 	return nil
@@ -101,8 +106,8 @@ func (s *Service) NotifyMentioned(replyTo, path, excerpt, siteURL string) {
 			return
 		}
 		subject := "有人在 ven-blog 的评论中提到了你"
-		text := fmt.Sprintf("有人在评论中 @ 了你：\n\n「%s」\n\n查看原文：%s%s", excerpt, siteURL, path)
-		if err := s.mailer.Send(target.Email, subject, text); err != nil {
+		html := emailhtml.RenderMention(siteName, siteURL, excerpt, path)
+		if err := s.mailer.SendHTML(target.Email, subject, html); err != nil {
 			log.Printf("emailauth: notify %s failed: %v", target.Email, err)
 		}
 	}()
