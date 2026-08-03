@@ -12,5 +12,11 @@
     "rootDir": "."
   },
   "include": ["**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    // markdown.test.ts 导入仓库根 src/lib/markdown.ts（rootDir 之外，依赖经 esbuild nodePaths 解析），
+    // 由 vitest 编译运行（CI npm test），不纳入本 tsconfig 的 typecheck 范围
+    "markdown.test.ts"
+  ]
 }
