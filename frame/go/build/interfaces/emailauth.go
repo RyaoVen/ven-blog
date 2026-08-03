@@ -25,7 +25,8 @@ type emailLoginInput struct {
 }
 
 // RegisterEmailAuth 注册邮箱认证接口（raw fiber，不走 /api 前缀）。
-func RegisterEmailAuth(a *hybrid.App, emailAuthSvc *emailauth.Service, users *userapp.Service, settings *settingsapp.Service) {
+// siteURL 用于验证码邮件模板站点信息（生产走 BLOG_SITE_URL 环境变量）。
+func RegisterEmailAuth(a *hybrid.App, emailAuthSvc *emailauth.Service, users *userapp.Service, settings *settingsapp.Service, siteURL string) {
 	server := a.Server()
 
 	// 签发验证码（不泄露邮箱是否注册）；受用户注册登录开关约束，关闭时 403
@@ -37,7 +38,7 @@ func RegisterEmailAuth(a *hybrid.App, emailAuthSvc *emailauth.Service, users *us
 		if err := ctx.BodyParser(&in); err != nil {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "bad body"})
 		}
-		err := emailAuthSvc.RequestCode(in.Email)
+		err := emailAuthSvc.RequestCode(in.Email, siteURL)
 		var vErr *emailauth.ValidationError
 		if errors.As(err, &vErr) {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": vErr.Message})

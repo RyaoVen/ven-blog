@@ -146,7 +146,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterAuthorAdmin(a, settings, posts, authorNameFn); err != nil {
 		return err
 	}
-	interfaces.RegisterEmailAuth(a, emailAuth, users, settings)
+	interfaces.RegisterEmailAuth(a, emailAuth, users, settings, siteURLFromEnv())
 	if err := interfaces.RegisterMeEmail(a, users); err != nil {
 		return err
 	}
