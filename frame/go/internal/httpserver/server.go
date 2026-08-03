@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"ven_hybird/internal/auth"
+	"ven_hybird/internal/circuitbreaker"
 	"ven_hybird/internal/config"
 	"ven_hybird/internal/event"
 	"ven_hybird/internal/isr"
@@ -22,15 +23,16 @@ import (
 
 // Server 是 HTTP 服务器核心结构体。
 type Server struct {
-	app       *fiber.App           // Fiber 应用实例
-	config    config.Config        // 应用配置
-	ssr       ssr.Client           // SSR 渲染客户端
-	pending   *ssr.PendingRegistry // pending 任务注册中心
-	hookIDs   ssr.HookIDGenerator  // HookID 生成器
-	auth      *auth.Registry       // 权限等级注册表
-	sessions  *auth.SessionStore   // 会话存储（token → role）
-	pageCache *pagecache.Store     // 页面渲染结果缓存
-	isrStore  *isr.Store           // ISR 文件层
+	app       *fiber.App              // Fiber 应用实例
+	config    config.Config           // 应用配置
+	ssr       ssr.Client              // SSR 渲染客户端
+	pending   *ssr.PendingRegistry    // pending 任务注册中心
+	hookIDs   ssr.HookIDGenerator     // HookID 生成器
+	auth      *auth.Registry          // 权限等级注册表
+	sessions  *auth.SessionStore      // 会话存储（token → role）
+	pageCache *pagecache.Store        // 页面渲染结果缓存
+	isrStore  *isr.Store              // ISR 文件层
+	breaker   *circuitbreaker.Breaker // Node 熔断器（连续失败快速失败 + 半开探测）
 
 	eventTransport event.Transport // 事件跨实例传输（nil = 单实例；Redis 配置后由 hybrid 挂到事件总线）
 
@@ -41,14 +43,16 @@ type Server struct {
 	staticDecls        map[string]*isr.Declaration // StaticPage 声明（按模板字符串）
 	fallbackRegistered bool                        // 页面兜底路由是否已注册（RegisterPageFallback 幂等标记）
 
-	visitMu  sync.RWMutex // 保护 visitRec（埋点回调启动期注入，运行期只读）
+	visitMu  sync.RWMutex      // 保护 visitRec（埋点回调启动期注入，运行期只读）
 	visitRec func(path string) // 访问统计埋点回调（业务层注入；nil = 关闭埋点）
 }
 
 // 默认值：Config 由字面量构造（测试）未设这些字段时回退到与 config.Load 相同的默认。
 const (
-	defaultSessionTTL   = 24 * time.Hour // 会话有效期
-	defaultPageCacheTTL = time.Minute    // 页面缓存有效期
+	defaultSessionTTL       = 24 * time.Hour   // 会话有效期
+	defaultPageCacheTTL     = time.Minute      // 页面缓存有效期
+	defaultCircuitThreshold = 5                // Node 熔断连续失败阈值
+	defaultCircuitHalfOpen  = 10 * time.Second // Node 熔断半开探测间隔
 )
 
 // New 创建并初始化 HTTP 服务器实例。
@@ -66,6 +70,12 @@ func New(
 	}
 	if cfg.PageCacheTTL <= 0 {
 		cfg.PageCacheTTL = defaultPageCacheTTL
+	}
+	if cfg.NodeCircuitThreshold < 1 {
+		cfg.NodeCircuitThreshold = defaultCircuitThreshold
+	}
+	if cfg.NodeCircuitHalfOpen <= 0 {
+		cfg.NodeCircuitHalfOpen = defaultCircuitHalfOpen
 	}
 	app := fiber.New(fiber.Config{
 		AppName:               "VenHybird",
@@ -111,8 +121,9 @@ func New(
 		auth:           auth.NewRegistry(),
 		sessions:       auth.NewSessionStore(sessionBackend, cfg.SessionTTL),
 		patterns:       patterns,
-		pageCache:      pagecache.NewStore(pageBackend, cfg.PageCacheTTL),
+		pageCache:      pagecache.NewStore(pageBackend, cfg.PageCacheTTL, cfg.PageCacheStaleWindow),
 		isrStore:       isr.NewStore(cfg.IsrDir, cfg.IsrEnabled),
+		breaker:        circuitbreaker.New(cfg.NodeCircuitThreshold, cfg.NodeCircuitHalfOpen),
 		eventTransport: eventTransport,
 		staticDecls:    make(map[string]*isr.Declaration),
 	}
@@ -181,6 +192,10 @@ func (s *Server) refetchPatterns() bool {
 		return false
 	}
 	s.patterns = validator
+	// 持久化最近一次成功拉取的 pattern：下次启动 Node 不可达时可回退
+	if perr := pagepattern.Save(validator, s.config.PatternsFile); perr != nil {
+		log.Printf("persist refetched page patterns failed: %v", perr)
+	}
 	log.Printf("refetched page patterns from node")
 	return true
 }

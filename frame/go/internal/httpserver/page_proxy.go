@@ -67,6 +67,18 @@ func (s *Server) renderPage(ctx *fiber.Ctx, route string, data any) error {
 	}
 	if err != nil {
 		var renderErr *renderError
+		if errors.As(err, &renderErr) && renderErr.status >= fiber.StatusInternalServerError && keyErr == nil {
+			// stale 兜底：Node 侧失败（502/503/504）且缓存有过期条目 → 发 stale 而非 502，
+			// 后台异步回源刷新（防 Node 抖动期全站白屏）。
+			// 4xx（如 PAGE_NOT_FOUND）不兜底：Node 是路由权威，说没了就是没了。
+			if stale, ok := s.pageCache.GetStale(key); ok && stale.HTML != "" {
+				log.Printf("render: stale %s %s", ctx.Method(), route)
+				s.refreshStaleAsync(key, route, ctx.Queries(), data)
+				ctx.Set(fiber.HeaderContentType, fiber.MIMETextHTMLCharsetUTF8)
+				ctx.Set(fiber.HeaderCacheControl, "no-cache")
+				return ctx.SendString(stale.HTML)
+			}
+		}
 		if errors.As(err, &renderErr) {
 			if renderErr.json {
 				return ctx.Status(renderErr.status).JSON(fiber.Map{"error": renderErr.message})
@@ -106,8 +118,34 @@ func (s *Server) render(ctx *fiber.Ctx, route string, data any) (*pagecache.Entr
 	return s.renderWithQuery(route, ctx.Queries(), data)
 }
 
+// refreshStaleAsync 在后台回源刷新过期缓存（stale-while-revalidate 的 revalidate 阶段）。
+// 复用 pageCache.Do 的防击穿：同 key 并发仅一次刷新；刷新失败仅记日志（不影响已发出的 stale 响应）。
+// query 先拷贝再进 goroutine——ctx 在响应后会被 fiber 回收复用，不能跨请求引用。
+func (s *Server) refreshStaleAsync(key, route string, query map[string]string, data any) {
+	queryCopy := make(map[string]string, len(query))
+	for k, v := range query {
+		queryCopy[k] = v
+	}
+	go func() {
+		entry, _, err := s.pageCache.Do(key, func() (*pagecache.Entry, error) {
+			return s.renderWithQuery(route, queryCopy, data)
+		})
+		if err != nil {
+			log.Printf("render: stale refresh %s failed: %v", route, err)
+			return
+		}
+		log.Printf("render: stale refresh %s ok node=%dms", route, entry.Duration)
+	}()
+}
+
 // renderWithQuery 是 render 的核心（显式 query 版本，供后台预渲染复用）。
 func (s *Server) renderWithQuery(route string, query map[string]string, data any) (*pagecache.Entry, error) {
+	// 步骤 0: Node 熔断——连续失败达阈值后快速失败（503），不再等待渲染超时；
+	// 半开间隔后放行一个试探请求，成功即恢复
+	if !s.breaker.Allow() {
+		return nil, &renderError{fiber.StatusServiceUnavailable, "render worker is unavailable (circuit open)", true}
+	}
+
 	// 步骤 1: 生成唯一的 HookID
 	hookID, err := s.hookIDs.New()
 	if err != nil {
@@ -141,6 +179,8 @@ func (s *Server) renderWithQuery(route string, query map[string]string, data any
 	err = s.ssr.Submit(submitContext, task)
 	cancelSubmit()
 	if err != nil {
+		// 传输层失败（连接拒绝/提交被拒/提交超时）：计入熔断失败
+		s.breaker.RecordFailure()
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, &renderError{fiber.StatusGatewayTimeout, "render worker submit timed out", true}
 		}
@@ -151,6 +191,8 @@ func (s *Server) renderWithQuery(route string, query map[string]string, data any
 	// 使用 select 同时监听回调通道和超时定时器
 	select {
 	case callback := <-waiter:
+		// Node 有响应即视为传输健康（含回调错误分支）：不计入熔断失败
+		s.breaker.RecordSuccess()
 		// 收到渲染回调
 		if callback.Error != nil {
 			// 渲染失败：根据错误码返回不同的 HTTP 状态
@@ -168,7 +210,8 @@ func (s *Server) renderWithQuery(route string, query map[string]string, data any
 			Duration:     callback.Duration,
 		}, nil
 	case <-time.After(s.config.RenderTimeout):
-		// 渲染超时
+		// 渲染超时：计入熔断失败
+		s.breaker.RecordFailure()
 		return nil, &renderError{fiber.StatusGatewayTimeout, "render worker timed out", true}
 	}
 }
