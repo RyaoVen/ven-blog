@@ -192,6 +192,10 @@ func (s *Server) refetchPatterns() bool {
 		return false
 	}
 	s.patterns = validator
+	// 持久化最近一次成功拉取的 pattern：下次启动 Node 不可达时可回退
+	if perr := pagepattern.Save(validator, s.config.PatternsFile); perr != nil {
+		log.Printf("persist refetched page patterns failed: %v", perr)
+	}
 	log.Printf("refetched page patterns from node")
 	return true
 }
