@@ -114,9 +114,9 @@ func (s *Server) renderWithQuery(route string, query map[string]string, data any
 		return nil, &renderError{fiber.StatusInternalServerError, "create render request failed", true}
 	}
 
-	// 步骤 2: 在 PendingRegistry 中注册等待通道
+	// 步骤 2: 在 PendingRegistry 中注册等待通道（记录归属路由，回调时校验）
 	// remove 函数用于在请求结束时清理注册，防止内存泄漏
-	waiter, remove, err := s.pending.Register(hookID)
+	waiter, remove, err := s.pending.Register(hookID, route)
 	if err != nil {
 		return nil, &renderError{fiber.StatusServiceUnavailable, err.Error(), true}
 	}
