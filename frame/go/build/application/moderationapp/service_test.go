@@ -3,6 +3,7 @@ package moderationapp
 import (
 	"context"
 	"errors"
+	"sort"
 	"testing"
 
 	"ven_hybird/build/application/commentapp"
@@ -33,6 +34,7 @@ func (f *fakeModerator) Review(_ context.Context, _ moderation.Request) (moderat
 
 // fakeCommentRepo 内存实现 comment.Repository（与 commentapp 测试同款；ListPending 正序）。
 // reviewed 模拟 ai_reviewed_at；markErr 注入打标失败。
+// 注意：byID 是 map，直接遍历顺序随机——列表方法统一按 ID 正序排，保证断言顺序确定。
 type fakeCommentRepo struct {
 	byID     map[int64]*comment.Comment
 	reviewed map[int64]bool
@@ -66,6 +68,7 @@ func (f *fakeCommentRepo) ListPending() ([]*comment.Comment, error) {
 			out = append(out, c)
 		}
 	}
+	sortByID(out)
 	return out, nil
 }
 func (f *fakeCommentRepo) ListUnreviewedPending() ([]*comment.Comment, error) {
@@ -75,6 +78,7 @@ func (f *fakeCommentRepo) ListUnreviewedPending() ([]*comment.Comment, error) {
 			out = append(out, c)
 		}
 	}
+	sortByID(out)
 	return out, nil
 }
 func (f *fakeCommentRepo) MarkAIReviewed(id int64) error {
@@ -427,4 +431,9 @@ func TestAutoReviewLimitTruncation(t *testing.T) {
 	if result.Processed != 20 || result.Approved != 20 {
 		t.Fatalf("processed = %d approved = %d, want 20/20（库存 25 条 limit 20）", result.Processed, result.Approved)
 	}
+}
+
+// sortByID 按 ID 正序排序（fakeCommentRepo 列表方法共用：map 遍历顺序随机，断言依赖确定序）。
+func sortByID(list []*comment.Comment) {
+	sort.Slice(list, func(i, j int) bool { return list[i].ID < list[j].ID })
 }
