@@ -54,8 +54,8 @@ func TestAuthEnabled(t *testing.T) {
 		if err := svc.SetAuthEnabled(true); err != nil {
 			t.Fatalf("SetAuthEnabled(true): %v", err)
 		}
-		if repo.kv[setting.KeyUserAuthEnabled] != "on" {
-			t.Fatalf("SetAuthEnabled(true) wrote %q, want on", repo.kv[setting.KeyUserAuthEnabled])
+		if repo.values[setting.KeyUserAuthEnabled] != "on" {
+			t.Fatalf("SetAuthEnabled(true) wrote %q, want on", repo.values[setting.KeyUserAuthEnabled])
 		}
 		if on, _ := svc.AuthEnabled(); !on {
 			t.Fatal("after SetAuthEnabled(true): AuthEnabled = false, want true")
@@ -63,8 +63,8 @@ func TestAuthEnabled(t *testing.T) {
 		if err := svc.SetAuthEnabled(false); err != nil {
 			t.Fatalf("SetAuthEnabled(false): %v", err)
 		}
-		if repo.kv[setting.KeyUserAuthEnabled] != "off" {
-			t.Fatalf("SetAuthEnabled(false) wrote %q, want off", repo.kv[setting.KeyUserAuthEnabled])
+		if repo.values[setting.KeyUserAuthEnabled] != "off" {
+			t.Fatalf("SetAuthEnabled(false) wrote %q, want off", repo.values[setting.KeyUserAuthEnabled])
 		}
 		if on, _ := svc.AuthEnabled(); on {
 			t.Fatal("after SetAuthEnabled(false): AuthEnabled = true, want false")
