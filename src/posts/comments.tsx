@@ -5,6 +5,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { formatDateTime } from "../lib/format";
 import { MessageIcon, TrashIcon } from "../lib/icons";
+import { useSiteInfo } from "../lib/layout";
 import { renderMarkdown } from "../lib/markdown";
 import { ConfirmModal } from "../lib/modal";
 import { useRole } from "../lib/role";
@@ -21,6 +22,8 @@ export function CommentsSection({
 }) {
     const role = useRole();
     const viewer = useViewer();
+    // 评论总开关（/api/site commentsEnabled）：关闭时整块评论区不渲染（含表单/列表/回复）
+    const siteInfo = useSiteInfo();
     const [list, setList] = useState<Comment[]>(initialComments ?? []);
     const [draft, setDraft] = useState("");
     const [replyTo, setReplyTo] = useState<string | null>(null);
@@ -99,6 +102,11 @@ export function CommentsSection({
             setList((l) => l.filter((c) => c.id !== deleting.id));
         }
         setDeleting(null);
+    }
+
+    // 评论总开关关闭：整块评论区不渲染（含表单/列表/回复；拉取失败视为开，回退默认展示）
+    if (siteInfo && !siteInfo.commentsEnabled) {
+        return null;
     }
 
     return (
