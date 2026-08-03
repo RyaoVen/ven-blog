@@ -65,6 +65,7 @@ export interface AdminSettingsState {
     content: SettingsContent;
     moderation: boolean;
     aiModeration: boolean;
+    authEnabled: boolean;
     categories: string[];
     profile: SettingsProfile;
     email: EmailConfig;
