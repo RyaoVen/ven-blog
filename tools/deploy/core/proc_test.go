@@ -171,13 +171,13 @@ func TestStartPreflightChecks(t *testing.T) {
 
 	// 构造仓库根
 	mkRepoRoot(t, root)
-	writeEnvFile(t, root, "BLOG_SITE_URL=https://example.com\n")
+	writeEnvFile(t, root, "BLOG_SITE_URL=https://example.com\nVEN_INTERNAL_TOKEN=test-secret\n")
 	if err := Start(context.Background(), root, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), EnvDSN) {
 		t.Errorf("缺 DSN 应报错, got %v", err)
 	}
 
 	// DSN 就绪但缺构建产物
-	writeEnvFile(t, root, "BLOG_MYSQL_DSN=root:x@tcp(127.0.0.1:3306)/ven_blog?parseTime=true\n")
+	writeEnvFile(t, root, "BLOG_MYSQL_DSN=root:x@tcp(127.0.0.1:3306)/ven_blog?parseTime=true\nVEN_INTERNAL_TOKEN=test-secret\n")
 	if err := Start(context.Background(), root, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "dist/main.js") {
 		t.Errorf("缺 Node 产物应报错, got %v", err)
 	}

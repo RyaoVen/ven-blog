@@ -219,19 +219,31 @@ func configWizard(envPath string) error {
 	f.Set(core.EnvDSN, dsn)
 
 	f.AddBlank()
-	f.AddComment("# 可选：种子 author 账号（首次启动用户表为空时写入）")
+	f.AddComment("# 必填：种子 author 密码（网关 #168 起未配置拒绝启动）")
+	var authorPass string
+	for authorPass == "" {
+		authorPass = prompt("BLOG_AUTHOR_PASSWORD（必填，强密码）")
+		if authorPass == "" {
+			fmt.Println("  BLOG_AUTHOR_PASSWORD 必填，请重试")
+		}
+	}
+	f.Set("BLOG_AUTHOR_PASSWORD", authorPass)
 	if v := prompt("BLOG_AUTHOR_NAME"); v != "" {
 		f.Set("BLOG_AUTHOR_NAME", v)
 	}
-	if v := prompt("BLOG_AUTHOR_PASSWORD"); v != "" {
-		f.Set("BLOG_AUTHOR_PASSWORD", v)
-	}
 
 	f.AddBlank()
-	f.AddComment("# 可选：内部令牌（Go 与 Node 两侧需一致；不配置默认 development-token）")
-	if v := prompt("VEN_INTERNAL_TOKEN"); v != "" {
-		f.Set(core.EnvToken, v)
+	f.AddComment("# 必填：内部令牌（Go 与 Node 两侧需一致；网关 #166 起空/development-token 拒绝启动）")
+	var token string
+	for token == "" || token == "development-token" {
+		token = prompt("VEN_INTERNAL_TOKEN（必填，强随机值）")
+		if token == "" {
+			fmt.Println("  VEN_INTERNAL_TOKEN 必填，请重试")
+		} else if token == "development-token" {
+			fmt.Println("  不能使用默认值 development-token（网关会拒绝启动），请配置强随机令牌")
+		}
 	}
+	f.Set(core.EnvToken, token)
 
 	f.AddBlank()
 	f.AddComment("# 可选：站点 URL / AI 审核 worker（BLOG_LLM_API_KEY 未配置则不启动）")
