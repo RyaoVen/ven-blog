@@ -31,6 +31,10 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		if err != nil {
 			return err
 		}
+		authEnabled, err := settings.AuthEnabled()
+		if err != nil {
+			return err
+		}
 		categories, err := settings.Categories()
 		if err != nil {
 			return err
@@ -70,6 +74,7 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 			"content":      content,
 			"moderation":   moderation,
 			"aiModeration": aiModeration,
+			"authEnabled":  authEnabled,
 			"categories":   categories,
 			"profile":      profile,
 			"siteIcon":     siteIcon,
@@ -144,6 +149,25 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 			return c.Error(400, "bad body")
 		}
 		if err := settings.SetAIModeration(in.On); err != nil {
+			return c.Error(500, "internal error")
+		}
+		return c.JSON(200, map[string]any{"ok": true, "on": in.On})
+	}); err != nil {
+		return err
+	}
+
+	// 用户注册登录开关（关闭后公开注册/邮箱验证码登录入口 403；作者账号登录保留）。
+	// 失效声明：登录入口渲染在导航（所有页面）与 /login、/register 页，前端一律经 /api/site
+	// 客户端现取（模块级缓存一次，刷新页面重新拉取）——服务端页面缓存不含登录入口状态，
+	// 无需 InvalidatePage；改设置后前端提示刷新生效。
+	if err := a.Put("/admin/settings/auth-enabled", admin, func(c *hybrid.ApiCtx) error {
+		var in struct {
+			On bool `json:"on"`
+		}
+		if err := c.Bind(&in); err != nil {
+			return c.Error(400, "bad body")
+		}
+		if err := settings.SetAuthEnabled(in.On); err != nil {
 			return c.Error(500, "internal error")
 		}
 		return c.JSON(200, map[string]any{"ok": true, "on": in.On})
