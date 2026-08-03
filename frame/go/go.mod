@@ -3,6 +3,7 @@ module ven_hybird
 go 1.25.0
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/gofiber/fiber/v2 v2.52.12

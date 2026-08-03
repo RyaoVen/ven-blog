@@ -17,13 +17,21 @@ func NewInteractionRepository(db *sql.DB) *InteractionRepository {
 	return &InteractionRepository{db: db}
 }
 
-// AddLike 点赞（INSERT IGNORE 幂等）。
-func (r *InteractionRepository) AddLike(userID int64, targetType interaction.TargetType, targetID int64) error {
-	_, err := r.db.Exec(
+// AddLike 点赞（INSERT IGNORE 幂等）。返回是否新插入（RowsAffected=1）：
+// 供服务层"写优先"切换用——1 行=本次插入（liked）；0 行=已存在（走 DELETE 取消）。
+func (r *InteractionRepository) AddLike(userID int64, targetType interaction.TargetType, targetID int64) (bool, error) {
+	res, err := r.db.Exec(
 		"INSERT IGNORE INTO likes (user_id, target_type, target_id) VALUES (?, ?, ?)",
 		userID, string(targetType), targetID,
 	)
-	return err
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
 }
 
 // RemoveLike 取消点赞。
@@ -55,10 +63,17 @@ func (r *InteractionRepository) LikeCount(targetType interaction.TargetType, tar
 	return n, err
 }
 
-// AddFavorite 收藏（INSERT IGNORE 幂等）。
-func (r *InteractionRepository) AddFavorite(userID, postID int64) error {
-	_, err := r.db.Exec("INSERT IGNORE INTO favorites (user_id, post_id) VALUES (?, ?)", userID, postID)
-	return err
+// AddFavorite 收藏（INSERT IGNORE 幂等）。返回是否新插入（RowsAffected=1）。
+func (r *InteractionRepository) AddFavorite(userID, postID int64) (bool, error) {
+	res, err := r.db.Exec("INSERT IGNORE INTO favorites (user_id, post_id) VALUES (?, ?)", userID, postID)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
 }
 
 // RemoveFavorite 取消收藏。
