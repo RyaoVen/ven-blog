@@ -17,6 +17,7 @@ import (
 	"ven_hybird/build/application/interactionapp"
 	"ven_hybird/build/application/moderationapp"
 	"ven_hybird/build/application/momentapp"
+	"ven_hybird/build/application/ratelimit"
 	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/application/subscribeapp"
@@ -105,7 +106,12 @@ func Register(a *hybrid.App) error {
 	})
 
 	// 接口层注册（发文归属经 c.User() 取调用者，框架会话已携带用户身份）
-	interfaces.RegisterAuth(a, users, settings)
+	// 认证限速器（内存实现，进程内生效；参数可调）：
+	// 登录失败 5 次（用户名+IP 维度）锁 15 分钟；发码每邮箱 1 次/分钟、每 IP 每日 50 次。
+	loginLimiter := ratelimit.New(loginFailThreshold, loginLockWindow)
+	codeEmailLimiter := ratelimit.New(1, time.Minute)
+	codeIPLimiter := ratelimit.New(emailCodePerIPPerDay, 24*time.Hour)
+	interfaces.RegisterAuth(a, users, settings, loginLimiter)
 	interfaces.RegisterImages(a, imageRepo)
 	if err := interfaces.RegisterHome(a, posts, moments, authorFn, settings); err != nil {
 		return err
@@ -149,7 +155,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterAuthorAdmin(a, settings, posts, authorNameFn); err != nil {
 		return err
 	}
-	interfaces.RegisterEmailAuth(a, emailAuth, users, settings, siteURLOf(settings))
+	interfaces.RegisterEmailAuth(a, emailAuth, users, settings, siteURLOf(settings), codeEmailLimiter, codeIPLimiter)
 	if err := interfaces.RegisterMeEmail(a, users); err != nil {
 		return err
 	}
@@ -231,6 +237,15 @@ func registerModerator(a *hybrid.App, comments *commentapp.Service, gb *guestboo
 
 // defaultSiteURL 本地开发默认地址（设置键与 env 均未配置时兜底）。
 const defaultSiteURL = "http://127.0.0.1:8080"
+
+// 认证限速参数（内存实现；可调）：
+// loginFailThreshold 登录失败阈值（用户名+IP 维度），loginLockWindow 锁定窗口——失败计数在窗口内累计，
+// 达到阈值后窗口内后续登录 429，窗口过期自动解锁；emailCodePerIPPerDay 每 IP 每日发码上限。
+const (
+	loginFailThreshold   = 5
+	loginLockWindow      = 15 * time.Minute
+	emailCodePerIPPerDay = 50
+)
 
 // siteURLOf 返回站点对外 URL（RSS/邮件链接拼接用）：
 // 设置键 site_url 优先，env BLOG_SITE_URL 兜底，最后回退本地开发默认地址。
