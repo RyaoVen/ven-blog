@@ -76,7 +76,8 @@ func (e *authTestEnv) post(t *testing.T, path, body string) (*http.Response, str
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := e.server.App().Test(req)
+	// 显式 5s 超时：-race 下 bcrypt/限速循环减速，fiber Test 默认 1s 易 flake
+	resp, err := e.server.App().Test(req, 5000)
 	if err != nil {
 		t.Fatalf("%s 请求失败: %v", path, err)
 	}
