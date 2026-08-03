@@ -21,21 +21,19 @@ func (s *Service) ToggleLike(userID, postID int64) (liked bool, count int, err e
 }
 
 // Toggle 切换点赞状态（post/moment 通用），返回最新状态与总数。
+// 写优先幂等：INSERT IGNORE 后看 RowsAffected——1 行=本次插入=liked；
+// 0 行=已存在→DELETE（幂等）=unliked。无"读-改-写"窗口，并发连点按串行翻转收敛。
 func (s *Service) Toggle(userID int64, targetType interaction.TargetType, targetID int64) (liked bool, count int, err error) {
-	liked, err = s.repo.IsLiked(userID, targetType, targetID)
+	inserted, err := s.repo.AddLike(userID, targetType, targetID)
 	if err != nil {
 		return false, 0, err
 	}
-	if liked {
+	liked = inserted
+	if !inserted {
+		// 原本已点赞：取消（DELETE 幂等）
 		if err := s.repo.RemoveLike(userID, targetType, targetID); err != nil {
 			return false, 0, err
 		}
-		liked = false
-	} else {
-		if err := s.repo.AddLike(userID, targetType, targetID); err != nil {
-			return false, 0, err
-		}
-		liked = true
 	}
 	count, err = s.repo.LikeCount(targetType, targetID)
 	if err != nil {
@@ -60,21 +58,18 @@ func (s *Service) ViewerMomentLikes(userID int64) ([]int64, error) {
 }
 
 // ToggleFavorite 切换文章收藏状态，返回最新状态与总数。
+// 写优先幂等：与 Toggle 同构（INSERT IGNORE 看 RowsAffected，未插入则 DELETE）。
 func (s *Service) ToggleFavorite(userID, postID int64) (favorited bool, count int, err error) {
-	favorited, err = s.repo.IsFavorited(userID, postID)
+	inserted, err := s.repo.AddFavorite(userID, postID)
 	if err != nil {
 		return false, 0, err
 	}
-	if favorited {
+	favorited = inserted
+	if !inserted {
+		// 原本已收藏：取消（DELETE 幂等）
 		if err := s.repo.RemoveFavorite(userID, postID); err != nil {
 			return false, 0, err
 		}
-		favorited = false
-	} else {
-		if err := s.repo.AddFavorite(userID, postID); err != nil {
-			return false, 0, err
-		}
-		favorited = true
 	}
 	count, err = s.repo.FavoriteCount(postID)
 	if err != nil {

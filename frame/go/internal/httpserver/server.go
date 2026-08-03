@@ -17,6 +17,7 @@ import (
 	"ven_hybird/internal/ssr"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
 // Server 是 HTTP 服务器核心结构体。
@@ -81,6 +82,9 @@ func New(
 			})
 		},
 	})
+	// 最外层 Recover：handler/中间件 panic 转为 error 走全局 ErrorHandler（500 + 日志），不崩进程。
+	// 必须在 requestLogger 之前注册，才能兜住整条中间件链的 panic。
+	app.Use(recover.New())
 	app.Use(requestLogger())
 
 	// 会话/页面缓存后端：配置 Redis 则跨实例共享，连接失败回退内存（fail-open）

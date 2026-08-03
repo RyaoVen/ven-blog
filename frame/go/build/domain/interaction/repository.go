@@ -2,8 +2,9 @@ package interaction
 
 // Repository 互动仓储接口（领域层定义，基础设施层实现）。
 type Repository interface {
-	// AddLike 点赞（已存在时幂等）。
-	AddLike(userID int64, targetType TargetType, targetID int64) error
+	// AddLike 点赞（INSERT IGNORE 幂等）。返回是否新插入：
+	// true = 本次插入成功（原本未点赞）；false = 已存在（重复键被忽略）。
+	AddLike(userID int64, targetType TargetType, targetID int64) (bool, error)
 	// RemoveLike 取消点赞。
 	RemoveLike(userID int64, targetType TargetType, targetID int64) error
 	// IsLiked 查询用户是否已点赞。
@@ -19,8 +20,8 @@ type Repository interface {
 	// LikedTargetIDs 某用户点赞过的目标 ID 列表（viewer 状态下发用）。
 	LikedTargetIDs(userID int64, targetType TargetType) ([]int64, error)
 
-	// AddFavorite 收藏（已存在时幂等）。
-	AddFavorite(userID, postID int64) error
+	// AddFavorite 收藏（INSERT IGNORE 幂等）。返回是否新插入。
+	AddFavorite(userID, postID int64) (bool, error)
 	// RemoveFavorite 取消收藏。
 	RemoveFavorite(userID, postID int64) error
 	// IsFavorited 查询用户是否已收藏。
