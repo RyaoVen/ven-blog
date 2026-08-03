@@ -23,6 +23,7 @@ const (
 	KeyLLMAPIKey         = "llm_api_key"         // LLM API key（接口不回传；空回退 env）
 	KeyLLMModel          = "llm_model"           // LLM 模型名（空回退 env/默认）
 	KeyUGCModeration     = "ugc_ai_moderation"   // AI 自动审核开关（"off" 为关；未设置视为开）
+	KeyUserAuthEnabled   = "user_auth_enabled"   // 用户注册登录开关（默认 "on"；关闭后公开注册/邮箱验证码登录入口 403，作者账号登录保留）
 )
 
 // Repository 设置仓储接口（领域层定义，基础设施层实现）。

@@ -219,6 +219,25 @@ func (s *Service) SetModeration(on bool) error {
 	return s.repo.Set(setting.KeyCommentModeration, value)
 }
 
+// AuthEnabled 用户注册登录开关（默认开；关闭后公开注册/邮箱验证码登录入口全部 403，
+// 仅保留作者账号登录——后台与前台共用 /auth/login）。
+func (s *Service) AuthEnabled() (bool, error) {
+	raw, err := s.repo.Get(setting.KeyUserAuthEnabled)
+	if err != nil {
+		return false, err
+	}
+	return raw == "" || raw == "on", nil
+}
+
+// SetAuthEnabled 设置用户注册登录开关。
+func (s *Service) SetAuthEnabled(on bool) error {
+	value := "off"
+	if on {
+		value = "on"
+	}
+	return s.repo.Set(setting.KeyUserAuthEnabled, value)
+}
+
 // AIModeration AI 自动审核开关（ugc_ai_moderation 键：未设置视为开——随 BLOG_LLM_API_KEY 存在而生效；
 // 键只控制 worker 每轮是否动手，worker 本身是否启动仍取决于 LLM key 是否配置）。
 func (s *Service) AIModeration() (bool, error) {
