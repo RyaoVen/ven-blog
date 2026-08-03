@@ -11,7 +11,7 @@ bubbletea TUI 为主、子命令为辅：环境检测 → 配置 → 构建 → 
 | --- | --- |
 | `deploy` | 启动 TUI 主界面 |
 | `deploy check` | 环境检测：go/node/npm 版本、MySQL 3306、Node/Go 端口（默认 3000/8080，随配置）、.env.local |
-| `deploy config` | 查看/生成 `.env.local`（无文件时交互问答） |
+| `deploy config` | 查看/生成 `.env.local`（无文件时交互问答；内部令牌回车自动生成强随机值） |
 | `deploy config --set KEY=VALUE [--set K2=V2]` | 追加/覆盖配置项（保留已有键，校验 BLOG_MYSQL_DSN） |
 | `deploy build` | Node（`npm ci` + `npm run build`）→ Go（`go build -o bin/`） |
 | `deploy start` | 编排启动：Node 先起 → 等 `/pages` 就绪（30s）→ Go 后起 → 等 `/api/site` 就绪（15s） |

@@ -5,6 +5,8 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +16,15 @@ import (
 	"ven_hybird/tools/deploy/core"
 	"ven_hybird/tools/deploy/tui"
 )
+
+// randomToken 生成 32 字节强随机值（64 位 hex），供向导自动生成 VEN_INTERNAL_TOKEN。
+func randomToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Sprintf("crypto/rand 不可用: %v", err))
+	}
+	return hex.EncodeToString(b)
+}
 
 const usage = `ven-blog 跨平台部署工具（tools/deploy，issue #112）
 
@@ -234,13 +245,18 @@ func configWizard(envPath string) error {
 
 	f.AddBlank()
 	f.AddComment("# 必填：内部令牌（Go 与 Node 两侧需一致；网关 #166 起空/development-token 拒绝启动）")
-	var token string
-	for token == "" || token == "development-token" {
-		token = prompt("VEN_INTERNAL_TOKEN（必填，强随机值）")
+	// 回车自动生成 32 字节强随机值；也可手动输入（校验非空非默认）。生成值不打印明文。
+	token := prompt("VEN_INTERNAL_TOKEN（回车自动生成强随机值，或手动输入）")
+	if token == "" {
+		token = randomToken()
+		fmt.Printf("  已自动生成 VEN_INTERNAL_TOKEN（%d 字符十六进制，明文不显示）\n", len(token))
+	}
+	for token == "development-token" {
+		fmt.Println("  不能使用默认值 development-token（网关会拒绝启动），请重新输入或回车自动生成")
+		token = prompt("VEN_INTERNAL_TOKEN")
 		if token == "" {
-			fmt.Println("  VEN_INTERNAL_TOKEN 必填，请重试")
-		} else if token == "development-token" {
-			fmt.Println("  不能使用默认值 development-token（网关会拒绝启动），请配置强随机令牌")
+			token = randomToken()
+			fmt.Printf("  已自动生成 VEN_INTERNAL_TOKEN（%d 字符十六进制，明文不显示）\n", len(token))
 		}
 	}
 	f.Set(core.EnvToken, token)
