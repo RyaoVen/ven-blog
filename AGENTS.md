@@ -53,6 +53,6 @@ cd frame/node && npm run typecheck && npm test
 
 依赖方向只允许 `interfaces → application → domain`，`infrastructure` 实现 `domain` 的仓储接口并由组装根注入。失效声明（`DataChange`）属框架协调，只在接口层调用。
 
-环境配置：`BLOG_MYSQL_DSN`（必配，代码内默认 root:root 仅占位）、`BLOG_AUTHOR_NAME`/`BLOG_AUTHOR_PASSWORD`（种子 author）。真实密码一律走环境变量，不进仓库。
+环境配置：`BLOG_MYSQL_DSN`（必配，代码内默认 root:root 仅占位）、`BLOG_AUTHOR_NAME`/`BLOG_AUTHOR_PASSWORD`（种子 author，密码**必配**——首次启动未配置会拒绝启动）、`BLOG_READER_PASSWORD`（种子 reader，默认 reader123）。真实密码一律走环境变量，不进仓库。
 
 已知框架依赖（向框架侧提出，不私改框架）：① ISR 中间件放行 `X-Ven-Data-Only`（**上游已修复**，#5 已同步）；② 会话用户身份（**上游已落地** `GrantAuthWithUser`/`CurrentUser`/`ctx.User`，#14 已同步并接入——登录写用户 ID、发文归属取调用者）；③ 角色 Resolve 继承穿透（**上游已修复**，#5 已同步；本仓角色仍用扁平注册，够用）。
