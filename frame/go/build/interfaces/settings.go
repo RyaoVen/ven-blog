@@ -27,6 +27,10 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		if err != nil {
 			return err
 		}
+		commentsEnabled, err := settings.CommentsEnabled()
+		if err != nil {
+			return err
+		}
 		aiModeration, err := settings.AIModeration()
 		if err != nil {
 			return err
@@ -67,9 +71,10 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 			}
 		}
 		return c.JSON(map[string]any{
-			"content":      content,
-			"moderation":   moderation,
-			"aiModeration": aiModeration,
+			"content":         content,
+			"moderation":      moderation,
+			"commentsEnabled": commentsEnabled,
+			"aiModeration":    aiModeration,
 			"categories":   categories,
 			"profile":      profile,
 			"siteIcon":     siteIcon,
@@ -130,6 +135,27 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		if err := settings.SetModeration(in.On); err != nil {
 			return c.Error(500, "internal error")
 		}
+		return c.JSON(200, map[string]any{"ok": true, "on": in.On})
+	}); err != nil {
+		return err
+	}
+
+	// 评论总开关（一键关闭/开启全站评论区：读者侧发表接口拒绝 + 评论数据空化 + 前端隐藏评论区；
+	// 后台 /admin/comments 审核管理走独立通道，不受影响）
+	if err := a.Put("/admin/settings/comments-enabled", admin, func(c *hybrid.ApiCtx) error {
+		var in struct {
+			On bool `json:"on"`
+		}
+		if err := c.Bind(&in); err != nil {
+			return c.Error(400, "bad body")
+		}
+		if err := settings.SetCommentsEnabled(in.On); err != nil {
+			return c.Error(500, "internal error")
+		}
+		// 评论区嵌入文章详情 ISR 页（/posts/:id）与 /moments ISR 页：
+		// 开关变化须全局失效——DataChange 不给参数 = 整个模式失效（含未预渲染页），异步再生。
+		_ = a.DataChange("/posts/:id")
+		_ = a.DataChange("/moments")
 		return c.JSON(200, map[string]any{"ok": true, "on": in.On})
 	}); err != nil {
 		return err
