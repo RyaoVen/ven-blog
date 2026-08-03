@@ -74,6 +74,24 @@ func TestRenderCallback_WrongToken(t *testing.T) {
 	}
 }
 
+// 去 fail-open：即使配置缺失（启动校验已拦截，这里直接构造模拟），
+// 内部回调也不得放行——无令牌一律 401。
+func TestRenderCallback_NoTokenConfiguredRejectsAll(t *testing.T) {
+	cfg := config.Config{
+		NodeSubmitTimeout: 100 * time.Millisecond,
+		RenderTimeout:     time.Second,
+		InternalToken:     "",
+	}
+	s := New(cfg, newChanClient(), ssr.NewPendingRegistry(8), ssr.CryptoHookIDGenerator{}, pagepattern.NewValidator(nil))
+	s.RegisterInternalRoutes()
+
+	resp := postCallback(t, s, "anything", `{"hookId":"h","requestRoute":"/x","html":"<p/>"}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != 401 {
+		t.Fatalf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
 func TestRenderCallback_BadBody(t *testing.T) {
 	s := newProxyTestServer(newChanClient(), time.Second)
 	s.RegisterInternalRoutes()

@@ -204,11 +204,9 @@ func (s *Server) HandleRenderCallback(ctx *fiber.Ctx) error {
 }
 
 // validInternalToken 验证内部认证令牌，使用常量时间比较防止时序攻击。
+// 配置缺失时一律拒绝（fail-open 已移除：内部通道无令牌不得放行，
+// 且 config.Load 启动校验已保证运行期令牌非空非默认）。
 func (s *Server) validInternalToken(token string) bool {
-	// 未配置令牌时，允许所有请求（开发模式）
-	if s.config.InternalToken == "" {
-		return true
-	}
 	// 长度不同直接拒绝，避免不必要的比较操作
 	if len(token) != len(s.config.InternalToken) {
 		return false
