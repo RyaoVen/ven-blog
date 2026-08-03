@@ -45,7 +45,7 @@ GOOS=darwin GOARCH=arm64 go build -o deploy-darwin .
 ## 实现说明
 
 - `core/`：纯逻辑（可单测）——`envfile.go`（.env.local 手写解析/序列化，KEY=VALUE、`#` 注释、引号剥离）、
-  `config.go`（默认值 `VEN_INTERNAL_TOKEN=development-token` + DSN 必填校验 + 端口解析）、
+  `config.go`（DSN 必填校验 + `VEN_INTERNAL_TOKEN` 必填且拒绝默认值（网关强制）+ 端口解析）、
   `detect.go`（环境检测）、`build.go`（构建编排）、`proc.go`（进程管理）、`logs.go`（tail）
 - `tui/`：bubbletea 界面——`app.go` 主模型（状态面板 + 菜单）、`runview.go` 执行视图（io.Pipe 实时输出）、
   `logsview.go` 日志视图
@@ -54,7 +54,7 @@ GOOS=darwin GOARCH=arm64 go build -o deploy-darwin .
 - **端口可配**：Node 端口读 `VEN_NODE_PORT`（默认 3000，与 Node 侧 config.ts 同读）；
   Go 端口从 `VEN_LISTEN_ADDR` 解析（`:8080`/`0.0.0.0:8080` 均可，默认 8080）。
   start/stop/status/check 全链路一致，子进程环境自动带上配置
-- **就绪等待**：Node——`GET /pages`（`X-Ven-Internal-Token`，缺省 `development-token`）1s×30；
+- **就绪等待**：Node——`GET /pages`（`X-Ven-Internal-Token`，配置的令牌）1s×30；
   Go——`GET /api/site` 1s×15（2xx/4xx 都算网关活着；DSN 错/MySQL 挂时 Go 秒退或起不来，
   会区分「进程秒退」与「未就绪」提示并指向 logs/go.log，同时提示 Node 如何一并停止）
 - **进程 detach**：Windows 子进程带 `CREATE_NEW_PROCESS_GROUP|DETACHED_PROCESS`（`proc_sysattr_windows.go`）、

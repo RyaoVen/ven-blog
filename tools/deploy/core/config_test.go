@@ -16,8 +16,8 @@ func writeEnvFile(t *testing.T, dir, content string) {
 
 func TestDefaultsAndValidate(t *testing.T) {
 	c := &Config{Values: map[string]string{}}
-	if got := c.Get(EnvToken); got != DefaultToken {
-		t.Errorf("默认 token = %q, want %q", got, DefaultToken)
+	if got := c.Get(EnvToken); got != "" {
+		t.Errorf("默认 token = %q, want 空（无默认值，网关强制必填）", got)
 	}
 	if c.Has(EnvToken) {
 		t.Error("默认值不应算作显式配置")
@@ -26,8 +26,16 @@ func TestDefaultsAndValidate(t *testing.T) {
 		t.Error("缺少 DSN 应报错")
 	}
 	c.Values[EnvDSN] = "root:x@tcp(127.0.0.1:3306)/ven_blog?parseTime=true"
+	if err := c.Validate(); err == nil {
+		t.Error("DSN 已配置但 token 缺失应报错")
+	}
+	c.Values[EnvToken] = "test-secret"
 	if err := c.Validate(); err != nil {
-		t.Errorf("DSN 已配置仍报错: %v", err)
+		t.Errorf("DSN+token 已配置仍报错: %v", err)
+	}
+	c.Values[EnvToken] = "development-token"
+	if err := c.Validate(); err == nil {
+		t.Error("默认值 development-token 应报错")
 	}
 }
 
@@ -44,10 +52,10 @@ func TestLoadConfigFromFile(t *testing.T) {
 	if c.Get(EnvDSN) == "" {
 		t.Error("DSN 应被读取")
 	}
-	// 文件缺失键回退默认
+	// 文件缺失键无默认（网关强制必填，Validate 拦截）
 	c2, _ := LoadConfig(t.TempDir())
-	if c2.Get(EnvToken) != DefaultToken {
-		t.Errorf("空目录 token = %q", c2.Get(EnvToken))
+	if c2.Get(EnvToken) != "" {
+		t.Errorf("空目录 token = %q, want 空", c2.Get(EnvToken))
 	}
 }
 
@@ -96,7 +104,7 @@ func TestMaskValue(t *testing.T) {
 
 func TestConfigSummaryValid(t *testing.T) {
 	dir := t.TempDir()
-	writeEnvFile(t, dir, "BLOG_MYSQL_DSN=root:x@tcp(127.0.0.1:3306)/ven_blog?parseTime=true\n")
+	writeEnvFile(t, dir, "BLOG_MYSQL_DSN=root:x@tcp(127.0.0.1:3306)/ven_blog?parseTime=true\nVEN_INTERNAL_TOKEN=test-secret\n")
 	var sb strings.Builder
 	if err := ConfigSummary(dir, &sb); err != nil {
 		t.Fatal(err)

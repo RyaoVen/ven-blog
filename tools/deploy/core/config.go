@@ -17,16 +17,15 @@ const (
 	EnvToken       = "VEN_INTERNAL_TOKEN"
 	EnvNodePort    = "VEN_NODE_PORT"    // Node SSR worker 监听端口（默认 3000，Node 侧 config.ts 同读）
 	EnvListenAddr  = "VEN_LISTEN_ADDR"  // Go 网关监听地址（形如 ":8080"，解析出端口，默认 8080）
-	DefaultToken   = "development-token"
 	DefaultNodePort = 3000
 	DefaultGoPort   = 8080
 )
 
 // Defaults 返回未配置时的默认值。
+// 注意：VEN_INTERNAL_TOKEN 无默认值——网关侧（#166）已强制校验
+// 空/development-token 拒绝启动，部署工具必须显式配置强令牌。
 func Defaults() map[string]string {
-	return map[string]string{
-		EnvToken: DefaultToken,
-	}
+	return map[string]string{}
 }
 
 // Config 是部署工具视角的配置视图（.env.local + 默认值）。
@@ -63,15 +62,22 @@ func (c *Config) Has(key string) bool {
 	return ok
 }
 
-// Validate 校验必填项：BLOG_MYSQL_DSN 非空。
+// Validate 校验必填项：BLOG_MYSQL_DSN 非空；VEN_INTERNAL_TOKEN 必填且拒绝默认值
+// （网关侧 #166 已强制：空/development-token 拒绝启动，部署工具配置必须与之对齐）。
 func (c *Config) Validate() error {
 	if c.Get(EnvDSN) == "" {
 		return fmt.Errorf("缺少必填配置 %s（运行 config 向导或 config --set %s=... 补上）", EnvDSN, EnvDSN)
 	}
+	if c.Get(EnvToken) == "" {
+		return fmt.Errorf("缺少必填配置 %s（网关强制内部令牌，config --set %s=<强随机值> 补上）", EnvToken, EnvToken)
+	}
+	if c.Get(EnvToken) == "development-token" {
+		return fmt.Errorf("%s 不能使用默认值 development-token（网关会拒绝启动），请配置强随机令牌", EnvToken)
+	}
 	return nil
 }
 
-// InternalToken 返回内部令牌（未配置时回退 development-token）。
+// InternalToken 返回内部令牌（未配置时为空串——由 Validate 拦截，见下）。
 func (c *Config) InternalToken() string { return c.Get(EnvToken) }
 
 // NodePort 返回 Node worker 端口：VEN_NODE_PORT，空/非法值回退 3000（对齐 Node 侧 config.ts 语义）。
