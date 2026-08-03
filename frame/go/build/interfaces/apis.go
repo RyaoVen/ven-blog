@@ -41,8 +41,9 @@ func currentUserID(c *hybrid.ApiCtx) (int64, error) {
 	return strconv.ParseInt(userID, 10, 64)
 }
 
-// RegisterAPIs 注册文章 CRUD API。发文/编辑归属经 c.User() 取调用者。
-func RegisterAPIs(a *hybrid.App, posts *postapp.Service) error {
+// RegisterAPIs 注册文章 CRUD API。发文/编辑归属经 c.User() 取调用者；
+// notifyNewPost 为创建成功后的通知回调（订阅通知器，组装根注入；nil 表示不通知）。
+func RegisterAPIs(a *hybrid.App, posts *postapp.Service, notifyNewPost PostNotifier) error {
 	if err := a.Get("/posts", nil, func(c *hybrid.ApiCtx) error {
 		list, err := posts.ListRecent(0)
 		if err != nil {
@@ -67,6 +68,10 @@ func RegisterAPIs(a *hybrid.App, posts *postapp.Service) error {
 			return writePostError(c, err)
 		}
 		declarePostsChanged(a, p.ID)
+		// 仅创建成功触发订阅通知（异步发信，不阻塞响应）；更新不通知
+		if notifyNewPost != nil {
+			notifyNewPost(p)
+		}
 		return c.JSON(201, map[string]any{"id": strconv.FormatInt(p.ID, 10)})
 	}); err != nil {
 		return err

@@ -11,4 +11,6 @@ type Repository interface {
 	Create(s *Subscriber) error
 	// Count 返回订阅者总数（后台统计）。
 	Count() (int, error)
+	// List 返回全部订阅者（按 ID 升序；订阅通知取收件人用）。
+	List() ([]*Subscriber, error)
 }
