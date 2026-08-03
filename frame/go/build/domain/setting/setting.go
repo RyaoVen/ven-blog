@@ -5,6 +5,7 @@ package setting
 const (
 	KeyCategories        = "categories"          // 文章分类（行列表）
 	KeyCommentModeration = "comment_moderation"  // 评论审核开关（"on" 为开）
+	KeyCommentsEnabled   = "comments_enabled"    // 评论总开关（"on" 为开；未设置视为开）
 	KeyIntroParagraphs   = "intro_paragraphs"    // 作者介绍段落（行列表）
 	KeySkills            = "skills"              // 技能标签（行：name|level）
 	KeyFriendLinks       = "friend_links"        // 友链（行：name|url|desc）

@@ -71,6 +71,16 @@ func (s *Service) SetCategories(categories []string) error {
 	return s.repo.Set(setting.KeyCategories, strings.Join(categories, "\n"))
 }
 
+// CommentsEnabled 评论总开关（一键关闭全站评论区；未设置视为开——默认允许评论）。
+// 只影响读者侧展示与发表；后台 /admin/comments 审核管理不受影响。
+func (s *Service) CommentsEnabled() (bool, error) {
+	raw, err := s.repo.Get(setting.KeyCommentsEnabled)
+	if err != nil {
+		return false, err
+	}
+	return raw == "" || raw == "on", nil
+}
+
 // Moderation 评论审核开关（开时新评论待审核）。
 func (s *Service) Moderation() (bool, error) {
 	raw, err := s.repo.Get(setting.KeyCommentModeration)
@@ -208,6 +218,15 @@ func (s *Service) SetLLMConfig(baseURL, apiKey, model string) error {
 // SetAuthorEmail 保存作者个人邮箱。
 func (s *Service) SetAuthorEmail(email string) error {
 	return s.repo.Set(setting.KeyAuthorEmail, email)
+}
+
+// SetCommentsEnabled 设置评论总开关。
+func (s *Service) SetCommentsEnabled(on bool) error {
+	value := "off"
+	if on {
+		value = "on"
+	}
+	return s.repo.Set(setting.KeyCommentsEnabled, value)
 }
 
 // SetModeration 设置评论审核开关。

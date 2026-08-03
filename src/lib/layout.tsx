@@ -120,11 +120,13 @@ const styles = {
     },
 } as const;
 
-/** 站点信息（导航品牌标/作者头像/favicon 用；模块级缓存，全站只取一次） */
-interface SiteInfo {
+/** 站点信息（导航品牌标/作者头像/favicon/评论总开关用；模块级缓存，全站只取一次） */
+export interface SiteInfo {
     name: string;
     authorName: string;
     icon: string;
+    /** 评论总开关（false 表示全站评论区已关闭；接口缺省/拉取失败视为开） */
+    commentsEnabled: boolean;
 }
 
 let siteInfoPromise: Promise<SiteInfo | null> | null = null;
@@ -136,6 +138,23 @@ function fetchSiteInfo(): Promise<SiteInfo | null> {
             .catch(() => null);
     }
     return siteInfoPromise;
+}
+
+/** 站点公开信息（共享同一模块级请求；评论区等组件据此判断评论总开关） */
+export function useSiteInfo(): SiteInfo | null {
+    const [info, setInfo] = useState<SiteInfo | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        fetchSiteInfo().then((data) => {
+            if (!cancelled) {
+                setInfo(data);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+    return info;
 }
 
 /** 品牌标：站点图标（设置页可配）缺省回退字母标 */

@@ -129,12 +129,17 @@ func RegisterSiteInfo(a *hybrid.App, authorFn func() (*user.User, error), settin
 		if err != nil {
 			return c.Error(500, "internal error")
 		}
+		commentsEnabled, err := settings.CommentsEnabled()
+		if err != nil {
+			return c.Error(500, "internal error")
+		}
 		return c.JSON(200, map[string]any{
-			"name":       "ven-blog",
-			"authorName": author.Username,
-			"avatarUrl":  author.AvatarURL,
-			"github":     authorGitHub,
-			"icon":       icon,
+			"name":            "ven-blog",
+			"authorName":      author.Username,
+			"avatarUrl":       author.AvatarURL,
+			"github":          authorGitHub,
+			"icon":            icon,
+			"commentsEnabled": commentsEnabled,
 		})
 	})
 }

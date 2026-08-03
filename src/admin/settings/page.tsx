@@ -1,4 +1,4 @@
-/** 后台-设置页：账号安全 / 作者资料 / 邮箱 / AI 审核（LLM）/ 内容配置 / 文章分类 / 评论审核 / API 访问密钥 */
+/** 后台-设置页：账号安全 / 作者资料 / 邮箱 / AI 审核（LLM）/ 内容配置 / 文章分类 / 评论功能 / 评论审核 / API 访问密钥 */
 
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import type { PageAppProps } from "../../app/pageApp";
@@ -48,6 +48,7 @@ export default function AdminSettingsPage({ bootstrap }: PageAppProps) {
     const state = (bootstrap.initialState ?? {
         content: { paragraphs: [], skills: [], friends: [], quotes: [], projects: [], github: "" },
         moderation: false,
+        commentsEnabled: true,
         aiModeration: false,
         categories: [],
         profile: { username: "", bio: "", avatarUrl: "" },
@@ -65,6 +66,7 @@ export default function AdminSettingsPage({ bootstrap }: PageAppProps) {
             <LLMSection config={state.llm} aiOn={state.aiModeration} />
             <ContentSection content={state.content} />
             <CategoriesSection categories={state.categories} />
+            <CommentsToggleSection initial={state.commentsEnabled} />
             <ModerationSection initial={state.moderation} />
             <KeysSection />
         </AdminLayout>
@@ -794,6 +796,45 @@ function CategoriesSection({ categories }: { categories: string[] }) {
                     </button>
                 </div>
             </Modal>
+        </section>
+    );
+}
+
+/* ===== 评论功能（总开关：一键关闭全站评论区） ===== */
+function CommentsToggleSection({ initial }: { initial: boolean }) {
+    const [on, setOn] = useState(initial);
+    const [saving, setSaving] = useState(false);
+    const { show, node } = useToast();
+
+    async function toggle(next: boolean) {
+        setOn(next);
+        setSaving(true);
+        try {
+            const resp = await fetch("/api/admin/settings/comments-enabled", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ on: next }),
+            });
+            if (!resp.ok) {
+                setOn(!next); // 保存失败回滚开关
+                return;
+            }
+            show(next ? "评论功能已开启（文章页/动态页评论区恢复）" : "评论功能已关闭（全站评论区隐藏，新评论被拒绝）");
+        } catch {
+            setOn(!next);
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <section className="ven-card" style={sectionStyle}>
+            <SectionTitle>评论功能</SectionTitle>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }}>
+                <input type="checkbox" checked={on} disabled={saving} onChange={(e) => toggle(e.target.checked)} style={{ width: 16, height: 16, accentColor: "#0d9488" }} />
+                开启评论功能（关闭后全站评论区隐藏、新评论提交被拒绝；后台审核队列与历史评论保留，重新开启即恢复）
+            </label>
+            <div style={{ marginTop: 10 }}>{node}</div>
         </section>
     );
 }

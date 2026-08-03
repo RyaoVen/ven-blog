@@ -9,6 +9,7 @@ import (
 	"ven_hybird/build/application/commentapp"
 	"ven_hybird/build/application/emailauth"
 	"ven_hybird/build/application/interactionapp"
+	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/userapp"
 	"ven_hybird/build/domain/comment"
 	"ven_hybird/hybrid"
@@ -64,7 +65,8 @@ var loginRoles = []string{"reader", "author"}
 // RegisterInteractions 注册互动 API。
 // 详情页是 ISR 共享物化——viewer 个性化状态一律走本文件的 JSON 接口，不进页面 initialState。
 // emailAuthSvc 用于评论 @ 时的邮件通知（异步不阻塞）；siteURL 拼接原文链接。
-func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *interactionapp.Service, emailAuthSvc *emailauth.Service, siteURL string) error {
+// settings 提供评论总开关（comments_enabled）：关闭时发表评论一律 403，后台管理不受影响。
+func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *interactionapp.Service, emailAuthSvc *emailauth.Service, settings *settingsapp.Service, siteURL string) error {
 	// viewer 互动状态（登录用户挂载后查询）
 	if err := a.Get("/posts/:id/interactions", loginRoles, func(c *hybrid.ApiCtx) error {
 		userID, err := currentUserID(c)
@@ -120,8 +122,15 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 		return err
 	}
 
-	// 发表评论
+	// 发表评论（评论总开关关闭时拒绝：全站停收新评论，读者侧 403）
 	if err := a.Post("/posts/:id/comments", loginRoles, func(c *hybrid.ApiCtx) error {
+		enabled, err := settings.CommentsEnabled()
+		if err != nil {
+			return c.Error(500, "internal error")
+		}
+		if !enabled {
+			return c.Error(403, "comments disabled")
+		}
 		userID, err := currentUserID(c)
 		if err != nil {
 			return c.Error(401, "unauthenticated")
@@ -275,9 +284,17 @@ func RegisterMomentLikes(a *hybrid.App, inter *interactionapp.Service) error {
 
 // RegisterMomentComments 注册动态评论 API（列表公开，发表需登录）。
 // emailAuthSvc 用于评论 @ 时的邮件通知（异步不阻塞）；siteURL 拼接原文链接（动态以 /moments 落地）。
-func RegisterMomentComments(a *hybrid.App, comments *commentapp.Service, emailAuthSvc *emailauth.Service, siteURL string) error {
-	// 动态评论列表（公开）
+// settings 提供评论总开关（comments_enabled）：关闭时列表返回空、发表一律 403。
+func RegisterMomentComments(a *hybrid.App, comments *commentapp.Service, emailAuthSvc *emailauth.Service, settings *settingsapp.Service, siteURL string) error {
+	// 动态评论列表（公开；评论总开关关闭时返回空列表，前端不再渲染评论区）
 	if err := a.Get("/moments/:id/comments", nil, func(c *hybrid.ApiCtx) error {
+		enabled, err := settings.CommentsEnabled()
+		if err != nil {
+			return c.Error(500, "internal error")
+		}
+		if !enabled {
+			return c.JSON(200, map[string]any{"comments": []CommentView{}})
+		}
 		list, err := comments.ListForMoment(mustID(c.Param("id")))
 		if err != nil {
 			return c.Error(500, "internal error")
@@ -287,8 +304,15 @@ func RegisterMomentComments(a *hybrid.App, comments *commentapp.Service, emailAu
 		return err
 	}
 
-	// 发表动态评论
+	// 发表动态评论（评论总开关关闭时拒绝）
 	return a.Post("/moments/:id/comments", loginRoles, func(c *hybrid.ApiCtx) error {
+		enabled, err := settings.CommentsEnabled()
+		if err != nil {
+			return c.Error(500, "internal error")
+		}
+		if !enabled {
+			return c.Error(403, "comments disabled")
+		}
 		userID, err := currentUserID(c)
 		if err != nil {
 			return c.Error(401, "unauthenticated")
