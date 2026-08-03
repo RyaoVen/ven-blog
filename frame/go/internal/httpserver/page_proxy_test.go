@@ -74,6 +74,24 @@ func TestRenderCallback_WrongToken(t *testing.T) {
 	}
 }
 
+// 去 fail-open：即使配置缺失（启动校验已拦截，这里直接构造模拟），
+// 内部回调也不得放行——无令牌一律 401。
+func TestRenderCallback_NoTokenConfiguredRejectsAll(t *testing.T) {
+	cfg := config.Config{
+		NodeSubmitTimeout: 100 * time.Millisecond,
+		RenderTimeout:     time.Second,
+		InternalToken:     "",
+	}
+	s := New(cfg, newChanClient(), ssr.NewPendingRegistry(8), ssr.CryptoHookIDGenerator{}, pagepattern.NewValidator(nil))
+	s.RegisterInternalRoutes()
+
+	resp := postCallback(t, s, "anything", `{"hookId":"h","requestRoute":"/x","html":"<p/>"}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != 401 {
+		t.Fatalf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
 func TestRenderCallback_BadBody(t *testing.T) {
 	s := newProxyTestServer(newChanClient(), time.Second)
 	s.RegisterInternalRoutes()
@@ -115,11 +133,33 @@ func TestRenderCallback_UnknownHook(t *testing.T) {
 	}
 }
 
+// 回调 route 归属校验：RequestRoute 与 Register 时记录的路由不一致 → 404 拒绝。
+func TestRenderCallback_RouteMismatch(t *testing.T) {
+	s := newProxyTestServer(newChanClient(), time.Second)
+	s.RegisterInternalRoutes()
+
+	if _, cleanup, err := s.pending.Register("hook-1", "/news/1"); err != nil {
+		t.Fatalf("register failed: %v", err)
+	} else {
+		defer cleanup()
+	}
+
+	resp := postCallback(t, s, "secret", `{"hookId":"hook-1","requestRoute":"/other","html":"<p>fake</p>"}`)
+	defer resp.Body.Close()
+	if resp.StatusCode != 404 {
+		t.Fatalf("expected 404, got %d", resp.StatusCode)
+	}
+	// 拒绝后条目即删：路由正确的同名回调也不得再投递（防伪造回调占位）
+	if s.pending.Resolve(ssr.RenderCallback{HookID: "hook-1", RequestRoute: "/news/1", HTML: "<p/>"}) {
+		t.Fatal("route-mismatched resolve should have removed the entry")
+	}
+}
+
 func TestRenderCallback_OK(t *testing.T) {
 	s := newProxyTestServer(newChanClient(), time.Second)
 	s.RegisterInternalRoutes()
 
-	waiter, cleanup, err := s.pending.Register("hook-1")
+	waiter, cleanup, err := s.pending.Register("hook-1", "/x")
 	if err != nil {
 		t.Fatalf("register failed: %v", err)
 	}

@@ -36,7 +36,7 @@ func Load() (Config, error) {
 		NodeWorkerURL:     getenv("VEN_NODE_WORKER_URL", "http://127.0.0.1:3000"),
 		NodeSubmitTimeout: duration("VEN_NODE_SUBMIT_TIMEOUT", 5*time.Second),
 		RenderTimeout:     duration("VEN_RENDER_TIMEOUT", 20*time.Second),
-		InternalToken:     getenv("VEN_INTERNAL_TOKEN", "development-token"),
+		InternalToken:     internalToken(),
 		MaxPendingRenders: integer("VEN_MAX_PENDING_RENDERS", 100),
 		AssetsDir:         getenv("VEN_ASSETS_DIR", "../node/build"),
 		IsrDir:            getenv("VEN_ISR_DIR", "./isr-pages"),
@@ -49,6 +49,16 @@ func Load() (Config, error) {
 		PageCacheTTL:      duration("VEN_PAGE_CACHE_TTL", time.Minute),
 		EventQuietWindow:  duration("VEN_EVENT_QUIET_WINDOW", 5*time.Second),
 		EventMaxWait:      duration("VEN_EVENT_MAX_WAIT", 30*time.Second),
+	}
+
+	// 内部令牌是内部通道（渲染回调/页面模式拉取）的唯一凭据，安全关键：
+	// 空值或开发默认值一律拒绝启动，防止内部通道在无令牌/弱令牌下带病运行。
+	// 本地开发需显式设置 VEN_INTERNAL_TOKEN（强随机串，见 env.local.example 注释）。
+	if config.InternalToken == "" {
+		return Config{}, fmt.Errorf("VEN_INTERNAL_TOKEN must not be empty: set a strong secret explicitly")
+	}
+	if config.InternalToken == "development-token" {
+		return Config{}, fmt.Errorf("VEN_INTERNAL_TOKEN must not be the default \"development-token\": set a strong secret explicitly")
 	}
 
 	// 业务规则校验：渲染总超时必须大于任务提交超时，
@@ -76,6 +86,15 @@ func Load() (Config, error) {
 	}
 
 	return config, nil
+}
+
+// internalToken 读取内部令牌：未设置时回退开发默认值（Load 校验会拒绝），
+// 显式置空则保留空值（同样被 Load 校验拒绝）——空/默认两态都不可绕过启动校验。
+func internalToken() string {
+	if value, ok := os.LookupEnv("VEN_INTERNAL_TOKEN"); ok {
+		return value
+	}
+	return "development-token"
 }
 
 // getenv 获取环境变量值，未设置时返回 fallback。
