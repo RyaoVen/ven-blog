@@ -47,6 +47,7 @@ func RegisterPages(a *hybrid.App, posts *postapp.Service, comments *commentapp.S
 
 	// 文章详情（ISR，上限 1000 页，全局更新时按热度预渲染）
 	// initialState：post + 公开互动计数 + 评论列表（viewer 状态不在此下发，ISR 共享物化不烘个人数据）
+	// 评论总开关（comments_enabled）关闭时评论列表下发空数组——前端据此不渲染评论区。
 	if err := a.StaticPage("/posts/:id", 1000, true, func(c *hybrid.PageCtx) error {
 		p, err := posts.Get(mustID(c.Param("id")))
 		if errors.Is(err, post.ErrNotFound) {
@@ -59,15 +60,23 @@ func RegisterPages(a *hybrid.App, posts *postapp.Service, comments *commentapp.S
 		if err != nil {
 			return err
 		}
-		cmts, err := comments.ListForPost(p.ID)
+		commentsEnabled, err := settings.CommentsEnabled()
 		if err != nil {
 			return err
+		}
+		cmtViews := []CommentView{}
+		if commentsEnabled {
+			cmts, err := comments.ListForPost(p.ID)
+			if err != nil {
+				return err
+			}
+			cmtViews = toCommentViews(cmts)
 		}
 		return c.JSON(map[string]any{
 			"post":          toPostView(p),
 			"likeCount":     likeCount,
 			"favoriteCount": favoriteCount,
-			"comments":      toCommentViews(cmts),
+			"comments":      cmtViews,
 		})
 	}); err != nil {
 		return err

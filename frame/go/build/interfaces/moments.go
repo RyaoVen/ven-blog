@@ -9,6 +9,7 @@ import (
 	"ven_hybird/build/application/commentapp"
 	"ven_hybird/build/application/interactionapp"
 	"ven_hybird/build/application/momentapp"
+	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/domain/moment"
 	"ven_hybird/hybrid"
 )
@@ -50,20 +51,24 @@ type momentInput struct {
 // RegisterMoments 注册 /moments 页面与发布/删除 API。
 // 列表是公开 ISR 静态页（物化落盘直发，DataChange 失效再生）；
 // 发布/删除仅 author，归属经 c.User() 取调用者；页面数据附带各动态评论数。
-func RegisterMoments(a *hybrid.App, moments *momentapp.Service, comments *commentapp.Service, inter *interactionapp.Service) error {
+// settings 提供评论总开关（comments_enabled）：关闭时评论数一律为 0。
+func RegisterMoments(a *hybrid.App, moments *momentapp.Service, comments *commentapp.Service, inter *interactionapp.Service, settings *settingsapp.Service) error {
 	// 动态时间线（ISR，全站仅一页）
 	if err := a.StaticPage("/moments", 1, true, func(c *hybrid.PageCtx) error {
 		list, err := moments.List()
 		if err != nil {
 			return err
 		}
-		counts, err := comments.MomentCounts()
-		if err != nil {
-			return err
-		}
-		countViews := make(map[string]int, len(counts))
-		for id, n := range counts {
-			countViews[strconv.FormatInt(id, 10)] = n
+		countViews := make(map[string]int)
+		if enabled, err := settings.CommentsEnabled(); err == nil && enabled {
+			counts, err := comments.MomentCounts()
+			if err != nil {
+				return err
+			}
+			countViews = make(map[string]int, len(counts))
+			for id, n := range counts {
+				countViews[strconv.FormatInt(id, 10)] = n
+			}
 		}
 		likeCounts, err := inter.MomentLikeCounts()
 		if err != nil {

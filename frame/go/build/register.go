@@ -119,7 +119,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterPages(a, posts, comments, interactions, settings); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterInteractions(a, comments, interactions, emailAuth, siteURLFromEnv()); err != nil {
+	if err := interfaces.RegisterInteractions(a, comments, interactions, emailAuth, settings, siteURLFromEnv()); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterSearch(a, posts); err != nil {
@@ -150,7 +150,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterMeEmail(a, users); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterMomentComments(a, comments, emailAuth, siteURLFromEnv()); err != nil {
+	if err := interfaces.RegisterMomentComments(a, comments, emailAuth, settings, siteURLFromEnv()); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterMomentLikes(a, interactions); err != nil {
@@ -166,7 +166,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterLinkPreview(a); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterMoments(a, moments, comments, interactions); err != nil {
+	if err := interfaces.RegisterMoments(a, moments, comments, interactions, settings); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterPins(a, posts, moments); err != nil {
