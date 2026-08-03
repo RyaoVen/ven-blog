@@ -105,7 +105,7 @@ func Register(a *hybrid.App) error {
 	})
 
 	// 接口层注册（发文归属经 c.User() 取调用者，框架会话已携带用户身份）
-	interfaces.RegisterAuth(a, users)
+	interfaces.RegisterAuth(a, users, settings)
 	interfaces.RegisterImages(a, imageRepo)
 	if err := interfaces.RegisterHome(a, posts, moments, authorFn, settings); err != nil {
 		return err
@@ -146,7 +146,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterAuthorAdmin(a, settings, posts, authorNameFn); err != nil {
 		return err
 	}
-	interfaces.RegisterEmailAuth(a, emailAuth, users)
+	interfaces.RegisterEmailAuth(a, emailAuth, users, settings)
 	if err := interfaces.RegisterMeEmail(a, users); err != nil {
 		return err
 	}

@@ -118,7 +118,7 @@ func RegisterHome(a *hybrid.App, posts *postapp.Service, moments *momentapp.Serv
 	})
 }
 
-// RegisterSiteInfo 注册站点公开信息接口（导航栏作者头像/站点图标等全局展示用，无需登录）。
+// RegisterSiteInfo 注册站点公开信息接口（导航栏作者头像/站点图标/注册登录开关等全局展示用，无需登录）。
 func RegisterSiteInfo(a *hybrid.App, authorFn func() (*user.User, error), settings *settingsapp.Service) error {
 	return a.Get("/site", nil, func(c *hybrid.ApiCtx) error {
 		author, err := authorFn()
@@ -129,12 +129,17 @@ func RegisterSiteInfo(a *hybrid.App, authorFn func() (*user.User, error), settin
 		if err != nil {
 			return c.Error(500, "internal error")
 		}
+		authEnabled, err := settings.AuthEnabled()
+		if err != nil {
+			return c.Error(500, "internal error")
+		}
 		return c.JSON(200, map[string]any{
-			"name":       "ven-blog",
-			"authorName": author.Username,
-			"avatarUrl":  author.AvatarURL,
-			"github":     authorGitHub,
-			"icon":       icon,
+			"name":        "ven-blog",
+			"authorName":  author.Username,
+			"avatarUrl":   author.AvatarURL,
+			"github":      authorGitHub,
+			"icon":        icon,
+			"authEnabled": authEnabled,
 		})
 	})
 }

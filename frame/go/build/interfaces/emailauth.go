@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 
 	"ven_hybird/build/application/emailauth"
+	"ven_hybird/build/application/settingsapp"
 	"ven_hybird/build/application/userapp"
 	"ven_hybird/build/domain/user"
 	"ven_hybird/hybrid"
@@ -24,11 +25,14 @@ type emailLoginInput struct {
 }
 
 // RegisterEmailAuth 注册邮箱认证接口（raw fiber，不走 /api 前缀）。
-func RegisterEmailAuth(a *hybrid.App, emailAuthSvc *emailauth.Service, users *userapp.Service) {
+func RegisterEmailAuth(a *hybrid.App, emailAuthSvc *emailauth.Service, users *userapp.Service, settings *settingsapp.Service) {
 	server := a.Server()
 
-	// 签发验证码（不泄露邮箱是否注册）
+	// 签发验证码（不泄露邮箱是否注册）；受用户注册登录开关约束，关闭时 403
 	server.App().Post("/auth/email/code", func(ctx *fiber.Ctx) error {
+		if enabled, err := settings.AuthEnabled(); err != nil || !enabled {
+			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "login disabled"})
+		}
 		var in emailCodeInput
 		if err := ctx.BodyParser(&in); err != nil {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "bad body"})
@@ -44,8 +48,11 @@ func RegisterEmailAuth(a *hybrid.App, emailAuthSvc *emailauth.Service, users *us
 		return ctx.JSON(fiber.Map{"ok": true})
 	})
 
-	// 验证码登录（命中即下发双 cookie）
+	// 验证码登录（命中即下发双 cookie）；受用户注册登录开关约束，关闭时 403
 	server.App().Post("/auth/email/login", func(ctx *fiber.Ctx) error {
+		if enabled, err := settings.AuthEnabled(); err != nil || !enabled {
+			return ctx.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "login disabled"})
+		}
 		var in emailLoginInput
 		if err := ctx.BodyParser(&in); err != nil {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "bad body"})
