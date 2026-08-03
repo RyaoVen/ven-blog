@@ -139,10 +139,18 @@ func AuthorUsernameFromEnv() string {
 	return "author"
 }
 
+// userSeeder 是 SeedUsers 依赖的最小仓储能力（只取数+写入，测试可给内存假实现）。
+type userSeeder interface {
+	Count() (int, error)
+	Create(u *user.User) error
+}
+
 // SeedUsers 用户表为空时写入种子账号：
-// author（BLOG_AUTHOR_NAME/BLOG_AUTHOR_PASSWORD 可覆盖，默认 author/author123）；
-// reader（reader/reader123，用于验证 403）。密码 bcrypt 哈希。
-func SeedUsers(repo *UserRepository) error {
+// author（用户名 BLOG_AUTHOR_NAME 默认 author；密码 BLOG_AUTHOR_PASSWORD 必配——
+// 未配置返回 error 拒绝启动，杜绝弱默认密码）；
+// reader（用户名 reader，密码 BLOG_READER_PASSWORD 可覆盖，默认 reader123，用于验证 403）。
+// 密码 bcrypt 哈希。
+func SeedUsers(repo userSeeder) error {
 	n, err := repo.Count()
 	if err != nil {
 		return err
@@ -152,14 +160,19 @@ func SeedUsers(repo *UserRepository) error {
 	}
 	authorPassword := os.Getenv("BLOG_AUTHOR_PASSWORD")
 	if authorPassword == "" {
-		authorPassword = "author123"
+		return fmt.Errorf("seed users: BLOG_AUTHOR_PASSWORD 未配置：首次启动需要种子 author 密码，"+
+			"请在环境变量或 .env.local 中设置（如 BLOG_AUTHOR_PASSWORD=<强密码>）后重启")
+	}
+	readerPassword := os.Getenv("BLOG_READER_PASSWORD")
+	if readerPassword == "" {
+		readerPassword = "reader123"
 	}
 	seeds := []struct {
 		username, password string
 		role               user.Role
 	}{
 		{AuthorUsernameFromEnv(), authorPassword, user.RoleAuthor},
-		{"reader", "reader123", user.RoleReader},
+		{"reader", readerPassword, user.RoleReader},
 	}
 	for _, s := range seeds {
 		hash, err := bcrypt.GenerateFromPassword([]byte(s.password), bcrypt.DefaultCost)
