@@ -27,9 +27,10 @@ func (c Config) Configured() bool {
 	return c.Host != "" && c.User != ""
 }
 
-// Mailer 发送接口（业务只依赖这一个方法）。
+// Mailer 发送接口（业务只依赖这两个方法）。
 type Mailer interface {
 	Send(to, subject, text string) error
+	SendHTML(to, subject, html string) error
 }
 
 // SMTPMailer 每次发送时经 resolver 现取配置（设置页改动即时生效）。
@@ -44,19 +45,29 @@ func NewSMTPMailer(resolver func() (Config, error)) *SMTPMailer {
 
 // Send 发送纯文本邮件；未配置 SMTP 时降级日志输出并返回 nil。
 func (m *SMTPMailer) Send(to, subject, text string) error {
+	return m.sendAny(to, subject, text, "text/plain")
+}
+
+// SendHTML 发送 HTML 邮件（text/html content-type）；未配置 SMTP 时降级日志输出并返回 nil。
+func (m *SMTPMailer) SendHTML(to, subject, html string) error {
+	return m.sendAny(to, subject, html, "text/html")
+}
+
+// sendAny 解析配置并发送；未配置 SMTP 时降级日志输出并返回 nil。
+func (m *SMTPMailer) sendAny(to, subject, body, contentType string) error {
 	cfg, err := m.resolver()
 	if err != nil {
 		return fmt.Errorf("mail: resolve config: %w", err)
 	}
 	if !cfg.Configured() {
-		log.Printf("mail: smtp not configured, would send to %s: [%s]\n%s", to, subject, text)
+		log.Printf("mail: smtp not configured, would send %s to %s: [%s]\n%s", contentType, to, subject, body)
 		return nil
 	}
-	return m.send(cfg, to, subject, text)
+	return m.send(cfg, to, subject, body, contentType)
 }
 
 // send 经 SMTP 发送（465 隐式 TLS；其余端口尝试 STARTTLS，不支持则明文）。
-func (m *SMTPMailer) send(cfg Config, to, subject, text string) error {
+func (m *SMTPMailer) send(cfg Config, to, subject, body, contentType string) error {
 	host := cfg.Host
 	port := cfg.Port
 	if port == "" {
@@ -112,10 +123,10 @@ func (m *SMTPMailer) send(cfg Config, to, subject, text string) error {
 		"To: " + to,
 		"Subject: " + encodeWord(subject),
 		"MIME-Version: 1.0",
-		"Content-Type: text/plain; charset=utf-8",
+		"Content-Type: " + contentType + "; charset=utf-8",
 		"Content-Transfer-Encoding: 8bit",
 		"",
-		text,
+		body,
 	}, "\r\n")
 	if _, err := w.Write([]byte(msg)); err != nil {
 		return fmt.Errorf("mail: write body: %w", err)
