@@ -38,3 +38,21 @@ func (r *SubscriberRepository) Count() (int, error) {
 	}
 	return n, nil
 }
+
+// List 返回全部订阅者（按 ID 升序；订阅通知取收件人用）。
+func (r *SubscriberRepository) List() ([]*subscriber.Subscriber, error) {
+	rows, err := r.db.Query("SELECT id, email, created_at FROM subscribers ORDER BY id")
+	if err != nil {
+		return nil, fmt.Errorf("list subscribers: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	subs := make([]*subscriber.Subscriber, 0)
+	for rows.Next() {
+		var s subscriber.Subscriber
+		if err := rows.Scan(&s.ID, &s.Email, &s.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan subscriber: %w", err)
+		}
+		subs = append(subs, &s)
+	}
+	return subs, rows.Err()
+}
