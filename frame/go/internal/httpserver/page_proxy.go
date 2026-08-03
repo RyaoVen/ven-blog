@@ -108,6 +108,12 @@ func (s *Server) render(ctx *fiber.Ctx, route string, data any) (*pagecache.Entr
 
 // renderWithQuery 是 render 的核心（显式 query 版本，供后台预渲染复用）。
 func (s *Server) renderWithQuery(route string, query map[string]string, data any) (*pagecache.Entry, error) {
+	// 步骤 0: Node 熔断——连续失败达阈值后快速失败（503），不再等待渲染超时；
+	// 半开间隔后放行一个试探请求，成功即恢复
+	if !s.breaker.Allow() {
+		return nil, &renderError{fiber.StatusServiceUnavailable, "render worker is unavailable (circuit open)", true}
+	}
+
 	// 步骤 1: 生成唯一的 HookID
 	hookID, err := s.hookIDs.New()
 	if err != nil {
@@ -141,6 +147,8 @@ func (s *Server) renderWithQuery(route string, query map[string]string, data any
 	err = s.ssr.Submit(submitContext, task)
 	cancelSubmit()
 	if err != nil {
+		// 传输层失败（连接拒绝/提交被拒/提交超时）：计入熔断失败
+		s.breaker.RecordFailure()
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, &renderError{fiber.StatusGatewayTimeout, "render worker submit timed out", true}
 		}
@@ -151,6 +159,8 @@ func (s *Server) renderWithQuery(route string, query map[string]string, data any
 	// 使用 select 同时监听回调通道和超时定时器
 	select {
 	case callback := <-waiter:
+		// Node 有响应即视为传输健康（含回调错误分支）：不计入熔断失败
+		s.breaker.RecordSuccess()
 		// 收到渲染回调
 		if callback.Error != nil {
 			// 渲染失败：根据错误码返回不同的 HTTP 状态
@@ -168,7 +178,8 @@ func (s *Server) renderWithQuery(route string, query map[string]string, data any
 			Duration:     callback.Duration,
 		}, nil
 	case <-time.After(s.config.RenderTimeout):
-		// 渲染超时
+		// 渲染超时：计入熔断失败
+		s.breaker.RecordFailure()
 		return nil, &renderError{fiber.StatusGatewayTimeout, "render worker timed out", true}
 	}
 }
