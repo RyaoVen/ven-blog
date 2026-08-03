@@ -119,7 +119,8 @@ func RegisterHome(a *hybrid.App, posts *postapp.Service, moments *momentapp.Serv
 }
 
 // RegisterSiteInfo 注册站点公开信息接口（导航栏作者头像/站点图标/注册登录开关等全局展示用，无需登录）。
-func RegisterSiteInfo(a *hybrid.App, authorFn func() (*user.User, error), settings *settingsapp.Service) error {
+// siteURL 返回解析后的站点公网地址（组装根注入：设置键优先、env 兜底、默认本地地址），每次请求现取。
+func RegisterSiteInfo(a *hybrid.App, authorFn func() (*user.User, error), settings *settingsapp.Service, siteURL func() string) error {
 	return a.Get("/site", nil, func(c *hybrid.ApiCtx) error {
 		author, err := authorFn()
 		if err != nil {
@@ -144,7 +145,9 @@ func RegisterSiteInfo(a *hybrid.App, authorFn func() (*user.User, error), settin
 			"github":      authorGitHub,
 			"icon":        icon,
 			"authEnabled": authEnabled,
+			"siteUrl":     siteURL(),
 
-			"commentsEnabled": commentsEnabled,		})
+			"commentsEnabled": commentsEnabled,
+		})
 	})
 }

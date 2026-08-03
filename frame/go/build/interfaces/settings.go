@@ -55,6 +55,10 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		if err != nil {
 			return err
 		}
+		siteURL, err := settings.SiteURL()
+		if err != nil {
+			return err
+		}
 		llmBaseURL, llmAPIKey, llmModel, err := settings.LLMConfig()
 		if err != nil {
 			return err
@@ -83,6 +87,7 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 			"categories":      categories,
 			"profile":         profile,
 			"siteIcon":        siteIcon,
+			"siteUrl":         siteURL,
 			"llm": map[string]any{
 				"baseUrl": llmBaseURL, "model": llmModel, "keySet": llmKeySet,
 			},
@@ -264,16 +269,29 @@ func RegisterSettings(a *hybrid.App, settings *settingsapp.Service, users *usera
 		return err
 	}
 
-	// 保存站点图标（导航品牌标 + favicon，前端经 /api/site 现取，无需失效页面）
+	// 保存站点图标与站点公网地址（图标走 /api/site 前端现取、公网地址 RSS/邮件链接拼接用，无需失效页面；
+	// icon 缺省保留原值——保存地址时不携带；url 为空保留原值——对齐 SMTP 密码掩码模式）
 	if err := a.Put("/admin/settings/site", admin, func(c *hybrid.ApiCtx) error {
 		var in struct {
-			Icon string `json:"icon"`
+			Icon *string `json:"icon"`
+			URL  string  `json:"url"`
 		}
 		if err := c.Bind(&in); err != nil {
 			return c.Error(400, "bad body")
 		}
-		if err := settings.SetSiteIcon(in.Icon); err != nil {
-			return c.Error(500, "internal error")
+		if in.Icon != nil {
+			if err := settings.SetSiteIcon(*in.Icon); err != nil {
+				return c.Error(500, "internal error")
+			}
+		}
+		if in.URL != "" {
+			u, err := url.Parse(in.URL)
+			if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+				return c.Error(400, "invalid site url")
+			}
+			if err := settings.SetSiteURL(in.URL); err != nil {
+				return c.Error(500, "internal error")
+			}
 		}
 		return c.JSON(200, map[string]any{"ok": true})
 	}); err != nil {

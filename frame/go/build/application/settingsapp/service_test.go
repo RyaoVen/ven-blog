@@ -148,3 +148,47 @@ func TestCommentsEnabledRepoError(t *testing.T) {
 		t.Fatal("SetCommentsEnabled(false) error = nil, want repo error propagated")
 	}
 }
+
+// SiteURL 未设置时返回空串与 nil（调用方回退 env/默认，不误报）。
+func TestSiteURLDefaultEmpty(t *testing.T) {
+	svc := NewService(newFakeRepo())
+	u, err := svc.SiteURL()
+	if err != nil {
+		t.Fatalf("SiteURL() error = %v", err)
+	}
+	if u != "" {
+		t.Fatalf("SiteURL() = %q, want empty", u)
+	}
+}
+
+// SetSiteURL 落库 site_url 键并读回（往返一致）。
+func TestSetSiteURLRoundtrip(t *testing.T) {
+	repo := newFakeRepo()
+	svc := NewService(repo)
+	if err := svc.SetSiteURL("https://blog.example.com"); err != nil {
+		t.Fatalf("SetSiteURL error = %v", err)
+	}
+	if got := repo.values[setting.KeySiteURL]; got != "https://blog.example.com" {
+		t.Fatalf("stored value = %q, want %q", got, "https://blog.example.com")
+	}
+	u, err := svc.SiteURL()
+	if err != nil {
+		t.Fatalf("SiteURL() error = %v", err)
+	}
+	if u != "https://blog.example.com" {
+		t.Fatalf("SiteURL() = %q, want roundtrip value", u)
+	}
+}
+
+// 仓储报错时 SiteURL/SetSiteURL 透传错误。
+func TestSiteURLRepoError(t *testing.T) {
+	repo := newFakeRepo()
+	repo.fail = true
+	svc := NewService(repo)
+	if _, err := svc.SiteURL(); err == nil {
+		t.Fatal("SiteURL() error = nil, want repo error propagated")
+	}
+	if err := svc.SetSiteURL("https://blog.example.com"); err == nil {
+		t.Fatal("SetSiteURL error = nil, want repo error propagated")
+	}
+}

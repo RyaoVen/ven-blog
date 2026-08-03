@@ -142,6 +142,16 @@ func (s *Service) SetSiteIcon(url string) error {
 	return s.repo.Set(setting.KeySiteIcon, url)
 }
 
+// SiteURL 站点公网地址（空表示未设置，调用方回退 env BLOG_SITE_URL/默认——邮件与 RSS 链接拼接用）。
+func (s *Service) SiteURL() (string, error) {
+	return s.repo.Get(setting.KeySiteURL)
+}
+
+// SetSiteURL 保存站点公网地址。
+func (s *Service) SetSiteURL(url string) error {
+	return s.repo.Set(setting.KeySiteURL, url)
+}
+
 // moderatorReportedCap 已报告条目 ID 的留存上限（超出裁最旧，防键值无限膨胀）。
 const moderatorReportedCap = 500
 
