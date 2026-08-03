@@ -145,7 +145,8 @@ function admonitionPlugin(md: MarkdownIt): void {
             render: (tokens: { nesting: number; info: string }[], idx: number) => {
                 if (tokens[idx].nesting === 1) {
                     const custom = tokens[idx].info.trim().slice(name.length).trim();
-                    const title = custom || ADMONITION_TITLES[name];
+                    // 自定义标题来自用户输入，须转义后再拼 HTML（html:false 不覆盖自写规则输出）
+                    const title = escapeHtml(custom || ADMONITION_TITLES[name]);
                     return `<div class="ven-admonition ven-admonition-${name}"><p class="ven-admonition-title">${title}</p>\n`;
                 }
                 return "</div>\n";
