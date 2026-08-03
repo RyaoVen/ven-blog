@@ -16,8 +16,17 @@ type Mailer interface {
 	SendHTML(to, subject, html string) error
 }
 
-// NewPostNotifier 新文章发布通知回调（组装根注入 RegisterAPIs，创建成功后触发）。
-type NewPostNotifier func(p *post.Post)
+// PostNotifier 新文章发布通知回调（组装根注入 RegisterAPIs，创建成功后触发）。
+type PostNotifier func(p *post.Post)
+
+// NewPostNotifier 构造订阅通知器：返回新文章发布回调——异步拉订阅者并逐条发信。
+// getSubscribers 取订阅邮箱（subscribeapp.Subscribers），mailer 为邮件发送器（SMTPMailer），
+// siteURL 每次通知时现取（设置页改站点地址即时生效）。
+func NewPostNotifier(getSubscribers func() ([]string, error), mailer Mailer, siteURL func() string) PostNotifier {
+	return func(p *post.Post) {
+		notifySubscribers(getSubscribers, mailer, siteURL(), p)
+	}
+}
 
 // notifySubscribers 新文章发布异步通知全部订阅者：goroutine 内拉订阅者 → 无则不发 →
 // 逐条 SendHTML（RenderNewArticle 模板：标题+摘要+siteURL+/posts/:id 链接）。

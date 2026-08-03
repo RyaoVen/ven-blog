@@ -167,6 +167,27 @@ func TestRunNewArticleNotify(t *testing.T) {
 	})
 }
 
+func TestNewPostNotifier(t *testing.T) {
+	mail := &fakeMailer{}
+	siteURL := "https://a.example"
+	notify := NewPostNotifier(func() ([]string, error) { return []string{"a@example.com"}, nil }, mail, func() string { return siteURL })
+	notify(&post.Post{ID: 3, Title: "T", Summary: "S"})
+	time.Sleep(300 * time.Millisecond)
+	if mail.count() != 1 {
+		t.Fatalf("SendHTML calls = %d, want 1", mail.count())
+	}
+	if !strings.Contains(mail.call(0).html, `href="https://a.example/posts/3"`) {
+		t.Fatalf("html should use resolved siteURL:\n%s", mail.call(0).html)
+	}
+	// siteURL 惰性解析：解析函数返回值变更后，下一次通知用新值
+	siteURL = "https://b.example"
+	notify(&post.Post{ID: 4, Title: "T", Summary: "S"})
+	time.Sleep(300 * time.Millisecond)
+	if mail.count() != 2 || !strings.Contains(mail.call(1).html, `href="https://b.example/posts/4"`) {
+		t.Fatalf("html should re-resolve siteURL per notify:\n%s", mail.call(1).html)
+	}
+}
+
 func TestNotifySubscribersAsync(t *testing.T) {
 	mail := &blockingMailer{release: make(chan struct{}), done: make(chan struct{})}
 	notifySubscribers(func() ([]string, error) { return []string{"a@example.com"}, nil },
