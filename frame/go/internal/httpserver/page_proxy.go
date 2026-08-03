@@ -67,6 +67,18 @@ func (s *Server) renderPage(ctx *fiber.Ctx, route string, data any) error {
 	}
 	if err != nil {
 		var renderErr *renderError
+		if errors.As(err, &renderErr) && renderErr.status >= fiber.StatusInternalServerError && keyErr == nil {
+			// stale 兜底：Node 侧失败（502/503/504）且缓存有过期条目 → 发 stale 而非 502，
+			// 后台异步回源刷新（防 Node 抖动期全站白屏）。
+			// 4xx（如 PAGE_NOT_FOUND）不兜底：Node 是路由权威，说没了就是没了。
+			if stale, ok := s.pageCache.GetStale(key); ok && stale.HTML != "" {
+				log.Printf("render: stale %s %s", ctx.Method(), route)
+				s.refreshStaleAsync(key, route, ctx.Queries(), data)
+				ctx.Set(fiber.HeaderContentType, fiber.MIMETextHTMLCharsetUTF8)
+				ctx.Set(fiber.HeaderCacheControl, "no-cache")
+				return ctx.SendString(stale.HTML)
+			}
+		}
 		if errors.As(err, &renderErr) {
 			if renderErr.json {
 				return ctx.Status(renderErr.status).JSON(fiber.Map{"error": renderErr.message})
@@ -104,6 +116,26 @@ func (e *renderError) Error() string { return e.message }
 // route 为页面匹配路由（兜底/常规渲染为请求路径，错误页渲染为错误页路由）。
 func (s *Server) render(ctx *fiber.Ctx, route string, data any) (*pagecache.Entry, error) {
 	return s.renderWithQuery(route, ctx.Queries(), data)
+}
+
+// refreshStaleAsync 在后台回源刷新过期缓存（stale-while-revalidate 的 revalidate 阶段）。
+// 复用 pageCache.Do 的防击穿：同 key 并发仅一次刷新；刷新失败仅记日志（不影响已发出的 stale 响应）。
+// query 先拷贝再进 goroutine——ctx 在响应后会被 fiber 回收复用，不能跨请求引用。
+func (s *Server) refreshStaleAsync(key, route string, query map[string]string, data any) {
+	queryCopy := make(map[string]string, len(query))
+	for k, v := range query {
+		queryCopy[k] = v
+	}
+	go func() {
+		entry, _, err := s.pageCache.Do(key, func() (*pagecache.Entry, error) {
+			return s.renderWithQuery(route, queryCopy, data)
+		})
+		if err != nil {
+			log.Printf("render: stale refresh %s failed: %v", route, err)
+			return
+		}
+		log.Printf("render: stale refresh %s ok node=%dms", route, entry.Duration)
+	}()
 }
 
 // renderWithQuery 是 render 的核心（显式 query 版本，供后台预渲染复用）。

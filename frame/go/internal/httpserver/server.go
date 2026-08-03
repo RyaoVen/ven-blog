@@ -121,7 +121,7 @@ func New(
 		auth:           auth.NewRegistry(),
 		sessions:       auth.NewSessionStore(sessionBackend, cfg.SessionTTL),
 		patterns:       patterns,
-		pageCache:      pagecache.NewStore(pageBackend, cfg.PageCacheTTL),
+		pageCache:      pagecache.NewStore(pageBackend, cfg.PageCacheTTL, cfg.PageCacheStaleWindow),
 		isrStore:       isr.NewStore(cfg.IsrDir, cfg.IsrEnabled),
 		breaker:        circuitbreaker.New(cfg.NodeCircuitThreshold, cfg.NodeCircuitHalfOpen),
 		eventTransport: eventTransport,
