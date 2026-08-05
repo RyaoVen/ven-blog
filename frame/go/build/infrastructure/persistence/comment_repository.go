@@ -226,10 +226,25 @@ func (r *CommentRepository) ListUnreviewedPending() ([]*comment.Comment, error) 
 	return r.listReviewQueue(comment.StatusPending, " AND c.ai_reviewed_at IS NULL")
 }
 
-// MarkAIReviewed 给待审评论打"AI 已判"标记（仅 pending 行，幂等）。
-func (r *CommentRepository) MarkAIReviewed(id int64) error {
-	if _, err := r.db.Exec("UPDATE comments SET ai_reviewed_at = NOW() WHERE id = ? AND status = ?", id, comment.StatusPending); err != nil {
-		return fmt.Errorf("mark ai reviewed of comment %d: %w", id, err)
+// ClaimAIReview 原子抢占 AI 审核权：仅 pending 且 AI 未审行置 ai_reviewed_at（NOW()）。
+// RowsAffected=1 抢占成功；=0 表示已被其他实例抢占或已审（返回 false）——
+// 多实例 worker 并发拉同一队列时，同一条只有一方抢到，杜绝重复审核。
+func (r *CommentRepository) ClaimAIReview(id int64) (bool, error) {
+	res, err := r.db.Exec("UPDATE comments SET ai_reviewed_at = NOW() WHERE id = ? AND status = ? AND ai_reviewed_at IS NULL", id, comment.StatusPending)
+	if err != nil {
+		return false, fmt.Errorf("claim ai review of comment %d: %w", id, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("claim ai review of comment %d: %w", id, err)
+	}
+	return n == 1, nil
+}
+
+// UnclaimAIReview 回滚抢占（LLM 判定/写库失败后释放；仅 pending 行可回滚，保持"失败下轮重审"）。
+func (r *CommentRepository) UnclaimAIReview(id int64) error {
+	if _, err := r.db.Exec("UPDATE comments SET ai_reviewed_at = NULL WHERE id = ? AND status = ?", id, comment.StatusPending); err != nil {
+		return fmt.Errorf("unclaim ai review of comment %d: %w", id, err)
 	}
 	return nil
 }

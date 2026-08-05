@@ -33,13 +33,13 @@ func (f *fakeModerator) Review(_ context.Context, _ moderation.Request) (moderat
 }
 
 // fakeCommentRepo 内存实现 comment.Repository（与 commentapp 测试同款；ListPending 正序）。
-// reviewed 模拟 ai_reviewed_at；markErr 注入打标失败。
+// reviewed 模拟 ai_reviewed_at（claim 抢占/回滚）；claimErr 注入抢占失败。
 // 注意：byID 是 map，直接遍历顺序随机——列表方法统一按 ID 正序排，保证断言顺序确定。
 type fakeCommentRepo struct {
 	byID     map[int64]*comment.Comment
 	reviewed map[int64]bool
 	next     int64
-	markErr  error
+	claimErr error
 }
 
 func newFakeCommentRepo() *fakeCommentRepo {
@@ -81,13 +81,21 @@ func (f *fakeCommentRepo) ListUnreviewedPending() ([]*comment.Comment, error) {
 	sortByID(out)
 	return out, nil
 }
-func (f *fakeCommentRepo) MarkAIReviewed(id int64) error {
-	if f.markErr != nil {
-		return f.markErr
+func (f *fakeCommentRepo) ClaimAIReview(id int64) (bool, error) {
+	if f.claimErr != nil {
+		return false, f.claimErr
 	}
-	// 与真仓储一致：仅 pending 行打标，幂等，不存在也不报错。
-	if c, ok := f.byID[id]; ok && c.Status == comment.StatusPending {
+	// 与真仓储一致：仅 pending 且未审行抢占（返回是否抢到），幂等。
+	if c, ok := f.byID[id]; ok && c.Status == comment.StatusPending && !f.reviewed[id] {
 		f.reviewed[id] = true
+		return true, nil
+	}
+	return false, nil
+}
+func (f *fakeCommentRepo) UnclaimAIReview(id int64) error {
+	// 与真仓储一致：仅 pending 行回滚抢占（清回未审），幂等。
+	if c, ok := f.byID[id]; ok && c.Status == comment.StatusPending {
+		f.reviewed[id] = false
 	}
 	return nil
 }
@@ -125,12 +133,12 @@ func (f *fakeCommentRepo) Create(c *comment.Comment) error {
 func (f *fakeCommentRepo) Delete(id int64) error { return nil }
 
 // fakeGuestbookRepo 内存实现 guestbook.Repository（与 guestbookapp 测试同款）。
-// reviewed 模拟 ai_reviewed_at；markErr 注入打标失败。
+// reviewed 模拟 ai_reviewed_at（claim 抢占/回滚）；claimErr 注入抢占失败。
 type fakeGuestbookRepo struct {
 	byID     map[int64]*guestbook.Entry
 	reviewed map[int64]bool
 	next     int64
-	markErr  error
+	claimErr error
 }
 
 func newFakeGuestbookRepo() *fakeGuestbookRepo {
@@ -166,13 +174,21 @@ func (f *fakeGuestbookRepo) ListUnreviewedPending() ([]*guestbook.Entry, error) 
 	}
 	return out, nil
 }
-func (f *fakeGuestbookRepo) MarkAIReviewed(id int64) error {
-	if f.markErr != nil {
-		return f.markErr
+func (f *fakeGuestbookRepo) ClaimAIReview(id int64) (bool, error) {
+	if f.claimErr != nil {
+		return false, f.claimErr
 	}
-	// 与真仓储一致：仅 pending 行打标，幂等，不存在也不报错。
-	if e, ok := f.byID[id]; ok && e.Status == guestbook.StatusPending {
+	// 与真仓储一致：仅 pending 且未审行抢占（返回是否抢到），幂等。
+	if e, ok := f.byID[id]; ok && e.Status == guestbook.StatusPending && !f.reviewed[id] {
 		f.reviewed[id] = true
+		return true, nil
+	}
+	return false, nil
+}
+func (f *fakeGuestbookRepo) UnclaimAIReview(id int64) error {
+	// 与真仓储一致：仅 pending 行回滚抢占（清回未审），幂等。
+	if e, ok := f.byID[id]; ok && e.Status == guestbook.StatusPending {
+		f.reviewed[id] = false
 	}
 	return nil
 }
@@ -340,9 +356,9 @@ func TestAutoReviewPending(t *testing.T) {
 	if got.Status != comment.StatusPending {
 		t.Fatalf("status = %q, want pending（不确定内容必须留在待审队列）", got.Status)
 	}
-	// 但已打"AI 已判"标记：下轮不再重复提交 LLM
+	// 抢占已打"AI 已判"标记：下轮不再重复提交 LLM
 	if !cr.reviewed[c.ID] {
-		t.Fatal("uncertain 后应调用 MarkAIReviewed 打标")
+		t.Fatal("uncertain 后应已由抢占打标（reviewed 置位）")
 	}
 	second, err := svc.AutoReview(context.Background(), 20)
 	if err != nil {
@@ -353,25 +369,44 @@ func TestAutoReviewPending(t *testing.T) {
 	}
 }
 
-func TestAutoReviewMarkReviewedFailure(t *testing.T) {
+func TestAutoReviewClaimFailureSkips(t *testing.T) {
 	cr := newFakeCommentRepo()
-	cr.markErr = errors.New("db down")
+	cr.claimErr = errors.New("db down")
 	m := &fakeModerator{verdicts: []moderation.Verdict{{Action: moderation.ActionPending}}}
 	c := cr.add(&comment.Comment{PostID: 1, UserID: 1, Username: "u", Content: "x", Status: comment.StatusPending})
 	result, err := newService(cr, newFakeGuestbookRepo(), m).AutoReview(context.Background(), 20)
 	if err != nil {
 		t.Fatalf("AutoReview: %v", err)
 	}
-	// 打标失败记 failed（而非 uncertain），保持 pending 且仍在未判队列，下轮重试
-	if result.Failed != 1 || result.Uncertain != 0 || len(result.FailedItems) != 1 {
-		t.Fatalf("result = %+v, want failed=1 uncertain=0", result)
+	// 抢占失败 → 本轮跳过（不计数、不调 LLM），条目保持 pending 且未打标，下轮重试
+	if result.Processed != 0 || result.Failed != 0 || m.calls != 0 {
+		t.Fatalf("result = %+v calls = %d, want processed=0 failed=0 calls=0", result, m.calls)
 	}
 	got, _ := cr.Get(c.ID)
 	if got.Status != comment.StatusPending {
-		t.Fatalf("status = %q, want pending（打标失败绝不误杀/放行）", got.Status)
+		t.Fatalf("status = %q, want pending（抢占失败绝不误杀/放行）", got.Status)
 	}
 	if cr.reviewed[c.ID] {
-		t.Fatal("打标失败不应留下已判标记")
+		t.Fatal("抢占失败不应留下已判标记")
+	}
+}
+
+// TestAutoReviewClaimConcurrency 模拟两实例并发抢同一队列：同一条只有一方抢到并处理。
+// fakeCommentRepo 的 Claim 非线程安全（单测不并发调同 repo），这里串行模拟"第二实例看到已审"：
+// 先手动把条目标为已抢（reviewed），AutoReview 应跳过该条——即第二实例的 ListUnreviewedPending
+// 不再返回它（真仓储由 SQL 原子性保证，单元层验证编排行为）。
+func TestAutoReviewClaimConcurrency(t *testing.T) {
+	cr := newFakeCommentRepo()
+	m := &fakeModerator{verdicts: []moderation.Verdict{{Action: moderation.ActionApprove}}}
+	c := cr.add(&comment.Comment{PostID: 1, UserID: 1, Username: "u", Content: "x", Status: comment.StatusPending})
+	// 模拟另一实例已抢占该条
+	cr.reviewed[c.ID] = true
+	result, err := newService(cr, newFakeGuestbookRepo(), m).AutoReview(context.Background(), 20)
+	if err != nil {
+		t.Fatalf("AutoReview: %v", err)
+	}
+	if result.Processed != 0 || result.Approved != 0 || m.calls != 0 {
+		t.Fatalf("result = %+v calls = %d, want processed=0 calls=0（已被他实例抢占的条目跳过）", result, m.calls)
 	}
 }
 
@@ -409,6 +444,12 @@ func TestAutoReviewErrorKeepsPendingAndRetries(t *testing.T) {
 			got, _ := cr.Get(c.ID)
 			if got.Status != tc.wantState {
 				t.Fatalf("status = %q, want %q（error 路径绝不误杀/放行）", got.Status, tc.wantState)
+			}
+			if tc.wantFail == 1 && cr.reviewed[c.ID] {
+				t.Fatal("失败后应回滚抢占（否则下轮不再进队列重试）")
+			}
+			if tc.wantAppr == 1 && !cr.reviewed[c.ID] {
+				t.Fatal("成功路径应保留已审标记（不再重复提交 LLM）")
 			}
 		})
 	}
