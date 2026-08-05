@@ -1,6 +1,6 @@
 # ven-blog 使用文档
 
-本仓库是 **VenHybird** 框架 + **ven-blog** 博客业务的完整实现：Go(Fiber) 网关 + Node SSR worker 混合渲染，业务代码在 `frame/go/build/`（DDD 四层）。框架概念见 [README.md](../README.md)，本文档聚焦**怎么跑起来、怎么用 agent 能力、怎么运维**。
+本仓库是 **ven-blog** 博客业务的完整实现：Go(Fiber) 网关 + Node SSR worker 混合渲染（VenHybird 框架），业务代码在 `frame/go/build/`（DDD 四层）。框架介绍见 [README.md](../README.md)，本文档聚焦**怎么跑起来、怎么用 agent 能力、怎么运维**。
 
 ## 项目构成
 
@@ -61,7 +61,7 @@ cd frame/go && go run .
 | `BLOG_MODERATOR_INTERVAL` | 可选 | 5m | 审核轮询间隔 |
 | `BLOG_MODERATOR_BATCH` | 可选 | 20 | 每类宿主（评论/留言板）每轮处理上限 |
 
-框架级 `VEN_*`（ISR/Redis/缓存等）见 [README.md](../README.md) 配置表。
+框架级 `VEN_*`（ISR/Redis/缓存等）配置见框架仓文档（本仓框架层与上游同步）。
 
 ## Agent 能力
 

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-VenHybird：Go(Fiber) 网关 + Node SSR worker 的混合渲染框架。设计哲学见 [vision.md](vision.md)，使用文档见 [README.md](README.md)。
+ven-blog：基于 VenHybird 混合渲染框架的博客系统（Go(Fiber) 网关 + Node SSR worker）。项目总览见 [README.md](README.md)，使用文档见 [docs/usage.md](docs/usage.md)。
 
 ## 布局与三层纪律
 
