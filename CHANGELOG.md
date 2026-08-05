@@ -2,6 +2,28 @@
 
 本仓库版本采用语义化版本（SemVer）。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [v1.2.6] - 2026-08-05
+
+### 修复
+
+- **漏失效补齐**：/search 与 /users/:name 数据变更后 1 分钟旧数据——发文/删文/置顶统一失效搜索页；发文/删文（作者文章数）、评论创建/删除（评论者评论数）失效对应用户页（web 与 MCP 双侧）
+- **邮件 goroutine 风暴**：订阅通知发信并发信号量限流（BLOG_MAIL_CONCURRENCY 默认 4，超限排队不丢弃）+ SMTP 会话 30s 超时（挂起服务器不再永久占坑）
+- **SMTP 降级日志泄露**：未配置 SMTP 时邮件正文（验证码等敏感内容）不再打印进日志，默认摘要 + BLOG_MAIL_DEBUG_BODY 显式开启全文
+- **审核 worker 多实例重复**：先占后审——仓储原子抢占（pending + AI 未审行，多实例并发只有一方抢到），LLM/写库失败回滚抢占保持"下轮重审"
+
+### 安全加固
+
+- **SMTP/LLM 密钥加密存储**：smtp_pass/llm_api_key 存库前 AES-256-GCM 加密（BLOG_SECRET_KEY 32 字节 hex，随机 nonce）；旧明文兼容自动迁移；未配置密钥回退明文并启动警告（渐进式安全）
+
+### 框架对齐（上游框架能力同步，internal/hybrid 回归上游基线）
+
+- **框架层能力吸收**：SSR 页面 Cache-Control no-cache（#67）、页面访问统计上提为框架正式 API（#68 SetVisitRecorder）、pagecache flight 等待超时（#71）、渲染超时 timer 泄漏修复（#72）、StaticPage 角色鉴权（#73）、Node 内部 token timing-safe 比较（#74）、maxPending 背压（#79）、event notifier 异步（#80）、双端路由运行期窗口（#81）、event/SSE 内存上限（#82）、渲染优雅取消（#83）
+- 业务仓静态页适配 StaticPage 新签名（roles 参数），埋点注入改走框架公开 API（不再依赖 App.Server() 通道）
+
+### 部署与工程
+
+- deploy 配置向导新增 BLOG_SECRET_KEY 生成（回车自动生成强随机密钥，可留空跳过）
+
 ## [v1.2.5] - 2026-08-03
 
 > 注：v1.2.2 之后未单独发布 v1.2.3/v1.2.4，全部变更并入本版。
