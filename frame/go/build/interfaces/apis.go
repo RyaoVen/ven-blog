@@ -42,8 +42,9 @@ func currentUserID(c *hybrid.ApiCtx) (int64, error) {
 }
 
 // RegisterAPIs 注册文章 CRUD API。发文/编辑归属经 c.User() 取调用者；
-// notifyNewPost 为创建成功后的通知回调（订阅通知器，组装根注入；nil 表示不通知）。
-func RegisterAPIs(a *hybrid.App, posts *postapp.Service, notifyNewPost PostNotifier) error {
+// notifyNewPost 为创建成功后的通知回调（订阅通知器，组装根注入；nil 表示不通知）；
+// authorNameFn 现取当前作者用户名（发文/删文后作者用户页文章数失效用）。
+func RegisterAPIs(a *hybrid.App, posts *postapp.Service, notifyNewPost PostNotifier, authorNameFn func() string) error {
 	if err := a.Get("/posts", nil, func(c *hybrid.ApiCtx) error {
 		list, err := posts.ListRecent(0)
 		if err != nil {
@@ -68,6 +69,8 @@ func RegisterAPIs(a *hybrid.App, posts *postapp.Service, notifyNewPost PostNotif
 			return writePostError(c, err)
 		}
 		declarePostsChanged(a, p.ID)
+		// 作者用户页文章数 +1（用户页是动态页，只能具体路径失效）
+		a.InvalidatePage("/users/" + authorNameFn())
 		// 仅创建成功触发订阅通知（异步发信，不阻塞响应）；更新不通知
 		if notifyNewPost != nil {
 			notifyNewPost(p)
@@ -98,6 +101,8 @@ func RegisterAPIs(a *hybrid.App, posts *postapp.Service, notifyNewPost PostNotif
 			return writePostError(c, err)
 		}
 		declarePostsChanged(a, id)
+		// 作者用户页文章数 -1
+		a.InvalidatePage("/users/" + authorNameFn())
 		return c.JSON(200, map[string]any{"ok": true})
 	})
 }
@@ -115,12 +120,13 @@ func writePostError(c *hybrid.ApiCtx, err error) error {
 	}
 }
 
-// declarePostsChanged 声明文章数据变更：动态页缓存失效（/posts 列表与 / 首页最近文章）
+// declarePostsChanged 声明文章数据变更：动态页缓存失效（/posts 列表、/ 首页最近文章与 /search 索引）
 // + 单篇静态详情失效。永远异步立即返回；ISR 再生与 SSE 推送由事件总线在 debounce 合批后完成。
 // /posts 是带 ?tag=/?page= 查询串的动态页，不能走 DataChange（静态页通道，会报 static page not declared）。
 func declarePostsChanged(a *hybrid.App, id int64) {
 	a.InvalidatePage("/posts")
 	a.InvalidatePage("/")
+	a.InvalidatePage("/search")
 	if id > 0 {
 		_ = a.DataChange("/posts/:id", strconv.FormatInt(id, 10))
 	}

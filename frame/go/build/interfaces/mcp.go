@@ -305,6 +305,8 @@ func (m *MCP) postCreate(ctx *fiber.Ctx, payload json.RawMessage) (any, *mcpErro
 		return nil, classifyPostError(err)
 	}
 	declarePostsChanged(m.a, p.ID)
+	// 作者用户页文章数 +1（与 web 发文接口对齐）
+	m.a.InvalidatePage("/users/" + m.authorNameFn())
 	return fiber.Map{"id": strconv.FormatInt(p.ID, 10)}, nil
 }
 
@@ -338,6 +340,8 @@ func (m *MCP) postDelete(ctx *fiber.Ctx, payload json.RawMessage) (any, *mcpErro
 		return nil, classifyPostError(err)
 	}
 	declarePostsChanged(m.a, id)
+	// 作者用户页文章数 -1
+	m.a.InvalidatePage("/users/" + m.authorNameFn())
 	return fiber.Map{"deleted": true}, nil
 }
 

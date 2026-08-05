@@ -134,7 +134,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterPages(a, posts, comments, interactions, settings); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterInteractions(a, comments, interactions, emailAuth, settings, siteURLOf(settings)); err != nil {
+	if err := interfaces.RegisterInteractions(a, comments, interactions, emailAuth, users, settings, siteURLOf(settings)); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterSearch(a, posts); err != nil {
@@ -152,7 +152,7 @@ func Register(a *hybrid.App) error {
 	// 订阅通知器：新文章发布 → 异步邮件通知全部订阅者（goroutine 内发信，不阻塞发布响应；
 	// siteURL 每次通知现取——设置页改站点地址即时生效；SMTP 未配置时 mailer 降级日志输出）
 	newPostNotify := interfaces.NewPostNotifier(subscribe.Subscribers, mail, func() string { return siteURLOf(settings) })
-	if err := interfaces.RegisterAPIs(a, posts, newPostNotify); err != nil {
+	if err := interfaces.RegisterAPIs(a, posts, newPostNotify, authorNameFn); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterSettings(a, settings, users); err != nil {
@@ -168,7 +168,7 @@ func Register(a *hybrid.App) error {
 	if err := interfaces.RegisterMeEmail(a, users); err != nil {
 		return err
 	}
-	if err := interfaces.RegisterMomentComments(a, comments, emailAuth, settings, siteURLOf(settings)); err != nil {
+	if err := interfaces.RegisterMomentComments(a, comments, emailAuth, users, settings, siteURLOf(settings)); err != nil {
 		return err
 	}
 	if err := interfaces.RegisterMomentLikes(a, interactions); err != nil {
