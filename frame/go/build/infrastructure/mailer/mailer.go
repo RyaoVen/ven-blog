@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/smtp"
+	"os"
 	"strings"
 	"time"
 )
@@ -60,7 +61,13 @@ func (m *SMTPMailer) sendAny(to, subject, body, contentType string) error {
 		return fmt.Errorf("mail: resolve config: %w", err)
 	}
 	if !cfg.Configured() {
-		log.Printf("mail: smtp not configured, would send %s to %s: [%s]\n%s", contentType, to, subject, body)
+		// 降级默认只打摘要：正文含验证码等敏感内容，不写日志；
+		// 开发/联调需要看正文时显式开启 BLOG_MAIL_DEBUG_BODY=1。
+		if os.Getenv("BLOG_MAIL_DEBUG_BODY") == "" {
+			log.Printf("mail: smtp not configured, would send %s to %s: [%s] (body %d bytes, set BLOG_MAIL_DEBUG_BODY=1 to print)", contentType, to, subject, len(body))
+		} else {
+			log.Printf("mail: smtp not configured, would send %s to %s: [%s]\n%s", contentType, to, subject, body)
+		}
 		return nil
 	}
 	return m.send(cfg, to, subject, body, contentType)
