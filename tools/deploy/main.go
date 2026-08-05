@@ -262,6 +262,17 @@ func configWizard(envPath string) error {
 	f.Set(core.EnvToken, token)
 
 	f.AddBlank()
+	f.AddComment("# 可选：敏感配置加密密钥（32 字节 hex = 64 个十六进制字符；配置后 smtp_pass/llm_api_key 存库加密）")
+	// 回车自动生成；留空跳过（明文存储兼容现有部署，网关启动会打警告）
+	secretKey := prompt("BLOG_SECRET_KEY（回车自动生成强随机密钥，或留空跳过）")
+	if secretKey == "" {
+		fmt.Println("  未配置 BLOG_SECRET_KEY——smtp_pass/llm_api_key 将明文存储（建议配置）")
+	} else {
+		f.Set("BLOG_SECRET_KEY", secretKey)
+		fmt.Printf("  BLOG_SECRET_KEY 已设置（%d 字符十六进制）\n", len(secretKey))
+	}
+
+	f.AddBlank()
 	f.AddComment("# 可选：站点 URL / AI 审核 worker（BLOG_LLM_API_KEY 未配置则不启动）")
 	if v := prompt("BLOG_SITE_URL"); v != "" {
 		f.Set("BLOG_SITE_URL", v)
