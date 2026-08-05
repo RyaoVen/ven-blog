@@ -116,10 +116,18 @@ func (f *fakeCommentRepo) ListUnreviewedPending() ([]*comment.Comment, error) {
 	}
 	return out, nil
 }
-func (f *fakeCommentRepo) MarkAIReviewed(id int64) error {
-	// 与真仓储一致：仅 pending 行打标，幂等，不存在也不报错。
-	if c, ok := f.byID[id]; ok && c.Status == comment.StatusPending {
+func (f *fakeCommentRepo) ClaimAIReview(id int64) (bool, error) {
+	// 与真仓储一致：仅 pending 且未审行抢占（返回是否抢到），幂等。
+	if c, ok := f.byID[id]; ok && c.Status == comment.StatusPending && !f.reviewed[id] {
 		f.reviewed[id] = true
+		return true, nil
+	}
+	return false, nil
+}
+func (f *fakeCommentRepo) UnclaimAIReview(id int64) error {
+	// 与真仓储一致：仅 pending 行回滚抢占（清回未审），幂等。
+	if c, ok := f.byID[id]; ok && c.Status == comment.StatusPending {
+		f.reviewed[id] = false
 	}
 	return nil
 }
@@ -203,10 +211,18 @@ func (f *fakeGuestbookRepo) ListUnreviewedPending() ([]*guestbook.Entry, error) 
 	}
 	return out, nil
 }
-func (f *fakeGuestbookRepo) MarkAIReviewed(id int64) error {
-	// 与真仓储一致：仅 pending 行打标，幂等，不存在也不报错。
-	if e, ok := f.byID[id]; ok && e.Status == guestbook.StatusPending {
+func (f *fakeGuestbookRepo) ClaimAIReview(id int64) (bool, error) {
+	// 与真仓储一致：仅 pending 且未审行抢占（返回是否抢到），幂等。
+	if e, ok := f.byID[id]; ok && e.Status == guestbook.StatusPending && !f.reviewed[id] {
 		f.reviewed[id] = true
+		return true, nil
+	}
+	return false, nil
+}
+func (f *fakeGuestbookRepo) UnclaimAIReview(id int64) error {
+	// 与真仓储一致：仅 pending 行回滚抢占（清回未审），幂等。
+	if e, ok := f.byID[id]; ok && e.Status == guestbook.StatusPending {
+		f.reviewed[id] = false
 	}
 	return nil
 }

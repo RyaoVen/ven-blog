@@ -501,7 +501,7 @@ func (r *fakeMomentRepo) Count() (int, error) {
 func (r *fakeMomentRepo) DailyCounts(days int) (map[string]int, error) { return nil, nil }
 
 // fakeCommentRepo 实现 comment.Repository。
-// reviewed 模拟 ai_reviewed_at：MarkAIReviewed 打标，ListUnreviewedPending 排除已打标。
+// reviewed 模拟 ai_reviewed_at（claim 抢占/回滚），ListUnreviewedPending 排除已打标。
 type fakeCommentRepo struct {
 	mu       sync.Mutex
 	next     int64
@@ -589,12 +589,23 @@ func (r *fakeCommentRepo) ListUnreviewedPending() ([]*comment.Comment, error) {
 	return out, nil
 }
 
-func (r *fakeCommentRepo) MarkAIReviewed(id int64) error {
+func (r *fakeCommentRepo) ClaimAIReview(id int64) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	// 与真仓储一致：仅 pending 行打标，幂等，不存在也不报错。
-	if c, ok := r.comments[id]; ok && c.Status == comment.StatusPending {
+	// 与真仓储一致：仅 pending 且未审行抢占（返回是否抢到），幂等。
+	if c, ok := r.comments[id]; ok && c.Status == comment.StatusPending && !r.reviewed[id] {
 		r.reviewed[id] = true
+		return true, nil
+	}
+	return false, nil
+}
+
+func (r *fakeCommentRepo) UnclaimAIReview(id int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	// 与真仓储一致：仅 pending 行回滚抢占（清回未审），幂等。
+	if c, ok := r.comments[id]; ok && c.Status == comment.StatusPending {
+		r.reviewed[id] = false
 	}
 	return nil
 }
