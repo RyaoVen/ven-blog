@@ -23,16 +23,16 @@ import (
 
 // Server 是 HTTP 服务器核心结构体。
 type Server struct {
-	app       *fiber.App              // Fiber 应用实例
-	config    config.Config           // 应用配置
-	ssr       ssr.Client              // SSR 渲染客户端
-	pending   *ssr.PendingRegistry    // pending 任务注册中心
-	hookIDs   ssr.HookIDGenerator     // HookID 生成器
-	auth      *auth.Registry          // 权限等级注册表
-	sessions  *auth.SessionStore      // 会话存储（token → role）
-	pageCache *pagecache.Store        // 页面渲染结果缓存
-	isrStore  *isr.Store              // ISR 文件层
-	breaker   *circuitbreaker.Breaker // Node 熔断器（连续失败快速失败 + 半开探测）
+	app       *fiber.App           // Fiber 应用实例
+	config    config.Config        // 应用配置
+	ssr       ssr.Client           // SSR 渲染客户端
+	pending   *ssr.PendingRegistry // pending 任务注册中心
+	hookIDs   ssr.HookIDGenerator  // HookID 生成器
+	auth      *auth.Registry           // 权限等级注册表
+	sessions  *auth.SessionStore       // 会话存储（token → role）
+	pageCache *pagecache.Store         // 页面渲染结果缓存
+	isrStore  *isr.Store               // ISR 文件层
+	breaker   *circuitbreaker.Breaker  // Node 熔断器（连续失败快速失败 + 半开探测）
 
 	eventTransport event.Transport // 事件跨实例传输（nil = 单实例；Redis 配置后由 hybrid 挂到事件总线）
 
@@ -128,7 +128,7 @@ func New(
 		staticDecls:    make(map[string]*isr.Declaration),
 	}
 	// 访问统计埋点：最外层 Use，先于 ISR 物化直发与业务路由（ISR 直发也计数）。
-	// 回调此时尚未注入（启动期由 build.Register 经 SetVisitRecorder 注入），请求期判 nil 即可。
+	// 回调此时尚未注入（启动期由 hybrid.App.SetVisitRecorder 注入），请求期判 nil 即可。
 	app.Use(s.visitTracking())
 	// 启动重载 ISR：变更事件不做持久化，停机期间漏收的失效无补偿通道，
 	// 重启不沿用上次运行的物化产物（清空后懒回源重新物化）

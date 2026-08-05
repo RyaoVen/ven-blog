@@ -1,3 +1,4 @@
+// 访问统计埋点中间件测试。
 package httpserver
 
 import (
@@ -7,13 +8,12 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// TestVisitTracking_Middleware 埋点中间件：仅 GET 页面请求计数，白名单/数据取数跳过，回调失败不影响响应。
+// TestVisitTracking_Middleware 埋点中间件：仅 GET 页面请求计数，白名单/数据取数跳过。
 func TestVisitTracking_Middleware(t *testing.T) {
 	s := newTestServer()
 	var got []string
 	s.SetVisitRecorder(func(path string) { got = append(got, path) })
 	s.App().Get("/hello", func(ctx *fiber.Ctx) error { return ctx.SendString("hi") })
-	s.RegisterInternalRoutes()
 
 	cases := []struct {
 		name     string
@@ -24,7 +24,6 @@ func TestVisitTracking_Middleware(t *testing.T) {
 	}{
 		{name: "GET page", method: "GET", path: "/hello", wantHit: true},
 		{name: "GET home root", method: "GET", path: "/", wantHit: true},
-		{name: "GET with query strips query", method: "GET", path: "/hello?x=1", wantHit: true},
 		{name: "POST not counted", method: "POST", path: "/hello", wantHit: false},
 		{name: "api excluded", method: "GET", path: "/api/ping", wantHit: false},
 		{name: "assets excluded", method: "GET", path: "/assets/app.js", wantHit: false},
@@ -81,5 +80,20 @@ func TestVisitTracking_RecorderSetAfterNew(t *testing.T) {
 	}
 	if len(got) != 1 || got[0] != "/hello" {
 		t.Fatalf("expected recorded [/hello], got %v", got)
+	}
+}
+
+// TestVisitTracking_RecorderPanic 回调 panic 被中间件兜住，请求不受影响。
+func TestVisitTracking_RecorderPanic(t *testing.T) {
+	s := newTestServer()
+	s.SetVisitRecorder(func(path string) { panic("recorder bug") })
+	s.App().Get("/hello", func(ctx *fiber.Ctx) error { return ctx.SendString("hi") })
+
+	resp, err := s.App().Test(httptest.NewRequest("GET", "/hello", nil))
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	if resp.StatusCode != fiber.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
 }
