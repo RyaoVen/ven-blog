@@ -99,9 +99,9 @@ func Register(a *hybrid.App) error {
 	apiKeys := apikeyapp.NewService(apiKeyRepo)
 	visits := visitapp.NewService(visitRepo)
 
-	// 埋点 ① Go 网关中间件：最外层 Use（ISR 直发也计数），失败静默——回调吞错，
+	// 埋点 ① Go 网关中间件：最外层 Use（ISR 直发也计数），panic 由框架兜底——
 	// 页面响应不受埋点影响；SPA data-only 取数已在中间件层跳过，由前端导航上报兜底。
-	a.Server().SetVisitRecorder(func(path string) {
+	a.SetVisitRecorder(func(path string) {
 		_ = visits.Record(time.Now(), path)
 	})
 
