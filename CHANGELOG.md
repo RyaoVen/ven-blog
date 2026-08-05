@@ -98,7 +98,7 @@
 - Go(Fiber) 网关 + Node SSR worker 混合渲染：首屏 SSR 直出、SPA 接管、ISR 静态页物化直发
 - 事件总线：数据变更 debounce 合批（5s 静默窗口/30s 强制）、先删后渲、页面级代际防覆盖、map 去重
 - 页面缓存（1min TTL、防击穿）+ 鉴权守卫（角色继承、会话 cookie、登录重定向）
-- 集群：Redis 会话/缓存后端即跨实例共享（docs/cluster.md）
+- 集群：Redis 会话/缓存后端即跨实例共享
 
 ### 博客业务（ven-blog）
 

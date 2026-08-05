@@ -1,6 +1,6 @@
 # tools/deploy — ven-blog 跨平台部署工具
 
-独立 Go module（`ven_hybird/tools/deploy`，不依赖主模块），单二进制跨平台编译。
+独立 Go module（`ven-blog/tools/deploy`，不依赖主模块），单二进制跨平台编译。
 bubbletea TUI 为主、子命令为辅：环境检测 → 配置 → 构建 → 进程管理（Windows/Linux）。
 
 ## 用法
