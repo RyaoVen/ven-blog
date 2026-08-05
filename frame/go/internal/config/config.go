@@ -15,7 +15,7 @@ type Config struct {
 	NodeSubmitTimeout    time.Duration // 任务提交超时，环境变量: VEN_NODE_SUBMIT_TIMEOUT
 	RenderTimeout        time.Duration // 渲染总超时，环境变量: VEN_RENDER_TIMEOUT
 	InternalToken        string        // 内部认证令牌，环境变量: VEN_INTERNAL_TOKEN
-	MaxPendingRenders    int           // 最大并发 pending 数，环境变量: VEN_MAX_PENDING_RENDERS
+	MaxPendingRenders    int           // 最大并发 pending 数（背压阈值，默认对齐 Node maxConcurrentRenders），环境变量: VEN_MAX_PENDING_RENDERS
 	AssetsDir            string        // 静态资源目录，环境变量: VEN_ASSETS_DIR
 	IsrDir               string        // ISR 物化文件目录，环境变量: VEN_ISR_DIR
 	IsrEnabled           bool          // 是否启用 ISR（dev 置 false），环境变量: VEN_ISR_ENABLED
@@ -28,9 +28,12 @@ type Config struct {
 	EventQuietWindow     time.Duration // 事件总线 debounce 静默窗口，环境变量: VEN_EVENT_QUIET_WINDOW
 	EventMaxWait         time.Duration // 事件总线持续变更最大等待（强制 flush），环境变量: VEN_EVENT_MAX_WAIT
 	PatternsFile         string        // Node 页面模式持久化文件（Node 不可达时回退启动），环境变量: VEN_PATTERNS_FILE
+	PatternRefresh       time.Duration // Node 页面模式主动刷新间隔（0 = 关闭；Node 路由表变化后自动感知），环境变量: VEN_PATTERN_REFRESH
 	PageCacheStaleWindow time.Duration // 过期缓存保留窗口（stale-while-revalidate；0 = 关闭），环境变量: VEN_PAGE_CACHE_STALE_WINDOW
 	NodeCircuitThreshold int           // Node 熔断连续失败阈值，环境变量: VEN_NODE_CIRCUIT_THRESHOLD
 	NodeCircuitHalfOpen  time.Duration // Node 熔断半开探测间隔，环境变量: VEN_NODE_CIRCUIT_HALF_OPEN
+	EventMaxPending      int           // 事件总线待处理批次容量上限（防内存无界增长；超出丢弃新事件，允许丢），环境变量: VEN_EVENT_MAX_PENDING
+	SSEMaxConns          int           // SSE 实时推送最大连接数（超出拒绝新订阅，预关闭连接），环境变量: VEN_SSE_MAX_CONNS
 }
 
 // Load 从环境变量加载配置并校验合法性。
@@ -41,7 +44,7 @@ func Load() (Config, error) {
 		NodeSubmitTimeout:    duration("VEN_NODE_SUBMIT_TIMEOUT", 5*time.Second),
 		RenderTimeout:        duration("VEN_RENDER_TIMEOUT", 20*time.Second),
 		InternalToken:        internalToken(),
-		MaxPendingRenders:    integer("VEN_MAX_PENDING_RENDERS", 100),
+		MaxPendingRenders:    integer("VEN_MAX_PENDING_RENDERS", 4),
 		AssetsDir:            getenv("VEN_ASSETS_DIR", "../node/build"),
 		IsrDir:               getenv("VEN_ISR_DIR", "./isr-pages"),
 		IsrEnabled:           boolean("VEN_ISR_ENABLED", true),
@@ -54,9 +57,12 @@ func Load() (Config, error) {
 		EventQuietWindow:     duration("VEN_EVENT_QUIET_WINDOW", 5*time.Second),
 		EventMaxWait:         duration("VEN_EVENT_MAX_WAIT", 30*time.Second),
 		PatternsFile:         getenv("VEN_PATTERNS_FILE", "./node-patterns.json"),
+		PatternRefresh:       duration("VEN_PATTERN_REFRESH", 30*time.Second),
 		PageCacheStaleWindow: duration("VEN_PAGE_CACHE_STALE_WINDOW", 5*time.Minute),
 		NodeCircuitThreshold: integer("VEN_NODE_CIRCUIT_THRESHOLD", 5),
 		NodeCircuitHalfOpen:  duration("VEN_NODE_CIRCUIT_HALF_OPEN", 10*time.Second),
+		EventMaxPending:      integer("VEN_EVENT_MAX_PENDING", 1024),
+		SSEMaxConns:          integer("VEN_SSE_MAX_CONNS", 1000),
 	}
 
 	// 内部令牌是内部通道（渲染回调/页面模式拉取）的唯一凭据，安全关键：
@@ -102,6 +108,13 @@ func Load() (Config, error) {
 	// stale 保留窗口不能为负（0 = 关闭 stale 兜底，合法）
 	if config.PageCacheStaleWindow < 0 {
 		return Config{}, fmt.Errorf("VEN_PAGE_CACHE_STALE_WINDOW must not be negative")
+	}
+	// 内存上限必须为正：无上限 = 无界增长（bus pending / SSE 连接表正是本次治理对象）
+	if config.EventMaxPending < 1 {
+		return Config{}, fmt.Errorf("VEN_EVENT_MAX_PENDING must be greater than zero")
+	}
+	if config.SSEMaxConns < 1 {
+		return Config{}, fmt.Errorf("VEN_SSE_MAX_CONNS must be greater than zero")
 	}
 
 	return config, nil
