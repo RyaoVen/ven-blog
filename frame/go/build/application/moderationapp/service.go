@@ -60,8 +60,10 @@ type Item struct {
 }
 
 // AutoReview 拉取两类 AI 未判待审内容（各上限 limit）并逐条判定：
-//   approve → 调用宿主 Service 的 Approve；reject → 调用 Reject(id, reason)；
-//   pending → 打"AI 已判"标记交人工（不再重复提交 LLM）；Review 返回 error → 重试 1 次，仍失败保持 pending（记 failed，下轮重判）。
+//   claim 抢占成功 → approve → 调用宿主 Service 的 Approve；reject → 调用 Reject(id, reason)；
+//   pending → 抢占已打标，交人工（不再重复提交 LLM）；Review 返回 error → 重试 1 次，
+//   仍失败回滚抢占（保持 pending，下轮重判）；写库失败同样回滚。
+//   claim 失败（已被他实例抢占/已审）→ 跳过不计数（该条由抢占者处理）。
 // 逐条串行（成本可控、顺序确定）；ctx 透传给 Moderator（ticker 场景传 Background 派生）。
 // 任一宿主查询出错 → 返回部分结果与 error（本轮整体失败由接口层记录日志；已处理的保持已处理状态）。
 func (s *Service) AutoReview(ctx context.Context, limit int) (*Result, error) {
@@ -84,6 +86,10 @@ func (s *Service) AutoReview(ctx context.Context, limit int) (*Result, error) {
 		entries = entries[:limit]
 	}
 	for _, c := range comments {
+		claimed, err := s.comments.ClaimAIReview(c.ID)
+		if err != nil || !claimed {
+			continue // 抢占失败：他实例在处理或已审，本轮跳过（不计数）
+		}
 		hostTitle := hostTitleOfComment(c)
 		s.process(ctx, result, Item{
 			Kind:      KindComment,
@@ -105,9 +111,13 @@ func (s *Service) AutoReview(ctx context.Context, limit int) (*Result, error) {
 			}
 			_, err := s.comments.Reject(item.ID, clipReason(verdict.Reason))
 			return err
-		}, s.comments.MarkAIReviewed)
+		}, s.comments.UnclaimAIReview)
 	}
 	for _, e := range entries {
+		claimed, err := s.guestbook.ClaimAIReview(e.ID)
+		if err != nil || !claimed {
+			continue // 抢占失败：他实例在处理或已审，本轮跳过（不计数）
+		}
 		s.process(ctx, result, Item{
 			Kind:      KindGuestbook,
 			ID:        e.ID,
@@ -123,7 +133,7 @@ func (s *Service) AutoReview(ctx context.Context, limit int) (*Result, error) {
 				return s.guestbook.Approve(item.ID)
 			}
 			return s.guestbook.Reject(item.ID, clipReason(verdict.Reason))
-		}, s.guestbook.MarkAIReviewed)
+		}, s.guestbook.UnclaimAIReview)
 	}
 	return result, nil
 }
@@ -146,14 +156,20 @@ func hostTitleOfComment(c *comment.Comment) string {
 	return "评论"
 }
 
-// process 判定单条并落结果：
-//   approve → 宿主 Approve（写库失败记 failed，保持 pending）；reject → 宿主 Reject（reason 截断到领域上限）；
-//   pending → 打"AI 已判"标记（markReviewed 失败记 failed，下轮重试）；Review 两次都失败 → 保持 pending 记 failed。
+// process 判定单条并落结果（调用前已完成 claim 抢占）：
+//   approve → 宿主 Approve（写库失败回滚抢占，保持 pending 下轮重试）；reject → 宿主 Reject（reason 截断到领域上限）；
+//   pending → 抢占已打标（ai_reviewed_at 非空），交人工复核；Review 两次都失败 → 回滚抢占（保持 pending）记 failed。
 func (s *Service) process(ctx context.Context, result *Result, item Item, req moderation.Request,
-	write func(Item, moderation.Verdict) error, markReviewed func(int64) error) {
+	write func(Item, moderation.Verdict) error, unclaim func(int64) error) {
 	result.Processed++
 	verdict, err := s.reviewWithRetry(ctx, req)
 	if err != nil {
+		// LLM 两次失败：回滚抢占标记，保持"下轮重审"（回滚失败则条目不再进队列，记 failed 上报）
+		if uerr := unclaim(item.ID); uerr != nil {
+			result.Failed++
+			result.FailedItems = append(result.FailedItems, item)
+			return
+		}
 		result.Failed++
 		result.FailedItems = append(result.FailedItems, item)
 		return
@@ -161,7 +177,12 @@ func (s *Service) process(ctx context.Context, result *Result, item Item, req mo
 	switch verdict.Action {
 	case moderation.ActionApprove, moderation.ActionReject:
 		if err := write(item, verdict); err != nil {
-			// 写库失败：保持 pending（不落库），下轮自动重试——绝不让失败路径放行或误杀
+			// 写库失败：回滚抢占（保持 pending 下轮重试）——绝不让失败路径放行或误杀
+			if uerr := unclaim(item.ID); uerr != nil {
+				result.Failed++
+				result.FailedItems = append(result.FailedItems, item)
+				return
+			}
 			result.Failed++
 			result.FailedItems = append(result.FailedItems, item)
 			return
@@ -175,12 +196,7 @@ func (s *Service) process(ctx context.Context, result *Result, item Item, req mo
 		item.Reason = clipReason(verdict.Reason)
 		result.Rejected++
 		result.RejectedItems = append(result.RejectedItems, item)
-	default: // pending：打标后交人工复核，不再重复提交 LLM（打标失败记 failed 下轮重判）
-		if err := markReviewed(item.ID); err != nil {
-			result.Failed++
-			result.FailedItems = append(result.FailedItems, item)
-			return
-		}
+	default: // pending：抢占已打标（ai_reviewed_at 非空），交人工复核，不再重复提交 LLM
 		result.Uncertain++
 		result.UncertainItems = append(result.UncertainItems, item)
 	}

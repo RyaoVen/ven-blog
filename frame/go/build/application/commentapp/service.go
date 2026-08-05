@@ -84,9 +84,14 @@ func (s *Service) ListUnreviewedPending() ([]*comment.Comment, error) {
 	return s.repo.ListUnreviewedPending()
 }
 
-// MarkAIReviewed 给待审评论打"AI 已判"标记（uncertain 交人工后不再重复提交 LLM）。
-func (s *Service) MarkAIReviewed(id int64) error {
-	return s.repo.MarkAIReviewed(id)
+// ClaimAIReview 原子抢占 AI 审核权（false = 已被他实例抢占或已审，跳过）。
+func (s *Service) ClaimAIReview(id int64) (bool, error) {
+	return s.repo.ClaimAIReview(id)
+}
+
+// UnclaimAIReview 回滚抢占（LLM 判定/写库失败后释放，保持"失败下轮重审"）。
+func (s *Service) UnclaimAIReview(id int64) error {
+	return s.repo.UnclaimAIReview(id)
 }
 
 // ListRejected 被驳回评论（后台管理用）。
