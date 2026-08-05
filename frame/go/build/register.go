@@ -5,6 +5,7 @@ package build
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 	"ven_hybird/build/application/subscribeapp"
 	"ven_hybird/build/application/userapp"
 	"ven_hybird/build/application/visitapp"
+	"ven_hybird/build/infrastructure/cipher"
 	"ven_hybird/build/infrastructure/llm"
 	"ven_hybird/build/infrastructure/mailer"
 	"ven_hybird/build/infrastructure/persistence"
@@ -51,7 +53,14 @@ func Register(a *hybrid.App) error {
 	imageRepo := persistence.NewImageRepository(db)
 	subscriberRepo := persistence.NewSubscriberRepository(db)
 	guestbookRepo := persistence.NewGuestbookRepository(db)
-	settingsRepo := persistence.NewSettingsRepository(db)
+	// 敏感设置加密（smtp_pass/llm_api_key 存库前 AES-GCM；密钥未配置回退明文并警告——
+	// 渐进式安全：不破坏现有部署，部署向导会生成 BLOG_SECRET_KEY）
+	enc, encErr := cipher.New()
+	if encErr != nil {
+		log.Printf("build: BLOG_SECRET_KEY 未配置——smtp_pass/llm_api_key 将明文存储（建议配置 32 字节 hex 密钥）")
+		enc = nil
+	}
+	settingsRepo := persistence.NewSettingsRepository(db, enc)
 	emailCodeRepo := persistence.NewEmailCodeRepository(db)
 	apiKeyRepo := persistence.NewApiKeyRepository(db)
 	visitRepo := persistence.NewVisitRepository(db)
