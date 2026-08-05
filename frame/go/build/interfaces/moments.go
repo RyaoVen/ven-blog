@@ -54,7 +54,7 @@ type momentInput struct {
 // settings 提供评论总开关（comments_enabled）：关闭时评论数一律为 0。
 func RegisterMoments(a *hybrid.App, moments *momentapp.Service, comments *commentapp.Service, inter *interactionapp.Service, settings *settingsapp.Service) error {
 	// 动态时间线（ISR，全站仅一页）
-	if err := a.StaticPage("/moments", 1, true, func(c *hybrid.PageCtx) error {
+	if err := a.StaticPage("/moments", 1, true, nil, func(c *hybrid.PageCtx) error {
 		list, err := moments.List()
 		if err != nil {
 			return err
