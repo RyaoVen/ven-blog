@@ -66,7 +66,7 @@ var loginRoles = []string{"reader", "author"}
 // 详情页是 ISR 共享物化——viewer 个性化状态一律走本文件的 JSON 接口，不进页面 initialState。
 // emailAuthSvc 用于评论 @ 时的邮件通知（异步不阻塞）；siteURL 拼接原文链接。
 // settings 提供评论总开关（comments_enabled）：关闭时发表评论一律 403，后台管理不受影响。
-func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *interactionapp.Service, emailAuthSvc *emailauth.Service, settings *settingsapp.Service, siteURL string) error {
+func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *interactionapp.Service, emailAuthSvc *emailauth.Service, users *userapp.Service, settings *settingsapp.Service, siteURL string) error {
 	// viewer 互动状态（登录用户挂载后查询）
 	if err := a.Get("/posts/:id/interactions", loginRoles, func(c *hybrid.ApiCtx) error {
 		userID, err := currentUserID(c)
@@ -149,6 +149,7 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 			return c.Error(500, "internal error")
 		}
 		declarePostsChanged(a, postID)
+		invalidateUserPage(a, users, cm.UserID)
 		emailAuthSvc.NotifyMentioned(in.ReplyTo, "/posts/"+strconv.FormatInt(postID, 10), excerptOf(in.Content), siteURL)
 		return c.JSON(201, toCommentView(cm))
 	}); err != nil {
@@ -227,7 +228,10 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 		if err != nil {
 			return c.Error(401, "unauthenticated")
 		}
-		target, err := comments.Delete(uid, role, mustID(c.Param("id")))
+		cid := mustID(c.Param("id"))
+		// 删除前取评论者（用户页评论数 -1 的失效需要；查不到静默跳过）
+		cm, _ := comments.Get(cid)
+		target, err := comments.Delete(uid, role, cid)
 		switch {
 		case errors.Is(err, comment.ErrNotFound):
 			return c.Error(404, "comment not found")
@@ -240,6 +244,9 @@ func RegisterInteractions(a *hybrid.App, comments *commentapp.Service, inter *in
 			_ = a.DataChange("/moments")
 		} else {
 			declarePostsChanged(a, target.PostID)
+		}
+		if cm != nil {
+			invalidateUserPage(a, users, cm.UserID)
 		}
 		return c.JSON(200, map[string]any{"ok": true})
 	})
@@ -285,7 +292,7 @@ func RegisterMomentLikes(a *hybrid.App, inter *interactionapp.Service) error {
 // RegisterMomentComments 注册动态评论 API（列表公开，发表需登录）。
 // emailAuthSvc 用于评论 @ 时的邮件通知（异步不阻塞）；siteURL 拼接原文链接（动态以 /moments 落地）。
 // settings 提供评论总开关（comments_enabled）：关闭时列表返回空、发表一律 403。
-func RegisterMomentComments(a *hybrid.App, comments *commentapp.Service, emailAuthSvc *emailauth.Service, settings *settingsapp.Service, siteURL string) error {
+func RegisterMomentComments(a *hybrid.App, comments *commentapp.Service, emailAuthSvc *emailauth.Service, users *userapp.Service, settings *settingsapp.Service, siteURL string) error {
 	// 动态评论列表（公开；评论总开关关闭时返回空列表，前端不再渲染评论区）
 	if err := a.Get("/moments/:id/comments", nil, func(c *hybrid.ApiCtx) error {
 		enabled, err := settings.CommentsEnabled()
@@ -331,9 +338,20 @@ func RegisterMomentComments(a *hybrid.App, comments *commentapp.Service, emailAu
 			return c.Error(500, "internal error")
 		}
 		_ = a.DataChange("/moments")
+		invalidateUserPage(a, users, cm.UserID)
 		emailAuthSvc.NotifyMentioned(in.ReplyTo, "/moments", excerptOf(in.Content), siteURL)
 		return c.JSON(201, toCommentView(cm))
 	})
+}
+
+// invalidateUserPage 失效用户个人页（/users/:name 是动态页，只能具体路径失效）。
+// 评论/发文改变用户页统计（文章数/评论数）；查询失败静默（不影响请求）。
+func invalidateUserPage(a *hybrid.App, users *userapp.Service, userID int64) {
+	u, err := users.FindByID(userID)
+	if err != nil || u.Username == "" {
+		return
+	}
+	a.InvalidatePage("/users/" + u.Username)
 }
 
 // excerptOf 评论内容截断 80 字符（邮件通知引用用）。
