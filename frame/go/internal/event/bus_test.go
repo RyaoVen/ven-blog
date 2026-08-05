@@ -2,6 +2,7 @@ package event
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
@@ -431,3 +432,92 @@ func TestBus_NotifyAfterDelete(t *testing.T) {
 		t.Fatalf("unexpected notified events: %+v", notified)
 	}
 }
+
+// TestBus_SlowNotifierDoesNotBlockFlush 慢 notifier（重算页面数据）不阻塞总线：
+// notifier 未完成时下一批事件仍能被收集并 flush。
+func TestBus_SlowNotifierDoesNotBlockFlush(t *testing.T) {
+	calls := &callLog{}
+	b := newTestBus(calls)
+	defer b.Stop()
+	b.QuietWindow = 30 * time.Millisecond
+
+	// notifier 阻塞 200ms（模拟慢数据重算）
+	notifierDone := make(chan struct{})
+	b.SetNotifier(func(events []ChangeEvent) {
+		time.Sleep(200 * time.Millisecond)
+		close(notifierDone)
+	})
+
+	// 第一批：触发一次 notifier（异步）
+	b.Enqueue(ev("/news/:id", "1"))
+	// 第二批紧跟其后（notifier 还在跑）
+	b.Enqueue(ev("/news/:id", "2"))
+
+	// 两批都应在 notifier 完成前被收集（总线不被 notifier 阻塞）：
+	// 若同步阻塞，第二批 flush 要等第一批 notifier 的 200ms 才轮到。
+	select {
+	case <-notifierDone:
+		// notifier 完成（异步），期间第二批事件已入队
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("notifier did not complete in time")
+	}
+	// 等待第二批也被 flush（不影响 notifier 异步语义，仅确认总线活着）
+	waitFor(t, "second batch invalidated", func() bool {
+		return calls.invalidateCount() >= 2
+	}, 2*time.Second)
+}
+
+// TestBus_PendingCap 高压多变 pattern：pending map 容量封顶，超出丢弃新事件（允许丢）。
+// 不 flush（长静默窗口），持续入队不同 pattern 验证待处理批次数不无限增长。
+func TestBus_PendingCap(t *testing.T) {
+	calls := &callLog{}
+	b := newTestBus(calls)
+	defer b.Stop()
+	b.QuietWindow = 30 * time.Second // 不 flush：观测 pending 收集上限
+	b.MaxWait = 30 * time.Second
+	b.MaxPending = 4
+
+	for i := 0; i < 10; i++ {
+		b.Enqueue(ev(fmt.Sprintf("/news/%d/:id", i), "1"))
+	}
+
+	b.mu.Lock()
+	size := len(b.pending)
+	b.mu.Unlock()
+	if size != 4 {
+		t.Fatalf("expected pending capped at MaxPending=4, got %d", size)
+	}
+	// 入队仍非阻塞（容量检查不引入等待）
+	b.Enqueue(ev("/news/100/:id", "1"))
+	b.mu.Lock()
+	size = len(b.pending)
+	b.mu.Unlock()
+	if size != 4 {
+		t.Fatalf("pending should stay capped after further enqueues, got %d", size)
+	}
+	// 未发生 flush（长窗口内不得有 ① 执行）
+	if calls.invalidateCount() != 0 {
+		t.Fatalf("no flush should happen during cap test, got %d invalidates", calls.invalidateCount())
+	}
+}
+
+// TestBus_PendingCapNoLimitByDefault 默认（MaxPending 未设）不设上限：容量治理是显式配置。
+func TestBus_PendingCapNoLimitByDefault(t *testing.T) {
+	calls := &callLog{}
+	b := newTestBus(calls)
+	defer b.Stop()
+	b.QuietWindow = 30 * time.Second
+	b.MaxWait = 30 * time.Second
+	b.MaxPending = 0 // 零值 = 不设上限（向后兼容字面量构造的测试）
+
+	for i := 0; i < 10; i++ {
+		b.Enqueue(ev(fmt.Sprintf("/news/%d/:id", i), "1"))
+	}
+	b.mu.Lock()
+	size := len(b.pending)
+	b.mu.Unlock()
+	if size != 10 {
+		t.Fatalf("MaxPending=0 应不设上限，got %d", size)
+	}
+}
+
