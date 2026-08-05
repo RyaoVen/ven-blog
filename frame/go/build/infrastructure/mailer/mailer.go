@@ -73,6 +73,10 @@ func (m *SMTPMailer) sendAny(to, subject, body, contentType string) error {
 	return m.send(cfg, to, subject, body, contentType)
 }
 
+// smtpSessionTimeout 单次 SMTP 会话整体超时（dial 后设置连接 deadline）：
+// DATA/QUIT 等阶段 TCP 无内建超时，邮件服务器挂起会让发信 goroutine 永久占坑。
+const smtpSessionTimeout = 30 * time.Second
+
 // send 经 SMTP 发送（465 隐式 TLS；其余端口尝试 STARTTLS，不支持则明文）。
 func (m *SMTPMailer) send(cfg Config, to, subject, body, contentType string) error {
 	host := cfg.Host
@@ -88,16 +92,21 @@ func (m *SMTPMailer) send(cfg Config, to, subject, body, contentType string) err
 		if err != nil {
 			return fmt.Errorf("mail: tls dial %s: %w", addr, err)
 		}
+		_ = conn.SetDeadline(time.Now().Add(smtpSessionTimeout))
 		client, err = smtp.NewClient(conn, host)
 		if err != nil {
 			return fmt.Errorf("mail: smtp client: %w", err)
 		}
 	} else {
-		c, err := smtp.Dial(addr)
+		conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
 		if err != nil {
 			return fmt.Errorf("mail: dial %s: %w", addr, err)
 		}
-		client = c
+		_ = conn.SetDeadline(time.Now().Add(smtpSessionTimeout))
+		client, err = smtp.NewClient(conn, host)
+		if err != nil {
+			return fmt.Errorf("mail: smtp client: %w", err)
+		}
 		if ok, _ := client.Extension("STARTTLS"); ok {
 			if err := client.StartTLS(&tls.Config{ServerName: host}); err != nil {
 				return fmt.Errorf("mail: starttls: %w", err)

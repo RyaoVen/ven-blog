@@ -190,7 +190,7 @@ func TestNewPostNotifier(t *testing.T) {
 
 func TestNotifySubscribersAsync(t *testing.T) {
 	mail := &blockingMailer{release: make(chan struct{}), done: make(chan struct{})}
-	notifySubscribers(func() ([]string, error) { return []string{"a@example.com"}, nil },
+	notifySubscribers(make(chan struct{}, 4), func() ([]string, error) { return []string{"a@example.com"}, nil },
 		mail, "https://blog.example.com", &post.Post{ID: 1, Title: "T", Summary: "S"})
 	// 异步不阻塞：调用已返回；若为同步实现会卡在 SendHTML（等待 release）导致本测试挂起超时。
 	// 给 goroutine 时间进入发信，确认其未完成（仍阻塞在 release 上）。
@@ -216,11 +216,69 @@ func TestNotifySubscribersAsync(t *testing.T) {
 func TestNotifySubscribersPanicRecovered(t *testing.T) {
 	// 订阅者拉取 panic：goroutine 内 defer recover 兜底，进程不崩
 	// （若 recover 失效，panic 会崩掉整个测试二进制，go test 直接失败）。
-	notifySubscribers(func() ([]string, error) { panic("subscriber list boom") },
+	notifySubscribers(make(chan struct{}, 4), func() ([]string, error) { panic("subscriber list boom") },
 		&fakeMailer{}, "https://blog.example.com", &post.Post{ID: 1, Title: "T"})
 	// 单条发送 panic：同样被兜住，不发下一条、不崩进程。
-	notifySubscribers(func() ([]string, error) { return []string{"a@example.com", "b@example.com"}, nil },
+	notifySubscribers(make(chan struct{}, 4), func() ([]string, error) { return []string{"a@example.com", "b@example.com"}, nil },
 		panicMailer{}, "https://blog.example.com", &post.Post{ID: 1, Title: "T"})
 	time.Sleep(300 * time.Millisecond)
 	// 走到这里即证明两个 goroutine 的 panic 均已被 recover（否则测试进程已崩）。
+}
+
+// gaugeMailer 记录进行中发送的并发峰值（模拟慢 SMTP）。
+type gaugeMailer struct {
+	mu     sync.Mutex
+	active int
+	peak   int
+	total  int
+}
+
+func (m *gaugeMailer) SendHTML(to, subject, html string) error {
+	m.mu.Lock()
+	m.active++
+	if m.active > m.peak {
+		m.peak = m.active
+	}
+	m.total++
+	m.mu.Unlock()
+	time.Sleep(50 * time.Millisecond) // 模拟慢 SMTP
+	m.mu.Lock()
+	m.active--
+	m.mu.Unlock()
+	return nil
+}
+
+func (m *gaugeMailer) totalSends() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.total
+}
+
+func (m *gaugeMailer) peakConcurrent() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.peak
+}
+
+// TestNotifySubscribersConcurrencyLimit 信号量限制并发发信 goroutine：
+// 容量 1 的信号量 + 慢 mailer，同时触发 3 次通知，任意时刻进行中的发送 ≤ 1（排队不丢弃）。
+func TestNotifySubscribersConcurrencyLimit(t *testing.T) {
+	g := &gaugeMailer{}
+	sem := make(chan struct{}, 1)
+	for i := 0; i < 3; i++ {
+		notifySubscribers(sem, func() ([]string, error) { return []string{"a@example.com"}, nil },
+			g, "https://blog.example.com", &post.Post{ID: int64(i + 1), Title: "T", Summary: "S"})
+	}
+	deadline := time.After(5 * time.Second)
+	for g.totalSends() < 3 {
+		select {
+		case <-deadline:
+			t.Fatalf("notifications did not finish: sent=%d", g.totalSends())
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	if peak := g.peakConcurrent(); peak > 1 {
+		t.Fatalf("concurrent sends = %d, want ≤1 (semaphore limit)", peak)
+	}
 }

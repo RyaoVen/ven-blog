@@ -5,6 +5,7 @@ package interfaces
 
 import (
 	"log"
+	"os"
 	"strconv"
 
 	"ven_hybird/build/application/emailhtml"
@@ -19,21 +20,39 @@ type Mailer interface {
 // PostNotifier 新文章发布通知回调（组装根注入 RegisterAPIs，创建成功后触发）。
 type PostNotifier func(p *post.Post)
 
+// 发信并发上限（BLOG_MAIL_CONCURRENCY 可配）：信号量防 goroutine 风暴——
+// 连续发文/MCP 批量发文时并发发信 goroutine 无上限堆积（SMTP 慢 + 订阅者多时放大）。
+const defaultMailConcurrency = 4
+
+// mailConcurrency 发信并发上限（BLOG_MAIL_CONCURRENCY；≤0 或解析失败回退默认 4）。
+func mailConcurrency() int {
+	if raw := os.Getenv("BLOG_MAIL_CONCURRENCY"); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			return n
+		}
+	}
+	return defaultMailConcurrency
+}
+
 // NewPostNotifier 构造订阅通知器：返回新文章发布回调——异步拉订阅者并逐条发信。
 // getSubscribers 取订阅邮箱（subscribeapp.Subscribers），mailer 为邮件发送器（SMTPMailer），
 // siteURL 每次通知时现取（设置页改站点地址即时生效）。
 func NewPostNotifier(getSubscribers func() ([]string, error), mailer Mailer, siteURL func() string) PostNotifier {
+	sem := make(chan struct{}, mailConcurrency())
 	return func(p *post.Post) {
-		notifySubscribers(getSubscribers, mailer, siteURL(), p)
+		notifySubscribers(sem, getSubscribers, mailer, siteURL(), p)
 	}
 }
 
 // notifySubscribers 新文章发布异步通知全部订阅者：goroutine 内拉订阅者 → 无则不发 →
 // 逐条 SendHTML（RenderNewArticle 模板：标题+摘要+siteURL+/posts/:id 链接）。
 // 调用立即返回，不阻塞发布响应；goroutine 内 defer recover 兜底（单条 panic 不崩进程），
-// 单条失败 log.Printf 后继续下一条。
-func notifySubscribers(getSubscribers func() ([]string, error), mailer Mailer, siteURL string, p *post.Post) {
+// 单条失败 log.Printf 后继续下一条；信号量限制并发发信 goroutine（超限排队，不丢弃）。
+func notifySubscribers(sem chan struct{}, getSubscribers func() ([]string, error), mailer Mailer, siteURL string, p *post.Post) {
 	go func() {
+		// 排队等待发信名额；后台任务以最终送达为准，超限排队不丢弃
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		defer func() {
 			if r := recover(); r != nil {
 				log.Printf("postnotify: notify panic: %v", r)
