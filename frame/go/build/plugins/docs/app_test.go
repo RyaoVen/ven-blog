@@ -2,6 +2,7 @@ package docs
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -81,6 +82,41 @@ func (r *memRepo) Update(doc *Doc) error {
 
 func (r *memRepo) Delete(id int64) error {
 	delete(r.byID, id)
+	return nil
+}
+
+func (r *memRepo) ListUpdatedSince(since time.Time) ([]*Doc, error) {
+	out := []*Doc{}
+	for _, d := range r.byID {
+		if !d.UpdatedAt.Before(since) {
+			cp := *d
+			out = append(out, &cp)
+		}
+	}
+	return out, nil
+}
+
+func (r *memRepo) UpdatePath(id int64, parentID int64, slug, path string, updatedAt time.Time) error {
+	d, ok := r.byID[id]
+	if !ok {
+		return ErrNotFound
+	}
+	for _, other := range r.byID {
+		if other.ID != id && other.Path == path {
+			return ErrDuplicatePath
+		}
+	}
+	d.ParentID, d.Slug, d.Path, d.UpdatedAt = parentID, slug, path, updatedAt
+	return nil
+}
+
+func (r *memRepo) RenameDescendants(oldPrefix, newPrefix string, updatedAt time.Time) error {
+	for _, d := range r.byID {
+		if strings.HasPrefix(d.Path, oldPrefix) {
+			d.Path = newPrefix + strings.TrimPrefix(d.Path, oldPrefix)
+			d.UpdatedAt = updatedAt
+		}
+	}
 	return nil
 }
 
