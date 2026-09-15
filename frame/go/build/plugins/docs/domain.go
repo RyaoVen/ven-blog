@@ -149,6 +149,8 @@ type Repository interface {
 	Create(doc *Doc) error
 	// GetByPath 按全路径取节点，不存在返回 ErrNotFound。
 	GetByPath(path string) (*Doc, error)
+	// GetByID 按主键取节点，不存在返回 ErrNotFound。
+	GetByID(id int64) (*Doc, error)
 	// ListChildren 返回直接子节点（sort_order 升序、slug 字典序次之）。
 	ListChildren(parentID int64) ([]*Doc, error)
 	// ListAll 返回全量节点（tree 构建；sort_order + path 排序）。

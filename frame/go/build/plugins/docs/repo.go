@@ -153,6 +153,18 @@ func (r *DocRepository) GetByPath(path string) (*Doc, error) {
 	return d, nil
 }
 
+// GetByID 按主键取节点。
+func (r *DocRepository) GetByID(id int64) (*Doc, error) {
+	d, err := scanDoc(r.db.QueryRow(docSelect+" WHERE id = ?", id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("docs: get by id: %w", err)
+	}
+	return d, nil
+}
+
 // ListChildren 直接子节点（sort_order 升序 → slug 字典序）。
 func (r *DocRepository) ListChildren(parentID int64) ([]*Doc, error) {
 	rows, err := r.db.Query(docSelect+" WHERE parent_id = ? ORDER BY sort_order ASC, slug ASC", parentID)
