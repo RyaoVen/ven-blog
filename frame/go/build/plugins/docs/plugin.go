@@ -56,6 +56,13 @@ func (p *docsPlugin) Register(rt *plugin.Runtime) error {
 			return err
 		}
 	}
+	// 搜索贡献源（unit-6 §5.4；scope=docs 单源/all 合并）。
+	if rt.Search != nil {
+		if err := rt.Search.RegisterProvider(NewDocSearchProvider(p.svc)); err != nil {
+			_ = db.Close()
+			return err
+		}
+	}
 	// 后台管理页面与 API（#9）：页面注册先行（路由契约）。
 	if err := registerAdminPages(rt, p.svc); err != nil {
 		_ = db.Close()
