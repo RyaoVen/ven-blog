@@ -13,14 +13,14 @@ import (
 // registerMCP 注册 doc.* action（unit-7 §4；unit-6 §5.2 经 Runtime.MCP）。
 // 全部 action 为 author 语义（/api/mcp 网关 key 鉴权已保证）；
 // ID 一律字符串化；写操作非幂等（失败先 doc.list 查证再重试，契约与 post 一致）。
-func registerMCP(rt *plugin.Runtime, svc *Service) error {
+func registerMCP(rt *plugin.Runtime, svc *Service, invalidate InvalidateFunc) error {
 	actions := map[string]plugin.MCPActionFunc{
-		"doc.create": func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpCreate(svc, payload) },
+		"doc.create": func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpCreate(svc, invalidate, payload) },
 		"doc.get":    func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpGet(svc, payload) },
 		"doc.list":   func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpList(svc, payload) },
 		"doc.tree":   func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpTree(svc, payload) },
-		"doc.update": func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpUpdate(svc, payload) },
-		"doc.delete": func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpDelete(svc, payload) },
+		"doc.update": func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpUpdate(svc, invalidate, payload) },
+		"doc.delete": func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpDelete(svc, invalidate, payload) },
 	}
 	for name, fn := range actions {
 		if err := rt.MCP.RegisterAction(name, fn); err != nil {
@@ -112,7 +112,7 @@ func mapErr(err error) *plugin.ActionError {
 }
 
 // mcpCreate doc.create。
-func mcpCreate(svc *Service, payload json.RawMessage) (any, *plugin.ActionError) {
+func mcpCreate(svc *Service, invalidate InvalidateFunc, payload json.RawMessage) (any, *plugin.ActionError) {
 	var in struct {
 		Title   string   `json:"title"`
 		Path    string   `json:"path"`
@@ -139,6 +139,7 @@ func mcpCreate(svc *Service, payload json.RawMessage) (any, *plugin.ActionError)
 	if err != nil {
 		return nil, mapErr(err)
 	}
+	invalidate()
 	return map[string]any{"doc": toView(doc, true), "id": docViewID(doc)}, nil
 }
 
@@ -199,7 +200,7 @@ func mcpTree(svc *Service, payload json.RawMessage) (any, *plugin.ActionError) {
 }
 
 // mcpUpdate doc.update（部分更新：指针字段判存在）。
-func mcpUpdate(svc *Service, payload json.RawMessage) (any, *plugin.ActionError) {
+func mcpUpdate(svc *Service, invalidate InvalidateFunc, payload json.RawMessage) (any, *plugin.ActionError) {
 	var in struct {
 		Path    string   `json:"path"`
 		Title   *string  `json:"title"`
@@ -222,11 +223,12 @@ func mcpUpdate(svc *Service, payload json.RawMessage) (any, *plugin.ActionError)
 	if err != nil {
 		return nil, mapErr(err)
 	}
+	invalidate()
 	return map[string]any{"doc": toView(doc, true), "updated": true}, nil
 }
 
 // mcpDelete doc.delete。
-func mcpDelete(svc *Service, payload json.RawMessage) (any, *plugin.ActionError) {
+func mcpDelete(svc *Service, invalidate InvalidateFunc, payload json.RawMessage) (any, *plugin.ActionError) {
 	var in struct {
 		Path      string `json:"path"`
 		Recursive bool   `json:"recursive"`
@@ -240,5 +242,6 @@ func mcpDelete(svc *Service, payload json.RawMessage) (any, *plugin.ActionError)
 	if err := svc.Delete(DeleteInput{Path: in.Path, Recursive: in.Recursive}); err != nil {
 		return nil, mapErr(err)
 	}
+	invalidate()
 	return map[string]any{"deleted": true}, nil
 }

@@ -402,6 +402,9 @@ export function Layout({ children }: { children: ReactNode }) {
                         <a href="/moments" style={styles.navLink} className="ven-nav-link">
                             动态
                         </a>
+                        <a href="/docs" style={styles.navLink} className="ven-nav-link">
+                            文档
+                        </a>
                     </nav>
                 </div>
                 <HeaderSearch />

@@ -275,6 +275,53 @@ func (s *Service) Tree(onlyPublished bool) ([]*TreeNode, error) {
 	return roots, nil
 }
 
+// publishedPaths 返回 published 节点的扁平序（DFS：sort_order → slug；根级先、子随后），
+// 供上一页/下一页计算。
+func (s *Service) publishedPaths() ([]*Doc, error) {
+	all, err := s.repo.ListAll()
+	if err != nil {
+		return nil, err
+	}
+	children := make(map[int64][]*Doc)
+	roots := make([]*Doc, 0)
+	for _, d := range all {
+		if d.Status != StatusPublished {
+			continue
+		}
+		if d.ParentID == 0 {
+			roots = append(roots, d)
+		} else {
+			children[d.ParentID] = append(children[d.ParentID], d)
+		}
+	}
+	sortDocList(roots)
+	for _, list := range children {
+		sortDocList(list)
+	}
+	out := make([]*Doc, 0, len(all))
+	var walk func(list []*Doc)
+	walk = func(list []*Doc) {
+		for _, d := range list {
+			out = append(out, d)
+			if kids := children[d.ID]; len(kids) > 0 {
+				walk(kids)
+			}
+		}
+	}
+	walk(roots)
+	return out, nil
+}
+
+// sortDocList 排序：sort_order 升序 → slug 字典序。
+func sortDocList(list []*Doc) {
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].SortOrder != list[j].SortOrder {
+			return list[i].SortOrder < list[j].SortOrder
+		}
+		return list[i].Slug < list[j].Slug
+	})
+}
+
 // sortTrees 递归排序：sort_order 升序 → 字典序。
 func sortTrees(nodes []*TreeNode) {
 	sort.Slice(nodes, func(i, j int) bool {

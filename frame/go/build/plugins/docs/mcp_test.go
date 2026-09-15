@@ -29,17 +29,22 @@ func call(svc *Service, action string, payload string) (json.RawMessage, *plugin
 }
 
 func actionTable(svc *Service) map[string]func(json.RawMessage) (any, *plugin.ActionError) {
+	noop := func() {}
 	return map[string]func(json.RawMessage) (any, *plugin.ActionError){
-		"doc.create": wrap(mcpCreate, svc),
-		"doc.get":    wrap(mcpGet, svc),
-		"doc.list":   wrap(mcpList, svc),
-		"doc.tree":   wrap(mcpTree, svc),
-		"doc.update": wrap(mcpUpdate, svc),
-		"doc.delete": wrap(mcpDelete, svc),
+		"doc.create": wrap(mcpCreate, svc, noop),
+		"doc.get":    wrapPlain(mcpGet, svc),
+		"doc.list":   wrapPlain(mcpList, svc),
+		"doc.tree":   wrapPlain(mcpTree, svc),
+		"doc.update": wrap(mcpUpdate, svc, noop),
+		"doc.delete": wrap(mcpDelete, svc, noop),
 	}
 }
 
-func wrap(fn func(*Service, json.RawMessage) (any, *plugin.ActionError), svc *Service) func(json.RawMessage) (any, *plugin.ActionError) {
+func wrap(fn func(*Service, InvalidateFunc, json.RawMessage) (any, *plugin.ActionError), svc *Service, invalidate InvalidateFunc) func(json.RawMessage) (any, *plugin.ActionError) {
+	return func(p json.RawMessage) (any, *plugin.ActionError) { return fn(svc, invalidate, p) }
+}
+
+func wrapPlain(fn func(*Service, json.RawMessage) (any, *plugin.ActionError), svc *Service) func(json.RawMessage) (any, *plugin.ActionError) {
 	return func(p json.RawMessage) (any, *plugin.ActionError) { return fn(svc, p) }
 }
 
