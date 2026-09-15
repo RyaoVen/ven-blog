@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"ven_hybird/build"
+	"ven_hybird/build/plugin"
 	"ven_hybird/hybrid"
 	"ven_hybird/internal/config"
 	"ven_hybird/internal/httpserver"
@@ -46,9 +47,10 @@ func main() {
 	server := httpserver.New(cfg, client, pending, ssr.CryptoHookIDGenerator{}, patterns)
 	server.RegisterInternalRoutes()
 
-	// 步骤 5: 创建 hybrid 应用并注册业务页面
+	// 步骤 5: 创建 hybrid 应用并注册业务页面（返回需关停的插件列表）
 	app := hybrid.New(server)
-	if err := build.Register(app); err != nil {
+	stopOrder, err := build.Register(app)
+	if err != nil {
 		log.Fatal(err)
 	}
 
@@ -59,7 +61,8 @@ func main() {
 	go func() {
 		<-shutdown
 		log.Printf("shutdown signal received, draining...")
-		app.Close() // 先 drain SSE 连接（EventSource 客户端自动重连到存活实例）
+		app.Close()                     // 先 drain SSE 连接（EventSource 客户端自动重连到存活实例）
+		plugin.Shutdown(stopOrder, nil) // 逆序关停插件（释放自建资源，如 DB 连接池）
 		if err := server.App().ShutdownWithTimeout(5 * time.Second); err != nil {
 			log.Printf("graceful shutdown failed: %v", err)
 		}
