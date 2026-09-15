@@ -255,6 +255,56 @@ func mcpMove(svc *Service, invalidate InvalidateFunc, hooks *WriteHooks, payload
 	return map[string]any{"doc": toView(doc, false), "moved": true}, nil
 }
 
+// mcpImport doc.import：批量 upsert + imported 汇总事件（unit-7 §9 决议 2）。
+// 注意 1MB body 上限：大批量由调用方分批（契约同 post）。
+func mcpImport(svc *Service, invalidate InvalidateFunc, hooks *WriteHooks, payload json.RawMessage) (any, *plugin.ActionError) {
+	var in struct {
+		Files []ImportFile `json:"files"`
+	}
+	if err := decode(payload, &in); err != nil {
+		return nil, err
+	}
+	if len(in.Files) == 0 {
+		return nil, validation(errors.New("files is required"))
+	}
+	result := svc.Import(in.Files)
+	invalidate()
+	hooks.emit("doc.imported", strings.Join(pathsOf(in.Files), ","))
+	return map[string]any{
+		"imported": true,
+		"total":    len(in.Files),
+		"created":  result.Created,
+		"updated":  result.Updated,
+		"failed":   result.Failed,
+	}, nil
+}
+
+// pathsOf 提取导入文件路径（根路径用于汇总事件）。
+func pathsOf(files []ImportFile) []string {
+	out := make([]string, 0, len(files))
+	for _, f := range files {
+		if segs := SplitPath(f.Path); len(segs) > 0 {
+			out = append(out, segs[0])
+		}
+	}
+	return out
+}
+
+// mcpExport doc.export：按子树导出 markdown 包。
+func mcpExport(svc *Service, payload json.RawMessage) (any, *plugin.ActionError) {
+	var in struct {
+		Path string `json:"path"`
+	}
+	if err := decode(payload, &in); err != nil {
+		return nil, err
+	}
+	files, err := svc.Export(in.Path)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return map[string]any{"files": files, "total": len(files)}, nil
+}
+
 // mcpUpdate doc.update（部分更新：指针字段判存在）。
 func mcpUpdate(svc *Service, invalidate InvalidateFunc, hooks *WriteHooks, payload json.RawMessage) (any, *plugin.ActionError) {
 	var in struct {
