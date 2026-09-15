@@ -11,39 +11,42 @@ import (
 
 	"ven_hybird/build/domain/user"
 
-	"ven_hybird/build/application/commentapp"
 	"ven_hybird/build/application/apikeyapp"
+	"ven_hybird/build/application/commentapp"
 	"ven_hybird/build/application/emailauth"
 	"ven_hybird/build/application/guestbookapp"
 	"ven_hybird/build/application/interactionapp"
 	"ven_hybird/build/application/moderationapp"
 	"ven_hybird/build/application/momentapp"
+	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/application/ratelimit"
 	"ven_hybird/build/application/settingsapp"
-	"ven_hybird/build/application/postapp"
 	"ven_hybird/build/application/subscribeapp"
 	"ven_hybird/build/application/userapp"
 	"ven_hybird/build/application/visitapp"
+	"ven_hybird/build/domain/setting"
 	"ven_hybird/build/infrastructure/cipher"
 	"ven_hybird/build/infrastructure/llm"
 	"ven_hybird/build/infrastructure/mailer"
 	"ven_hybird/build/infrastructure/persistence"
 	"ven_hybird/build/interfaces"
 	"ven_hybird/build/interfaces/moderator"
+	"ven_hybird/build/plugin"
 	"ven_hybird/hybrid"
 )
 
 // Register 注册业务角色、页面与 API。
 // 页面 pattern 必须与 src/**/page.tsx 推导出的路由一致，否则启动即失败。
-func Register(a *hybrid.App) error {
+// 返回需优雅关停的插件列表（宿主停机时逆序 Stop；无启用插件时为空）。
+func Register(a *hybrid.App) ([]plugin.Stoppable, error) {
 	if err := registerRoles(a); err != nil {
-		return err
+		return nil, err
 	}
 
 	// 基础设施：MySQL 连接（自动建库建表）与仓储
 	db, err := persistence.Open(persistence.DSNFromEnv())
 	if err != nil {
-		return fmt.Errorf("build: %w", err)
+		return nil, fmt.Errorf("build: %w", err)
 	}
 	userRepo := persistence.NewUserRepository(db)
 	postRepo := persistence.NewPostRepository(db)
@@ -65,7 +68,7 @@ func Register(a *hybrid.App) error {
 	apiKeyRepo := persistence.NewApiKeyRepository(db)
 	visitRepo := persistence.NewVisitRepository(db)
 	if err := persistence.SeedUsers(userRepo); err != nil {
-		return fmt.Errorf("build: seed users: %w", err)
+		return nil, fmt.Errorf("build: seed users: %w", err)
 	}
 
 	// 作者资料每次请求现取（设置页改头像/简介/用户名后立即生效；按角色定位，不受改名影响）
@@ -73,7 +76,7 @@ func Register(a *hybrid.App) error {
 		return userRepo.FindByRole(user.RoleAuthor)
 	}
 	if _, err := authorFn(); err != nil {
-		return fmt.Errorf("build: find author: %w", err)
+		return nil, fmt.Errorf("build: find author: %w", err)
 	}
 	// 需要作者主页路径的失效场景现取当前用户名（改名后旧路径不再有效）
 	authorNameFn := func() string {
@@ -123,87 +126,119 @@ func Register(a *hybrid.App) error {
 	interfaces.RegisterAuth(a, users, settings, loginLimiter)
 	interfaces.RegisterImages(a, imageRepo)
 	if err := interfaces.RegisterHome(a, posts, moments, authorFn, settings); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterSiteInfo(a, authorFn, settings, func() string { return siteURLOf(settings) }); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterSubscribe(a, subscribe, posts, siteURLOf(settings)); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterPages(a, posts, comments, interactions, settings); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterInteractions(a, comments, interactions, emailAuth, users, settings, siteURLOf(settings)); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterSearch(a, posts); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterProfiles(a, users, posts, guestbook, settings); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterGuestbookAPI(a, guestbook, authorNameFn); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterGuestbookAdmin(a, guestbook, authorNameFn); err != nil {
-		return err
+		return nil, err
 	}
 	// 订阅通知器：新文章发布 → 异步邮件通知全部订阅者（goroutine 内发信，不阻塞发布响应；
 	// siteURL 每次通知现取——设置页改站点地址即时生效；SMTP 未配置时 mailer 降级日志输出）
 	newPostNotify := interfaces.NewPostNotifier(subscribe.Subscribers, mail, func() string { return siteURLOf(settings) })
 	if err := interfaces.RegisterAPIs(a, posts, newPostNotify, authorNameFn); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterSettings(a, settings, users); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterCategories(a, posts, settings); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterAuthorAdmin(a, settings, posts, authorNameFn); err != nil {
-		return err
+		return nil, err
 	}
 	interfaces.RegisterEmailAuth(a, emailAuth, users, settings, siteURLOf(settings), codeEmailLimiter, codeIPLimiter)
 	if err := interfaces.RegisterMeEmail(a, users); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterMomentComments(a, comments, emailAuth, users, settings, siteURLOf(settings)); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterMomentLikes(a, interactions); err != nil {
-		return err
+		return nil, err
 	}
 	// 埋点 ② SPA 导航上报接口（公开；30s 同 path 节流在服务内）
 	if err := interfaces.RegisterVisitAPI(a, visits); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterMe(a, users); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterLinkPreview(a); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterMoments(a, moments, comments, interactions, settings); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterPins(a, posts, moments); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterAdmin(a, posts, comments, interactions, moments, subscribe, users, settings, visits); err != nil {
-		return err
+		return nil, err
 	}
 	if err := interfaces.RegisterKeysAdmin(a, apiKeys); err != nil {
-		return err
+		return nil, err
 	}
 	// /api/mcp 网关（agent 统一入口）：纯原生 fiber 路由，只认 key 不认 cookie，
 	// 与页面注册顺序无关，放链尾最稳；apiKeys 天然满足 interfaces.KeyAuthenticator。
 	if err := interfaces.RegisterMCP(a, apiKeys, posts, moments, comments, settings, users, authorFn, authorNameFn); err != nil {
-		return err
+		return nil, err
 	}
 	// Unit 4：AI 自动审核 worker（BLOG_LLM_API_KEY 未配置则不启动）
-	return registerModerator(a, comments, guestbook, settings, mail, authorNameFn)
+	if err := registerModerator(a, comments, guestbook, settings, mail, authorNameFn); err != nil {
+		return nil, err
+	}
+	// 插件注册（unit-6）：清单见 registerPlugins；插件经 Runtime 贡献页面/API/MCP action/搜索 provider
+	return registerPlugins(a, settingsRepo)
 }
+
+// registerPlugins 插件清单（unit-6 §5.3）：新增插件 = 本清单加一行入口（New 纯构造）。
+// 返回值交由宿主在关停时逆序 Stop。
+func registerPlugins(a *hybrid.App, settingsRepo setting.Repository) ([]plugin.Stoppable, error) {
+	rt := &plugin.Runtime{
+		App:        a,
+		Settings:   settingsStoreAdapter{repo: settingsRepo},
+		DataChange: a.DataChange,
+		Logger:     log.Default(),
+	}
+	return plugin.Bootstrap([]func() plugin.Plugin{}, rt, builtinRoutePrefixes)
+}
+
+// builtinRoutePrefixes 宿主内置路由静态前缀（插件 PagePrefix 不得与之冲突）。
+// 与各 RegisterXxx 声明的页面/API 前缀保持同步。
+var builtinRoutePrefixes = []string{
+	"/posts", "/moments", "/author", "/users", "/search", "/admin",
+	"/guestbook", "/login", "/register", "/403", "/api", "/assets", "/auth",
+}
+
+// settingsStoreAdapter 把 setting.Repository 适配为插件系统的 SettingsStore 窄接口
+// （组合根职责：plugin 包不反向依赖 domain）。
+type settingsStoreAdapter struct {
+	repo setting.Repository
+}
+
+func (a settingsStoreAdapter) Get(key string) (string, error) { return a.repo.Get(key) }
+func (a settingsStoreAdapter) Set(key, value string) error    { return a.repo.Set(key, value) }
 
 // registerModerator 组装自动审核 worker：构造 llm 客户端 → moderationapp → handler → 启动 ticker。
 // LLM 配置 settings 键优先、env（BLOG_LLM_*）兜底，每次判定现取（设置页改动即时生效）；
