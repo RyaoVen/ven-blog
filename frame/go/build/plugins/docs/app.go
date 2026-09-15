@@ -393,6 +393,30 @@ func (s *Service) Update(in UpdateInput) (*Doc, error) {
 	return doc, nil
 }
 
+// GetByID 按主键取节点。
+func (s *Service) GetByID(id int64) (*Doc, error) {
+	return s.repo.GetByID(id)
+}
+
+// UpdateByID 按主键部分更新（admin API 用；字段语义同 Update）。
+func (s *Service) UpdateByID(id int64, in UpdateInput) (*Doc, error) {
+	doc, err := s.repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	in.Path = doc.Path
+	return s.Update(in)
+}
+
+// DeleteByID 按主键删除（admin API 用）。
+func (s *Service) DeleteByID(id int64, recursive bool) error {
+	doc, err := s.repo.GetByID(id)
+	if err != nil {
+		return err
+	}
+	return s.Delete(DeleteInput{Path: doc.Path, Recursive: recursive})
+}
+
 // DeleteInput doc.delete 入参。
 type DeleteInput struct {
 	Path      string

@@ -37,6 +37,14 @@ func (r *memRepo) GetByPath(path string) (*Doc, error) {
 	return nil, ErrNotFound
 }
 
+func (r *memRepo) GetByID(id int64) (*Doc, error) {
+	if d, ok := r.byID[id]; ok {
+		cp := *d
+		return &cp, nil
+	}
+	return nil, ErrNotFound
+}
+
 func (r *memRepo) ListChildren(parentID int64) ([]*Doc, error) {
 	out := []*Doc{}
 	for _, d := range r.byID {

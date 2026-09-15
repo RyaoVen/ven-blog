@@ -53,6 +53,15 @@ func (p *docsPlugin) Register(rt *plugin.Runtime) error {
 			return err
 		}
 	}
+	// 后台管理页面与 API（#9）：页面注册先行（路由契约）。
+	if err := registerAdminPages(rt, p.svc); err != nil {
+		_ = db.Close()
+		return err
+	}
+	if err := registerAdminAPI(rt, p.svc, invalidate); err != nil {
+		_ = db.Close()
+		return err
+	}
 	return nil
 }
 
