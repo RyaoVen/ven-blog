@@ -76,6 +76,7 @@ func (f *fakeKeys) callCount() int {
 type mcpTestEnv struct {
 	app          *hybrid.App
 	server       *httpserver.Server
+	mcp          *MCP
 	keys         *fakeKeys
 	posts        *postapp.Service
 	moments      *momentapp.Service
@@ -146,10 +147,12 @@ func newMCPTestEnv(t *testing.T, authenticate func(rawKey string) (int64, error)
 	env.settings = settingsapp.NewService(env.settingRepo)
 	env.users = userapp.NewService(env.userRepo)
 
-	if err := RegisterMCP(app, env.keys, env.posts, env.moments, env.comments,
-		env.settings, env.users, env.authorFn, env.authorNameFn); err != nil {
+	mcp, err := RegisterMCP(app, env.keys, env.posts, env.moments, env.comments,
+		env.settings, env.users, env.authorFn, env.authorNameFn)
+	if err != nil {
 		t.Fatalf("RegisterMCP: %v", err)
 	}
+	env.mcp = mcp
 	return env
 }
 

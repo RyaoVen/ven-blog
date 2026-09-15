@@ -90,7 +90,7 @@ func (f *fakeCommentRepo) ListByPost(postID int64) ([]*comment.Comment, error) {
 func (f *fakeCommentRepo) ListByMoment(momentID int64) ([]*comment.Comment, error) {
 	return nil, nil
 }
-func (f *fakeCommentRepo) MomentCommentCounts() (map[int64]int, error) { return nil, nil }
+func (f *fakeCommentRepo) MomentCommentCounts() (map[int64]int, error)   { return nil, nil }
 func (f *fakeCommentRepo) ListAll(limit int) ([]*comment.Comment, error) { return nil, nil }
 func (f *fakeCommentRepo) ListPending() ([]*comment.Comment, error) {
 	if f.listErr != nil {
@@ -281,8 +281,8 @@ func TestRunOnceSendsSummaryMail(t *testing.T) {
 	m := &fakeModerator{
 		verdicts: []moderation.Verdict{
 			{Action: moderation.ActionReject, Reason: "包含广告引流链接"}, // 评论1
-			{Action: moderation.ActionPending},                          // 评论2
-			{Action: moderation.ActionApprove},                          // 评论3
+			{Action: moderation.ActionPending},                    // 评论2
+			{Action: moderation.ActionApprove},                    // 评论3
 		},
 		errs: []error{nil, nil, nil, errors.New("timeout"), errors.New("timeout")}, // 留言板两次都失败 → 保持 pending 记 failed
 	}

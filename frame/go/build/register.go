@@ -201,7 +201,9 @@ func Register(a *hybrid.App) ([]plugin.Stoppable, error) {
 	}
 	// /api/mcp 网关（agent 统一入口）：纯原生 fiber 路由，只认 key 不认 cookie，
 	// 与页面注册顺序无关，放链尾最稳；apiKeys 天然满足 interfaces.KeyAuthenticator。
-	if err := interfaces.RegisterMCP(a, apiKeys, posts, moments, comments, settings, users, authorFn, authorNameFn); err != nil {
+	// 返回 *MCP 交给插件 Runtime（插件经 RegisterAction 贡献 doc.* 式 action，unit-6 §5.2）。
+	mcpGateway, err := interfaces.RegisterMCP(a, apiKeys, posts, moments, comments, settings, users, authorFn, authorNameFn)
+	if err != nil {
 		return nil, err
 	}
 	// Unit 4：AI 自动审核 worker（BLOG_LLM_API_KEY 未配置则不启动）
@@ -209,14 +211,15 @@ func Register(a *hybrid.App) ([]plugin.Stoppable, error) {
 		return nil, err
 	}
 	// 插件注册（unit-6）：清单见 registerPlugins；插件经 Runtime 贡献页面/API/MCP action/搜索 provider
-	return registerPlugins(a, settingsRepo)
+	return registerPlugins(a, settingsRepo, mcpGateway)
 }
 
 // registerPlugins 插件清单（unit-6 §5.3）：新增插件 = 本清单加一行入口（New 纯构造）。
 // 返回值交由宿主在关停时逆序 Stop。
-func registerPlugins(a *hybrid.App, settingsRepo setting.Repository) ([]plugin.Stoppable, error) {
+func registerPlugins(a *hybrid.App, settingsRepo setting.Repository, mcpGateway *interfaces.MCP) ([]plugin.Stoppable, error) {
 	rt := &plugin.Runtime{
 		App:        a,
+		MCP:        mcpGateway,
 		Settings:   settingsStoreAdapter{repo: settingsRepo},
 		DataChange: a.DataChange,
 		Logger:     log.Default(),
