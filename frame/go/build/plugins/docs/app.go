@@ -534,6 +534,123 @@ func (s *Service) Move(in MoveInput) (*Doc, error) {
 	return s.repo.GetByPath(newPath)
 }
 
+// ImportFile doc.import 单文件（path + markdown 全文，可含 frontmatter）。
+type ImportFile struct {
+	Path    string
+	Content string
+}
+
+// ImportResult 导入结果（MCP doc.import 返回；webhook 汇总事件同源）。
+type ImportResult struct {
+	Created int
+	Updated int
+	Failed  []ImportFailure
+}
+
+// ImportFailure 单文件失败明细。
+type ImportFailure struct {
+	Path  string `json:"path"`
+	Error string `json:"error"`
+}
+
+// Import 批量导入（upsert：path 存在则部分更新 title/summary/content/tags/order/status，否则创建）。
+// 隐式补父与 doc.create 同语义；单文件失败不中断批次。
+func (s *Service) Import(files []ImportFile) ImportResult {
+	result := ImportResult{}
+	for _, f := range files {
+		created, err := s.importOne(f)
+		if err != nil {
+			result.Failed = append(result.Failed, ImportFailure{Path: f.Path, Error: err.Error()})
+			continue
+		}
+		if created {
+			result.Created++
+		} else {
+			result.Updated++
+		}
+	}
+	return result
+}
+
+// importOne 单文件 upsert；返回是否为新建。
+func (s *Service) importOne(f ImportFile) (bool, error) {
+	fm, body, err := parseFrontmatter(f.Content)
+	if err != nil {
+		return false, err
+	}
+	title := fm.Title
+	if title == "" {
+		title = lastSegment(f.Path)
+	}
+	status := fm.Status
+	if status == "" {
+		status = StatusPublished
+	}
+	if existing, err := s.repo.GetByPath(strings.Trim(f.Path, "/")); err == nil {
+		in := UpdateInput{
+			Path:    existing.Path,
+			Title:   &title,
+			Content: &body,
+			Summary: &fm.Summary,
+			Tags:    fm.Tags,
+			Status:  &status,
+		}
+		if fm.Order != nil {
+			in.Order = fm.Order
+		}
+		if _, err := s.Update(in); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+	if len(SplitPath(f.Path)) == 0 {
+		return false, ErrInvalidSlug
+	}
+	if _, err := s.Create(CreateInput{
+		Title:   title,
+		Path:    f.Path,
+		Content: &body,
+		Summary: &fm.Summary,
+		Tags:    fm.Tags,
+		Status:  status,
+	}); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// lastSegment 取路径尾段。
+func lastSegment(path string) string {
+	segs := SplitPath(path)
+	if len(segs) == 0 {
+		return ""
+	}
+	return segs[len(segs)-1]
+}
+
+// ExportFile doc.export 单文件。
+type ExportFile struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+}
+
+// Export 按子树导出 markdown 包（frontmatter 还原；path 缺省 = 全站）。
+func (s *Service) Export(path string) ([]ExportFile, error) {
+	all, err := s.repo.ListAll()
+	if err != nil {
+		return nil, err
+	}
+	prefix := strings.Trim(path, "/")
+	files := make([]ExportFile, 0, len(all))
+	for _, d := range all {
+		if prefix != "" && d.Path != prefix && !strings.HasPrefix(d.Path, prefix+"/") {
+			continue
+		}
+		files = append(files, ExportFile{Path: d.Path, Content: buildFrontmatter(d, true)})
+	}
+	return files, nil
+}
+
 // DeleteInput doc.delete 入参。
 type DeleteInput struct {
 	Path      string
