@@ -8,8 +8,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/gofiber/fiber/v2"
 
@@ -22,6 +24,7 @@ import (
 	"ven_hybird/build/domain/moment"
 	"ven_hybird/build/domain/post"
 	"ven_hybird/build/domain/user"
+	"ven_hybird/build/plugin"
 	"ven_hybird/hybrid"
 )
 
@@ -131,26 +134,30 @@ type mcpActionFunc func(m *MCP, ctx *fiber.Ctx, payload json.RawMessage) (any, *
 
 // mcpActions dispatch 表：action 名 → 处理函数（注册期构建，运行期只读，天然并发安全）。
 var mcpActions = map[string]mcpActionFunc{
-	"post.create":           (*MCP).postCreate,
-	"post.update":           (*MCP).postUpdate,
-	"post.delete":           (*MCP).postDelete,
-	"post.list":             (*MCP).postList,
-	"moment.create":         (*MCP).momentCreate,
-	"moment.delete":         (*MCP).momentDelete,
-	"moment.list":           (*MCP).momentList,
-	"comment.list_pending":  (*MCP).commentListPending,
-	"comment.approve":       (*MCP).commentApprove,
-	"comment.reject":        (*MCP).commentReject,
-	"comment.recover":       (*MCP).commentRecover,
-	"comment.list":          (*MCP).commentList,
-	"author.get":            (*MCP).authorGet,
-	"author.update":         (*MCP).authorUpdate,
+	"post.create":          (*MCP).postCreate,
+	"post.update":          (*MCP).postUpdate,
+	"post.delete":          (*MCP).postDelete,
+	"post.list":            (*MCP).postList,
+	"moment.create":        (*MCP).momentCreate,
+	"moment.delete":        (*MCP).momentDelete,
+	"moment.list":          (*MCP).momentList,
+	"comment.list_pending": (*MCP).commentListPending,
+	"comment.approve":      (*MCP).commentApprove,
+	"comment.reject":       (*MCP).commentReject,
+	"comment.recover":      (*MCP).commentRecover,
+	"comment.list":         (*MCP).commentList,
+	"author.get":           (*MCP).authorGet,
+	"author.update":        (*MCP).authorUpdate,
 }
 
 // MCP 是 /api/mcp 网关处理器：组装根注入全部依赖。
 type MCP struct {
-	a            *hybrid.App
-	keys         KeyAuthenticator
+	a    *hybrid.App
+	keys KeyAuthenticator
+	// extra 插件贡献 action 表（unit-6 §5.2）：启动期 Bootstrap 经 RegisterAction 写入，
+	// 运行期只读；mu 仅护注册期（Bootstrap 串行，防御性）。查表顺序：内置 mcpActions 优先。
+	extraMu      sync.RWMutex
+	extra        map[string]plugin.MCPActionFunc
 	posts        *postapp.Service
 	moments      *momentapp.Service
 	comments     *commentapp.Service
@@ -158,6 +165,69 @@ type MCP struct {
 	users        *userapp.Service
 	authorFn     func() (*user.User, error)
 	authorNameFn func() string
+}
+
+// RegisterAction 注册插件贡献的 action（unit-6 §5.2，实现 plugin.MCPRegistry）。
+// name 必须 "<plugin>." 前缀（如 "doc.create"）；与内置表/已注册表重名即拒绝（fail-fast）。
+// 仅限启动期调用（插件 Bootstrap 阶段），运行期只读。
+func (m *MCP) RegisterAction(name string, fn plugin.MCPActionFunc) error {
+	if !hasPluginPrefix(name) {
+		return fmt.Errorf("mcp: 插件 action %q 必须以 \"<plugin>.\" 前缀命名", name)
+	}
+	if fn == nil {
+		return fmt.Errorf("mcp: action %q 处理函数为空", name)
+	}
+	if _, builtin := mcpActions[name]; builtin {
+		return fmt.Errorf("mcp: action %q 与内置 action 重名", name)
+	}
+	m.extraMu.Lock()
+	defer m.extraMu.Unlock()
+	if m.extra == nil {
+		m.extra = make(map[string]plugin.MCPActionFunc)
+	}
+	if _, dup := m.extra[name]; dup {
+		return fmt.Errorf("mcp: action %q 重复注册", name)
+	}
+	m.extra[name] = fn
+	return nil
+}
+
+// hasPluginPrefix 校验 "<plugin>.<action>" 命名：前缀段 kebab-case，动作段非空。
+func hasPluginPrefix(name string) bool {
+	dot := strings.Index(name, ".")
+	if dot <= 0 || dot == len(name)-1 {
+		return false
+	}
+	prefix, action := name[:dot], name[dot+1:]
+	prevHyphen := true
+	for _, r := range prefix {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			prevHyphen = false
+		case r == '-':
+			if prevHyphen {
+				return false
+			}
+			prevHyphen = true
+		default:
+			return false
+		}
+	}
+	if prevHyphen {
+		return false
+	}
+	return !strings.Contains(action, " ") && strings.TrimSpace(action) != ""
+}
+
+// adaptPluginAction 把插件 action 签名适配为内置 mcpActionFunc（错误协议同形转换）。
+func adaptPluginAction(fn plugin.MCPActionFunc) mcpActionFunc {
+	return func(m *MCP, ctx *fiber.Ctx, payload json.RawMessage) (any, *mcpError) {
+		data, aerr := fn(payload)
+		if aerr != nil {
+			return nil, &mcpError{HTTPStatus: aerr.Status, Code: aerr.Code, Message: aerr.Message}
+		}
+		return data, nil
+	}
 }
 
 // RegisterMCP 注册 /api/mcp 网关（原生 fiber 路由，不走 hybrid cookie 鉴权链）。
@@ -173,7 +243,7 @@ func RegisterMCP(
 	users *userapp.Service,
 	authorFn func() (*user.User, error),
 	authorNameFn func() string,
-) error {
+) (*MCP, error) {
 	m := &MCP{
 		a:            a,
 		keys:         keys,
@@ -186,7 +256,7 @@ func RegisterMCP(
 		authorNameFn: authorNameFn,
 	}
 	a.Server().App().Post("/api/mcp", m.mcpAuth, m.handle)
-	return nil
+	return m, nil
 }
 
 // handle POST /api/mcp 主流程：解析协议 → dispatch → 统一响应。
@@ -199,15 +269,23 @@ func (m *MCP) handle(ctx *fiber.Ctx) error {
 	if req.Action == "" {
 		return writeMCPError(ctx, mcpErr(fiber.StatusBadRequest, mcpCodeBadRequest, "action is required"))
 	}
+	m.extraMu.RLock()
+	pluginFn, isPlugin := m.extra[req.Action]
+	m.extraMu.RUnlock()
 	h, ok := mcpActions[req.Action]
-	if !ok {
+	if !ok && !isPlugin {
 		return writeMCPError(ctx, mcpErr(fiber.StatusBadRequest, mcpCodeBadRequest, "unknown action: "+req.Action))
 	}
 	payload, merr := normalizePayload(req.Payload)
 	if merr != nil {
 		return writeMCPError(ctx, merr)
 	}
-	data, merr := h(m, ctx, payload)
+	var data any
+	if ok {
+		data, merr = h(m, ctx, payload)
+	} else {
+		data, merr = adaptPluginAction(pluginFn)(m, ctx, payload)
+	}
 	if merr != nil {
 		return writeMCPError(ctx, merr)
 	}

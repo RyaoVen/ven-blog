@@ -202,7 +202,7 @@ func RegisterAdmin(
 				"moments": momentCount, "subscribers": subscriberCount,
 				"visits": visitTotal, "postHits": postHitsTotal,
 			},
-			"pv30":            pv30,
+			"pv30":           pv30,
 			"recentComments": recentViews,
 			"userGrowth": map[string]any{
 				"d7": growth7, "d30": growth30, "d365": growth365,
