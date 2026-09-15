@@ -14,6 +14,8 @@ import type { DocPageState, DocsTreeNode } from "./types";
 export function DocDetailPage({ bootstrap }: PageAppProps) {
     const state = (bootstrap.initialState ?? { doc: null, children: [], tree: [], prev: null, next: null }) as DocPageState;
     const doc = state.doc;
+    const tree = state.tree ?? [];
+    const children = state.children ?? [];
     const rendered = useMemo(() => (doc?.content ? renderMarkdown(doc.content) : null), [doc]);
 
     if (!doc) {
@@ -31,7 +33,7 @@ export function DocDetailPage({ bootstrap }: PageAppProps) {
             <style>{markdownCss}</style>
             <div style={{ display: "flex", gap: 32, alignItems: "flex-start" }}>
                 <aside style={{ width: 240, flexShrink: 0, position: "sticky", top: 80 }} className="ven-docs-sidebar">
-                    <DocTree nodes={state.tree} currentPath={doc.path} depth={0} />
+                    <DocTree nodes={tree} currentPath={doc.path} depth={0} />
                 </aside>
                 <article style={{ flex: 1, minWidth: 0 }} className="ven-docs-article">
                     <p style={{ color: v.textSecondary, fontSize: 13, margin: "0 0 8px" }}>

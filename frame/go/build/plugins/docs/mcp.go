@@ -25,6 +25,12 @@ func registerMCP(rt *plugin.Runtime, svc *Service, invalidate InvalidateFunc, ho
 		"doc.move": func(payload json.RawMessage) (any, *plugin.ActionError) {
 			return mcpMove(svc, invalidate, hooks, payload)
 		},
+		"doc.import": func(payload json.RawMessage) (any, *plugin.ActionError) {
+			return mcpImport(svc, invalidate, hooks, payload)
+		},
+		"doc.export": func(payload json.RawMessage) (any, *plugin.ActionError) {
+			return mcpExport(svc, payload)
+		},
 		"doc.update": func(payload json.RawMessage) (any, *plugin.ActionError) {
 			return mcpUpdate(svc, invalidate, hooks, payload)
 		},

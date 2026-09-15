@@ -270,11 +270,15 @@ func (s *Service) Tree(onlyPublished bool) ([]*TreeNode, error) {
 		if onlyPublished && d.Status != StatusPublished {
 			continue
 		}
+		tags := d.Tags
+		if tags == nil {
+			tags = []string{}
+		}
 		nodes[d.ID] = &TreeNode{Doc: &TreeNodeDoc{
 			ID: d.ID, Path: d.Path, Slug: d.Slug, Kind: d.Kind, Title: d.Title,
 			Summary: d.Summary, SortOrder: d.SortOrder, Status: d.Status,
-			Tags: d.Tags, UpdatedAt: d.UpdatedAt,
-		}}
+			Tags: tags, UpdatedAt: d.UpdatedAt,
+		}, Children: []*TreeNode{}}
 	}
 	for _, d := range all {
 		node, ok := nodes[d.ID]
