@@ -40,7 +40,14 @@ func (p *docsPlugin) Register(rt *plugin.Runtime) error {
 	}
 	p.db = db
 	p.svc = NewService(NewDocRepository(db))
-	_ = rt // MCP（#7）/页面（#8）/admin（#9）/webhook（#10）注册点
+	// MCP doc.* action（#7）；失效声明 DataChange("/docs/*") 随 #8 页面注册一并启用
+	// （StaticPage 未声明时 DataChange 会报错，页面先行是框架约束）。
+	if rt.MCP != nil {
+		if err := registerMCP(rt, p.svc); err != nil {
+			_ = db.Close()
+			return err
+		}
+	}
 	return nil
 }
 
