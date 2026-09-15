@@ -172,3 +172,36 @@ app.Use(s.visitTracking())
 
 - 框架仓本地工作区已有未提交改动（事件总线 #21 等），请先整理提交或分支隔离，本 Brief 的两个需求独立成 issue/分支，避免混入无关改动。
 - 业务仓侧待框架吸收后自行对齐（删除本地 visit.go、改用公开 API），无需框架侧处理。
+
+---
+
+## 需求 7：catch-all 页面路由（2026-09-16，docs 插件驱动）
+
+### 背景
+
+docs 插件（unit-7）需要树形 URL（`/docs/a/b/c`，深度不定）。当前框架全链路不支持 catch-all：
+
+- Node 端 `generatePageFromPath` 仅识别 `[xxx]` → `:xxx` 单段动态（`page-builder/pageRouter.ts:108-126`）；
+- Node 端 `matchRoute` 要求模板与请求段数相等（`pageRouter.ts:166-169`）；
+- Go 端 `isr.Declaration.Match` 同样要求段数相等（`internal/isr/pattern.go:50-66`）；
+- fiber 路由本身支持 `/docs/*`，但页面契约以 Node `/pages` 列表为唯一真相源，无法绕过。
+
+### 需求内容
+
+1. **Node 端**：`[...slug]` 目录名推导为尾段通配段 `*`（如 `src/docs/[...slug]/page.tsx` → `/docs/*`）；`matchRoute` 支持尾段 `*` 吸收任意深度（≥0 段），参数以 `slug[]` 或 `slug`（`/` 连接）交付；
+2. **Go 端**：`pagepattern` 校验放行 `*` 段；`isr.ParseDeclaration`/`Declaration.Match`/`BuildMatcher` 支持尾段 `*`（物化文件名策略：多段 join 或 hash）；`StaticPage("/docs/:a/*"…)` 或 `"/docs/*"` 可注册；
+3. **失效语义**：`DataChange` 的 Params 对 `*` 段支持子树失效（params 缺省 = 全局，给定前缀 = 前缀匹配）。
+
+### 业务侧过渡方案（上游未合入期间）
+
+业务侧**不私改框架**（AGENTS.md 红线），过渡期采用固定深度声明：
+
+- `StaticPage` 三条：`/docs/:a`、`/docs/:a/:b`、`/docs/:a/:b/:c`，页面 pattern 与 Node 端固定深度目录（`src/docs/[a]/page.tsx` 等价物）保持契约一致；
+- docs 树深软上限 3（超出部分用 section index 页承载）；业务侧隐藏成本：同一组件注册三份、path 归一化逻辑收敛在数据层；
+- 上游合入后一次性切换到 catch-all 并删除过渡声明。
+
+### 验收
+
+- Node vitest：`[...slug]` 推导与 `matchRoute` 通配用例；
+- Go：`pagepattern`/`isr` 通配单测；
+- 业务仓 `/docs` 树深 3 内全路径 200。
