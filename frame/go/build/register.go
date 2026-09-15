@@ -32,6 +32,7 @@ import (
 	"ven_hybird/build/interfaces"
 	"ven_hybird/build/interfaces/moderator"
 	"ven_hybird/build/plugin"
+	"ven_hybird/build/plugins/docs"
 	"ven_hybird/hybrid"
 )
 
@@ -227,7 +228,9 @@ func registerPlugins(a *hybrid.App, settingsRepo setting.Repository, mcpGateway 
 		DataChange: a.DataChange,
 		Logger:     log.Default(),
 	}
-	return plugin.Bootstrap([]func() plugin.Plugin{}, rt, builtinRoutePrefixes)
+	return plugin.Bootstrap([]func() plugin.Plugin{
+		docs.New, // plugins/docs：树形文档（M2 起分阶段启用页面/MCP/admin）
+	}, rt, builtinRoutePrefixes)
 }
 
 // builtinRoutePrefixes 宿主内置路由静态前缀（插件 PagePrefix 不得与之冲突）。
