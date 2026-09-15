@@ -2,6 +2,25 @@
 
 本仓库版本采用语义化版本（SemVer）。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [Unreleased] - docs 插件与插件系统治理（2026-09-16，GitCode dev 平台）
+
+### 新增
+
+- **插件系统治理（unit-6）**：`build/plugin` 契约与注册内核——Meta（名称/路由前缀所有权/依赖/默认启停）、Runtime 窄接口能力面（App/MCP/Search/Settings/DataChange）、清单校验（重名/kebab/前缀冲突段边界判定）、依赖拓扑排序、settings 启停（plugin.<name>.enabled）、fail-fast 注册、Startable/Stoppable 生命周期与逆序关停；入口约定：每插件唯一规范文件 plugin.go（New 纯构造）+ 组合根清单制
+- **MCP 扩展点**：RegisterAction——插件可贡献 action（<plugin>. 前缀强制、重名拒绝、内置表优先），内置 14 action 零行为变更
+- **搜索扩展点**：SearchRegistry 聚合器——内置 blog 源 + 插件 provider；/search 支持 scope=all/blog/<provider>；插件结果走 pluginResults 新字段（无插件时 bit-exact）
+- **docs 插件（unit-7）**：树形文档模块（笔记、项目文档）——
+  - 数据层：docs 表（path 物化主标识/隐式补父/树深上限）、插件自建 MySQL 连接（池上限 4、Stop 关池、DSN 可覆盖）
+  - MCP 通道（第一写入通道）：doc.create（隐式补父）/get/list（since 增量）/tree/update（部分更新）/move（级联改名换父防环）/delete（级联）/import（frontmatter upsert）/export（往返一致）
+  - hook 四件套：SSE 联动（失效即推送）、MCP since 增量拉取、出站 webhook（HMAC-SHA256 签名 + 退避重试 + 生命周期托管）、Markdown 导入/导出
+  - 前端：/docs 目录树首页 + 固定深度文档页（ISR 2000 页/smartLoad，上游需求 7 catch-all 合入前过渡方案）、侧边导航树/上一页下一页
+  - 后台：/admin/docs 树形管理（撤稿/发布/排序/级联删除）+ 轻量编辑器（新建/编辑）
+  - 搜索：docs provider 贡献（published 匹配、摘要摘取）+ scope 切换 UI
+
+### 平台
+
+- GitCode（liaoyutianyuan/ven-blog）定位 dev 平台：issue #1~#12 + PR #1~#13 全程 devflow 流水线（受理→方案→实现→机器评审→PR→squash 合流）；GitHub 保持发布/同步平台
+
 ## [v1.2.6] - 2026-08-05
 
 ### 修复
