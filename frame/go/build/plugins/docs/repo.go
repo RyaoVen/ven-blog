@@ -222,6 +222,43 @@ func (r *DocRepository) Delete(id int64) error {
 	return nil
 }
 
+// ListUpdatedSince 增量拉取（updated_at >= since，升序）。
+func (r *DocRepository) ListUpdatedSince(since time.Time) ([]*Doc, error) {
+	rows, err := r.db.Query(docSelect+" WHERE updated_at >= ? ORDER BY updated_at ASC", since)
+	if err != nil {
+		return nil, fmt.Errorf("docs: list since: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	return collectDocs(rows)
+}
+
+// UpdatePath 更新节点自身定位。
+func (r *DocRepository) UpdatePath(id int64, parentID int64, slug, path string, updatedAt time.Time) error {
+	_, err := r.db.Exec("UPDATE docs SET parent_id=?, slug=?, path=?, updated_at=? WHERE id=?",
+		parentID, slug, path, updatedAt, id)
+	if isDuplicate(err) {
+		return ErrDuplicatePath
+	}
+	if err != nil {
+		return fmt.Errorf("docs: update path: %w", err)
+	}
+	return nil
+}
+
+// RenameDescendants 级联改写后代 path 前缀（REPLACE 前缀；单条 UPDATE 原子完成）。
+func (r *DocRepository) RenameDescendants(oldPrefix, newPrefix string, updatedAt time.Time) error {
+	_, err := r.db.Exec(
+		"UPDATE docs SET path = CONCAT(?, SUBSTRING(path, ?)), updated_at=? WHERE path LIKE ?",
+		newPrefix, len(oldPrefix)+1, updatedAt, oldPrefix+"%")
+	if isDuplicate(err) {
+		return ErrDuplicatePath
+	}
+	if err != nil {
+		return fmt.Errorf("docs: rename descendants: %w", err)
+	}
+	return nil
+}
+
 // CountChildren 直接子节点数。
 func (r *DocRepository) CountChildren(id int64) (int, error) {
 	var n int

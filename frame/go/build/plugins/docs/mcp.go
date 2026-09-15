@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"ven_hybird/build/plugin"
 )
@@ -13,14 +14,23 @@ import (
 // registerMCP 注册 doc.* action（unit-7 §4；unit-6 §5.2 经 Runtime.MCP）。
 // 全部 action 为 author 语义（/api/mcp 网关 key 鉴权已保证）；
 // ID 一律字符串化；写操作非幂等（失败先 doc.list 查证再重试，契约与 post 一致）。
-func registerMCP(rt *plugin.Runtime, svc *Service, invalidate InvalidateFunc) error {
+func registerMCP(rt *plugin.Runtime, svc *Service, invalidate InvalidateFunc, hooks *WriteHooks) error {
 	actions := map[string]plugin.MCPActionFunc{
-		"doc.create": func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpCreate(svc, invalidate, payload) },
-		"doc.get":    func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpGet(svc, payload) },
-		"doc.list":   func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpList(svc, payload) },
-		"doc.tree":   func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpTree(svc, payload) },
-		"doc.update": func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpUpdate(svc, invalidate, payload) },
-		"doc.delete": func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpDelete(svc, invalidate, payload) },
+		"doc.create": func(payload json.RawMessage) (any, *plugin.ActionError) {
+			return mcpCreate(svc, invalidate, hooks, payload)
+		},
+		"doc.get":  func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpGet(svc, payload) },
+		"doc.list": func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpList(svc, payload) },
+		"doc.tree": func(payload json.RawMessage) (any, *plugin.ActionError) { return mcpTree(svc, payload) },
+		"doc.move": func(payload json.RawMessage) (any, *plugin.ActionError) {
+			return mcpMove(svc, invalidate, hooks, payload)
+		},
+		"doc.update": func(payload json.RawMessage) (any, *plugin.ActionError) {
+			return mcpUpdate(svc, invalidate, hooks, payload)
+		},
+		"doc.delete": func(payload json.RawMessage) (any, *plugin.ActionError) {
+			return mcpDelete(svc, invalidate, hooks, payload)
+		},
 	}
 	for name, fn := range actions {
 		if err := rt.MCP.RegisterAction(name, fn); err != nil {
@@ -111,8 +121,21 @@ func mapErr(err error) *plugin.ActionError {
 	}
 }
 
+// WriteHooks 写操作旁路钩子：失效静态页 + 出站 webhook（接口层职责集中）。
+type WriteHooks struct {
+	Invalidate InvalidateFunc
+	Emit       func(event, path string)
+}
+
+// emit 安全触发 webhook（nil 安全）。
+func (h *WriteHooks) emit(event, path string) {
+	if h != nil && h.Emit != nil {
+		h.Emit(event, path)
+	}
+}
+
 // mcpCreate doc.create。
-func mcpCreate(svc *Service, invalidate InvalidateFunc, payload json.RawMessage) (any, *plugin.ActionError) {
+func mcpCreate(svc *Service, invalidate InvalidateFunc, hooks *WriteHooks, payload json.RawMessage) (any, *plugin.ActionError) {
 	var in struct {
 		Title   string   `json:"title"`
 		Path    string   `json:"path"`
@@ -140,6 +163,7 @@ func mcpCreate(svc *Service, invalidate InvalidateFunc, payload json.RawMessage)
 		return nil, mapErr(err)
 	}
 	invalidate()
+	hooks.emit("doc.created", doc.Path)
 	return map[string]any{"doc": toView(doc, true), "id": docViewID(doc)}, nil
 }
 
@@ -175,11 +199,20 @@ func mcpList(svc *Service, payload json.RawMessage) (any, *plugin.ActionError) {
 		Recursive bool   `json:"recursive"`
 		Limit     int    `json:"limit"`
 		Offset    int    `json:"offset"`
+		Since     string `json:"since"` // ISO8601（增量拉取，M5）
 	}
 	if err := decode(payload, &in); err != nil {
 		return nil, err
 	}
-	docs, total, err := svc.List(ListInput{Path: in.Path, Recursive: in.Recursive, Limit: in.Limit, Offset: in.Offset})
+	var since *time.Time
+	if in.Since != "" {
+		t, err := time.Parse(time.RFC3339, in.Since)
+		if err != nil {
+			return nil, validation(errors.New("since must be RFC3339/ISO8601"))
+		}
+		since = &t
+	}
+	docs, total, err := svc.List(ListInput{Path: in.Path, Recursive: in.Recursive, Limit: in.Limit, Offset: in.Offset, Since: since})
 	if err != nil {
 		return nil, mapErr(err)
 	}
@@ -199,8 +232,31 @@ func mcpTree(svc *Service, payload json.RawMessage) (any, *plugin.ActionError) {
 	return map[string]any{"tree": tree}, nil
 }
 
+// mcpMove doc.move：移动/改名/重排并级联子树 path（M5）。
+func mcpMove(svc *Service, invalidate InvalidateFunc, hooks *WriteHooks, payload json.RawMessage) (any, *plugin.ActionError) {
+	var in struct {
+		Path      string `json:"path"`
+		NewParent string `json:"newParent"`
+		NewSlug   string `json:"newSlug"`
+		Order     *int   `json:"order"`
+	}
+	if err := decode(payload, &in); err != nil {
+		return nil, err
+	}
+	if in.Path == "" {
+		return nil, validation(errors.New("path is required"))
+	}
+	doc, err := svc.Move(MoveInput{Path: in.Path, NewParent: in.NewParent, NewSlug: in.NewSlug, Order: in.Order})
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	invalidate()
+	hooks.emit("doc.moved", doc.Path)
+	return map[string]any{"doc": toView(doc, false), "moved": true}, nil
+}
+
 // mcpUpdate doc.update（部分更新：指针字段判存在）。
-func mcpUpdate(svc *Service, invalidate InvalidateFunc, payload json.RawMessage) (any, *plugin.ActionError) {
+func mcpUpdate(svc *Service, invalidate InvalidateFunc, hooks *WriteHooks, payload json.RawMessage) (any, *plugin.ActionError) {
 	var in struct {
 		Path    string   `json:"path"`
 		Title   *string  `json:"title"`
@@ -224,11 +280,12 @@ func mcpUpdate(svc *Service, invalidate InvalidateFunc, payload json.RawMessage)
 		return nil, mapErr(err)
 	}
 	invalidate()
+	hooks.emit("doc.updated", doc.Path)
 	return map[string]any{"doc": toView(doc, true), "updated": true}, nil
 }
 
 // mcpDelete doc.delete。
-func mcpDelete(svc *Service, invalidate InvalidateFunc, payload json.RawMessage) (any, *plugin.ActionError) {
+func mcpDelete(svc *Service, invalidate InvalidateFunc, hooks *WriteHooks, payload json.RawMessage) (any, *plugin.ActionError) {
 	var in struct {
 		Path      string `json:"path"`
 		Recursive bool   `json:"recursive"`
@@ -243,5 +300,6 @@ func mcpDelete(svc *Service, invalidate InvalidateFunc, payload json.RawMessage)
 		return nil, mapErr(err)
 	}
 	invalidate()
+	hooks.emit("doc.deleted", in.Path)
 	return map[string]any{"deleted": true}, nil
 }

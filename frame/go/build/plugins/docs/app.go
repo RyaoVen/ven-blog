@@ -172,6 +172,7 @@ type ListInput struct {
 	Recursive bool
 	Limit     int // <=0 = 100
 	Offset    int
+	Since     *time.Time // 非空时按 updated_at >= since 过滤（增量拉取，M5）
 }
 
 // List 列出子树（recursive）或直接子节点；MCP 侧全量含 draft。
@@ -182,6 +183,21 @@ func (s *Service) List(in ListInput) ([]*Doc, int, error) {
 	}
 	var docs []*Doc
 	var err error
+	if in.Since != nil {
+		// 增量模式：忽略 path/recursive 语义，直接按时间窗拉取。
+		docs, err = s.repo.ListUpdatedSince(*in.Since)
+		if err != nil {
+			return nil, 0, err
+		}
+		total := len(docs)
+		if in.Offset > 0 && in.Offset < len(docs) {
+			docs = docs[in.Offset:]
+		}
+		if len(docs) > limit {
+			docs = docs[:limit]
+		}
+		return docs, total, nil
+	}
 	if in.Recursive {
 		docs, err = s.repo.ListAll()
 		if err != nil {
@@ -415,6 +431,107 @@ func (s *Service) DeleteByID(id int64, recursive bool) error {
 		return err
 	}
 	return s.Delete(DeleteInput{Path: doc.Path, Recursive: recursive})
+}
+
+// MoveInput doc.move 入参（unit-7 §5）：newParent/newSlug/order 至少一项。
+type MoveInput struct {
+	Path      string
+	NewParent string // 新父全路径；"" = 保持
+	NewSlug   string // 新 slug；"" = 保持
+	Order     *int
+}
+
+// Move 移动/改名/重排节点并级联更新子树 path。
+// 规则：新位置不得是自身或自身后代（防环）；新 path 冲突拒绝；树深上限校验。
+func (s *Service) Move(in MoveInput) (*Doc, error) {
+	doc, err := s.repo.GetByPath(strings.Trim(in.Path, "/"))
+	if err != nil {
+		return nil, err
+	}
+	if in.NewParent == "" && in.NewSlug == "" && in.Order == nil {
+		return nil, errors.New("newParent/newSlug/order 至少提供一项")
+	}
+	newParentPath := ""
+	if in.NewParent != "" {
+		newParentPath = strings.Trim(in.NewParent, "/")
+		if newParentPath == doc.Path || strings.HasPrefix(newParentPath, doc.Path+"/") {
+			return nil, fmt.Errorf("%w: 不能移动到自身或其后代之下", ErrInvalidKind)
+		}
+		parent, err := s.repo.GetByPath(newParentPath)
+		if err != nil {
+			return nil, err
+		}
+		if !parent.IsSection() {
+			return nil, fmt.Errorf("%w: %s 不是目录", ErrInvalidKind, newParentPath)
+		}
+	}
+	slug := doc.Slug
+	if in.NewSlug != "" {
+		if err := ValidateSlug(in.NewSlug); err != nil {
+			return nil, err
+		}
+		slug = in.NewSlug
+	}
+	newParentID := doc.ParentID
+	if in.NewParent != "" {
+		parent, err := s.repo.GetByPath(newParentPath)
+		if err != nil {
+			return nil, err
+		}
+		newParentID = parent.ID
+	}
+	newParentPathStr := newParentPath
+	if in.NewParent == "" {
+		// 保持原父：从旧 path 去掉尾段。
+		segs := SplitPath(doc.Path)
+		if len(segs) > 1 {
+			newParentPathStr = strings.Join(segs[:len(segs)-1], "/")
+		} else {
+			newParentPathStr = ""
+		}
+	}
+	newPath := JoinPath(newParentPathStr, slug)
+	// 深度校验：自身 + 后代层数。
+	if in.NewParent != "" || in.NewSlug != "" {
+		all, err := s.repo.ListAll()
+		if err != nil {
+			return nil, err
+		}
+		maxDescDepth := 0
+		for _, d := range all {
+			if strings.HasPrefix(d.Path, doc.Path+"/") {
+				if n := Depth(d.Path) - Depth(doc.Path); n > maxDescDepth {
+					maxDescDepth = n
+				}
+			}
+		}
+		if Depth(newPath)+maxDescDepth > MaxDepth {
+			return nil, ErrTooDeep
+		}
+		// 冲突校验（目标 path 被占）。
+		if _, err := s.repo.GetByPath(newPath); err == nil {
+			return nil, ErrDuplicatePath
+		}
+	}
+	now := s.now()
+	oldPrefix := doc.Path + "/"
+	newPrefix := newPath + "/"
+	if err := s.repo.UpdatePath(doc.ID, newParentID, slug, newPath, now); err != nil {
+		return nil, err
+	}
+	if newPath != doc.Path {
+		if err := s.repo.RenameDescendants(oldPrefix, newPrefix, now); err != nil {
+			return nil, err
+		}
+	}
+	if in.Order != nil {
+		doc.SortOrder = *in.Order
+		doc.UpdatedAt = now
+		if err := s.repo.Update(doc); err != nil {
+			return nil, err
+		}
+	}
+	return s.repo.GetByPath(newPath)
 }
 
 // DeleteInput doc.delete 入参。

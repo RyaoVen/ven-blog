@@ -4,6 +4,7 @@ package docs
 
 import (
 	"database/sql"
+	"log"
 
 	"ven_hybird/build/plugin"
 )
@@ -13,8 +14,9 @@ func New() plugin.Plugin { return &docsPlugin{} }
 
 // docsPlugin 插件实现：数据层自包含（自建 DB 连接，Stop 关池——治理规则外部资源自治）。
 type docsPlugin struct {
-	db  *sql.DB
-	svc *Service
+	db      *sql.DB
+	svc     *Service
+	webhook *WebhookDispatcher
 }
 
 // Meta 元数据：路由前缀所有权 /docs；settings 键 plugin.docs.enabled 控制启停。
@@ -40,6 +42,7 @@ func (p *docsPlugin) Register(rt *plugin.Runtime) error {
 	}
 	p.db = db
 	p.svc = NewService(NewDocRepository(db))
+	p.webhook = NewWebhookDispatcher(rt.Settings)
 	// 页面注册先行（StaticPage 声明就绪后失效回调才可用——DataChange 对未声明模式会报错）。
 	if err := registerPages(rt, p.svc); err != nil {
 		_ = db.Close()
@@ -48,7 +51,7 @@ func (p *docsPlugin) Register(rt *plugin.Runtime) error {
 	// MCP doc.* action：写操作成功后经 invalidate 失效 /docs 静态页并联动 SSE。
 	invalidate := newInvalidate(rt)
 	if rt.MCP != nil {
-		if err := registerMCP(rt, p.svc, invalidate); err != nil {
+		if err := registerMCP(rt, p.svc, invalidate, &WriteHooks{Emit: p.webhook.Emit}); err != nil {
 			_ = db.Close()
 			return err
 		}
@@ -65,8 +68,14 @@ func (p *docsPlugin) Register(rt *plugin.Runtime) error {
 	return nil
 }
 
-// Stop 优雅关停：释放自建连接池（评审 P0 项）。
+// Start 实现 plugin.Startable：webhook 投递器 worker（未配置时空转）。
+func (p *docsPlugin) Start() error { return p.webhook.Start() }
+
+// Stop 优雅关停：webhook worker 退出 + 释放自建连接池（评审 P0 项）。
 func (p *docsPlugin) Stop() error {
+	if err := p.webhook.Stop(); err != nil {
+		log.Printf("docs: webhook stop: %v", err)
+	}
 	if p.db != nil {
 		return p.db.Close()
 	}

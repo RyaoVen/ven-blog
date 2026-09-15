@@ -161,4 +161,10 @@ type Repository interface {
 	Delete(id int64) error
 	// CountChildren 直接子节点数。
 	CountChildren(id int64) (int, error)
+	// ListUpdatedSince 返回 updated_at >= since 的节点（增量拉取，M5）。
+	ListUpdatedSince(since time.Time) ([]*Doc, error)
+	// UpdatePath 更新节点自身定位（path/parent_id/slug）。
+	UpdatePath(id int64, parentID int64, slug, path string, updatedAt time.Time) error
+	// RenameDescendants 级联改写后代 path 前缀（oldPrefix → newPrefix；按前缀匹配）。
+	RenameDescendants(oldPrefix, newPrefix string, updatedAt time.Time) error
 }
