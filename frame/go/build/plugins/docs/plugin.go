@@ -40,10 +40,15 @@ func (p *docsPlugin) Register(rt *plugin.Runtime) error {
 	}
 	p.db = db
 	p.svc = NewService(NewDocRepository(db))
-	// MCP doc.* action（#7）；失效声明 DataChange("/docs/*") 随 #8 页面注册一并启用
-	// （StaticPage 未声明时 DataChange 会报错，页面先行是框架约束）。
+	// 页面注册先行（StaticPage 声明就绪后失效回调才可用——DataChange 对未声明模式会报错）。
+	if err := registerPages(rt, p.svc); err != nil {
+		_ = db.Close()
+		return err
+	}
+	// MCP doc.* action：写操作成功后经 invalidate 失效 /docs 静态页并联动 SSE。
+	invalidate := newInvalidate(rt)
 	if rt.MCP != nil {
-		if err := registerMCP(rt, p.svc); err != nil {
+		if err := registerMCP(rt, p.svc, invalidate); err != nil {
 			_ = db.Close()
 			return err
 		}
