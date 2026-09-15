@@ -92,7 +92,7 @@ func (s *searchAggregator) search(ctx context.Context, q, scope string, limit in
 	if !ok {
 		return nil, nil, fmt.Errorf("unknown scope: %s（可用：%s）", scope, strings.Join(s.providerNames(), "/"))
 	}
-	return nil, []searchHitGroup{{Provider: scope, Hits: s.queryProvider(ctx, p, q, limit)}}, nil
+	return []PostView{}, []searchHitGroup{{Provider: scope, Hits: s.queryProvider(ctx, p, q, limit)}}, nil
 }
 
 // searchBlog 内置文章检索（保持原 posts.Search 语义）。

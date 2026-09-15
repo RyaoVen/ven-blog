@@ -10,6 +10,8 @@ import type { SearchState } from "./types";
 
 export default function SearchPage({ bootstrap }: PageAppProps) {
     const state = (bootstrap.initialState ?? { q: "", results: [], scope: "", pluginResults: [] }) as SearchState;
+    const results = state.results ?? [];
+    const pluginResults = state.pluginResults ?? [];
     const [kw, setKw] = useState(state.q);
     const scope = state.scope || "all";
 
@@ -73,10 +75,10 @@ export default function SearchPage({ bootstrap }: PageAppProps) {
             ) : (
                 <>
                     <p style={{ color: v.textSecondary, margin: "0 0 16px" }}>
-                        「{state.q}」共 {state.results.length + (state.pluginResults?.reduce((n, g) => n + (g.hits?.length ?? 0), 0) ?? 0)} 条结果
+                        「{state.q}」共 {results.length + pluginResults.reduce((n, g) => n + (g.hits?.length ?? 0), 0)} 条结果
                     </p>
-                    {state.results.length > 0 && <PostList posts={state.results} />}
-                    {(state.pluginResults ?? []).map((group) => (
+                    {results.length > 0 && <PostList posts={results} />}
+                    {pluginResults.map((group) => (
                         <section key={group.provider} style={{ marginTop: state.results.length > 0 ? 28 : 0 }}>
                             <h2 style={{ fontSize: 16, marginBottom: 12 }}>
                                 文档 <span style={{ color: v.textSecondary, fontSize: 13 }}>({group.hits.length})</span>

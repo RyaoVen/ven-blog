@@ -13,6 +13,7 @@ interface AdminDocsState {
 export default function AdminDocsPage({ bootstrap }: PageAppProps) {
     const state = (bootstrap.initialState ?? { docs: [] }) as AdminDocsState;
     const [docs, setDocs] = useState<DocView[]>(state.docs ?? []);
+    void docs;
     const [error, setError] = useState("");
 
     async function reload() {
@@ -34,7 +35,7 @@ export default function AdminDocsPage({ bootstrap }: PageAppProps) {
         if (!confirm(msg)) {
             return;
         }
-        const resp = await fetch(`/admin/docs/${doc.id}?recursive=${hasKids}`, { method: "DELETE" });
+        const resp = await fetch(`/api/admin/docs/${doc.id}?recursive=${hasKids}`, { method: "DELETE" });
         if (resp.ok) {
             await reload();
         } else {
@@ -55,7 +56,7 @@ export default function AdminDocsPage({ bootstrap }: PageAppProps) {
     }
 
     async function reorder(doc: DocView, delta: number) {
-        const resp = await fetch(`/admin/docs/${doc.id}`, {
+        const resp = await fetch(`/api/admin/docs/${doc.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ order: doc.sortOrder + delta }),

@@ -55,13 +55,13 @@ export function DocEditorForm({
         try {
             let resp: Response;
             if (mode === "create") {
-                resp = await fetch("/admin/docs", {
+                resp = await fetch("/api/admin/docs", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload({ path: draft.path, kind: draft.kind })),
                 });
             } else {
-                resp = await fetch(`/admin/docs/${initial?.id}`, {
+                resp = await fetch(`/api/admin/docs/${initial?.id}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload()),
