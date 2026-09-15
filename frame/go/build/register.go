@@ -140,7 +140,9 @@ func Register(a *hybrid.App) ([]plugin.Stoppable, error) {
 	if err := interfaces.RegisterInteractions(a, comments, interactions, emailAuth, users, settings, siteURLOf(settings)); err != nil {
 		return nil, err
 	}
-	if err := interfaces.RegisterSearch(a, posts); err != nil {
+	// 搜索聚合器：内置 blog 源 + 插件 provider 注册面（unit-6 §5.4）
+	searchAgg := interfaces.NewSearchAggregator(posts)
+	if err := interfaces.RegisterSearch(a, posts, searchAgg); err != nil {
 		return nil, err
 	}
 	if err := interfaces.RegisterProfiles(a, users, posts, guestbook, settings); err != nil {
@@ -211,15 +213,16 @@ func Register(a *hybrid.App) ([]plugin.Stoppable, error) {
 		return nil, err
 	}
 	// 插件注册（unit-6）：清单见 registerPlugins；插件经 Runtime 贡献页面/API/MCP action/搜索 provider
-	return registerPlugins(a, settingsRepo, mcpGateway)
+	return registerPlugins(a, settingsRepo, mcpGateway, searchAgg)
 }
 
 // registerPlugins 插件清单（unit-6 §5.3）：新增插件 = 本清单加一行入口（New 纯构造）。
 // 返回值交由宿主在关停时逆序 Stop。
-func registerPlugins(a *hybrid.App, settingsRepo setting.Repository, mcpGateway *interfaces.MCP) ([]plugin.Stoppable, error) {
+func registerPlugins(a *hybrid.App, settingsRepo setting.Repository, mcpGateway *interfaces.MCP, searchAgg plugin.SearchRegistry) ([]plugin.Stoppable, error) {
 	rt := &plugin.Runtime{
 		App:        a,
 		MCP:        mcpGateway,
+		Search:     searchAgg,
 		Settings:   settingsStoreAdapter{repo: settingsRepo},
 		DataChange: a.DataChange,
 		Logger:     log.Default(),
