@@ -31,3 +31,8 @@ frame/go/node-patterns.json
 # 运行时产物（冒烟/本地起服生成）
 frame/node/node-patterns.json
 frame/node/isr-pages/
+
+# bench 运行时产物
+bench/results/*/logs/
+bench/results/A/logs/
+bench/results/B/logs/
