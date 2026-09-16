@@ -167,4 +167,6 @@ type Repository interface {
 	UpdatePath(id int64, parentID int64, slug, path string, updatedAt time.Time) error
 	// RenameDescendants 级联改写后代 path 前缀（oldPrefix → newPrefix；按前缀匹配）。
 	RenameDescendants(oldPrefix, newPrefix string, updatedAt time.Time) error
+	// DeleteSubtree 事务删除子树（含自身：path 精确 + 前缀匹配一并原子完成）。
+	DeleteSubtree(rootPath string) error
 }

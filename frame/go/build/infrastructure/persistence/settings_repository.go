@@ -27,6 +27,8 @@ var _ setting.Repository = (*SettingsRepository)(nil)
 var sensitiveKeys = map[string]bool{
 	setting.KeySMTPPass:  true,
 	setting.KeyLLMAPIKey: true,
+	// 插件敏感键（unit-6：插件配置命名空间 plugin.<name>.*，敏感项在此登记）：
+	"plugin.docs.webhook_secret": true,
 }
 
 // Get 读取键值，不存在返回空串（sql.ErrNoRows 归一为空值，调用方回退默认值）。

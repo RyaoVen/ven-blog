@@ -120,6 +120,15 @@ func (r *memRepo) RenameDescendants(oldPrefix, newPrefix string, updatedAt time.
 	return nil
 }
 
+func (r *memRepo) DeleteSubtree(rootPath string) error {
+	for id, d := range r.byID {
+		if d.Path == rootPath || strings.HasPrefix(d.Path, rootPath+"/") {
+			delete(r.byID, id)
+		}
+	}
+	return nil
+}
+
 func (r *memRepo) CountChildren(id int64) (int, error) {
 	n := 0
 	for _, d := range r.byID {

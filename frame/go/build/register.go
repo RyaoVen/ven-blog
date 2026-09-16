@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"ven_hybird/build/domain/user"
@@ -220,6 +221,7 @@ func Register(a *hybrid.App) ([]plugin.Stoppable, error) {
 // registerPlugins 插件清单（unit-6 §5.3）：新增插件 = 本清单加一行入口（New 纯构造）。
 // 返回值交由宿主在关停时逆序 Stop。
 func registerPlugins(a *hybrid.App, settingsRepo setting.Repository, mcpGateway *interfaces.MCP, searchAgg plugin.SearchRegistry) ([]plugin.Stoppable, error) {
+	// 内置路由前缀在插件注册前从 fiber 路由表现收（零维护：新增内置路由自动纳入冲突校验）。
 	rt := &plugin.Runtime{
 		App:        a,
 		MCP:        mcpGateway,
@@ -229,15 +231,30 @@ func registerPlugins(a *hybrid.App, settingsRepo setting.Repository, mcpGateway 
 		Logger:     log.Default(),
 	}
 	return plugin.Bootstrap([]func() plugin.Plugin{
-		docs.New, // plugins/docs：树形文档（M2 起分阶段启用页面/MCP/admin）
-	}, rt, builtinRoutePrefixes)
+		docs.New, // plugins/docs：树形文档
+	}, rt, builtinPrefixesFromApp(a))
 }
 
-// builtinRoutePrefixes 宿主内置路由静态前缀（插件 PagePrefix 不得与之冲突）。
-// 与各 RegisterXxx 声明的页面/API 前缀保持同步。
-var builtinRoutePrefixes = []string{
-	"/posts", "/moments", "/author", "/users", "/search", "/admin",
-	"/guestbook", "/login", "/register", "/403", "/api", "/assets", "/auth",
+// builtinPrefixesFromApp 从 fiber 已注册路由收集静态首段前缀（"/posts/:id" → "/posts"），
+// 供插件 PagePrefix 冲突校验；必须在任何插件注册之前调用。
+func builtinPrefixesFromApp(a *hybrid.App) []string {
+	seen := map[string]bool{}
+	prefixes := make([]string, 0, 16)
+	for _, stack := range a.Server().App().Stack() {
+		for _, route := range stack {
+			segments := strings.Split(strings.Trim(route.Path, "/"), "/")
+			if len(segments) == 0 || segments[0] == "" {
+				continue
+			}
+			prefix := "/" + segments[0]
+			if prefix == "/" || seen[prefix] {
+				continue
+			}
+			seen[prefix] = true
+			prefixes = append(prefixes, prefix)
+		}
+	}
+	return prefixes
 }
 
 // settingsStoreAdapter 把 setting.Repository 适配为插件系统的 SettingsStore 窄接口

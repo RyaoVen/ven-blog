@@ -1,7 +1,9 @@
 /** docs 后台：轻量文档编辑器（新建/编辑共用；正文 textarea——复制适配不强行抽象 posts editor） */
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { navigate } from "../../app/router";
+import { renderMarkdown } from "../../lib/markdown";
+import { markdownCss } from "../../lib/markdownCss";
 import { v } from "../../lib/theme";
 
 interface DocDraft {
@@ -34,6 +36,8 @@ export function DocEditorForm({
     });
     const [error, setError] = useState("");
     const [saving, setSaving] = useState(false);
+    const [preview, setPreview] = useState(false);
+    const rendered = useMemo(() => renderMarkdown(draft.content || ""), [draft.content]);
 
     function patch(partial: Partial<DocDraft>) {
         setDraft((d) => ({ ...d, ...partial }));
@@ -105,10 +109,27 @@ export function DocEditorForm({
                 摘要（≤200 字）
                 <textarea className="ven-input" style={{ ...inputStyle, minHeight: 60 }} value={draft.summary} onChange={(e) => patch({ summary: e.target.value })} />
             </label>
-            <label style={{ display: "grid", gap: 6, fontSize: 13 }}>
-                正文（Markdown）
-                <textarea className="ven-input" style={{ ...inputStyle, minHeight: 320, fontFamily: "ui-monospace, monospace" }} value={draft.content} onChange={(e) => patch({ content: e.target.value })} />
-            </label>
+            <div style={{ display: "grid", gap: 6, fontSize: 13 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    正文（Markdown）
+                    <button
+                        className="ven-meta"
+                        type="button"
+                        onClick={() => setPreview((p) => !p)}
+                        style={{ cursor: "pointer", border: `1px solid ${v.border}`, borderRadius: 8, padding: "3px 10px", background: preview ? v.textPrimary : "transparent", color: preview ? v.bg : v.textSecondary }}
+                    >
+                        {preview ? "返回编辑" : "实时预览"}
+                    </button>
+                </div>
+                {preview ? (
+                    <div className="ven-input" style={{ ...inputStyle, minHeight: 320, overflow: "auto" }}>
+                        <style>{markdownCss}</style>
+                        <div className="ven-md" dangerouslySetInnerHTML={{ __html: rendered.html }} />
+                    </div>
+                ) : (
+                    <textarea className="ven-input" style={{ ...inputStyle, minHeight: 320, fontFamily: "ui-monospace, monospace" }} value={draft.content} onChange={(e) => patch({ content: e.target.value })} />
+                )}
+            </div>
             <div style={{ display: "flex", gap: 14 }}>
                 <label style={{ display: "grid", gap: 6, fontSize: 13, flex: 1 }}>
                     标签（逗号分隔，≤8 个）

@@ -662,8 +662,7 @@ type DeleteInput struct {
 }
 
 // Delete 删除节点：section 有子节点且未 recursive → ErrHasChildren；
-// recursive 级联删除子树（收集前缀匹配节点逐一删除，Phase 1 无事务包裹——单作者场景可接受，
-// M5 Move 落地时一并升级事务化仓储方法）。
+// recursive 走仓储事务（自身 + 前缀后代原子删除）。
 func (s *Service) Delete(in DeleteInput) error {
 	path := strings.Trim(in.Path, "/")
 	doc, err := s.repo.GetByPath(path)
@@ -678,24 +677,7 @@ func (s *Service) Delete(in DeleteInput) error {
 		return ErrHasChildren
 	}
 	if children > 0 && in.Recursive {
-		all, err := s.repo.ListAll()
-		if err != nil {
-			return err
-		}
-		// 深路径先删（子在前），避免父删除后子成孤儿引用混乱。
-		victims := make([]*Doc, 0)
-		for _, d := range all {
-			if d.Path == doc.Path || strings.HasPrefix(d.Path, doc.Path+"/") {
-				victims = append(victims, d)
-			}
-		}
-		sort.Slice(victims, func(i, j int) bool { return Depth(victims[i].Path) > Depth(victims[j].Path) })
-		for _, v := range victims {
-			if err := s.repo.Delete(v.ID); err != nil {
-				return err
-			}
-		}
-		return nil
+		return s.repo.DeleteSubtree(doc.Path)
 	}
 	return s.repo.Delete(doc.ID)
 }

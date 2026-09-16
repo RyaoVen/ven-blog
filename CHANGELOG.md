@@ -17,6 +17,14 @@
   - 后台：/admin/docs 树形管理（撤稿/发布/排序/级联删除）+ 轻量编辑器（新建/编辑）
   - 搜索：docs provider 贡献（published 匹配、摘要摘取）+ scope 切换 UI
 
+### 修复（全量 review，2026-09-16）
+
+- **webhook secret 加密落盘**：plugin.docs.webhook_secret 登记为敏感键（AES-GCM，BLOG_SECRET_KEY 未配置回退明文并警告），修正注释失实；投递器改现读配置（保存即时生效，无需重启）
+- **级联删除事务化**：DeleteSubtree 单事务原子完成（原逐条删除存在中途失败孤儿态）
+- **插件前缀冲突校验的内置路由表改为启动时从 fiber 路由表自动收集**（新增内置路由零维护）
+- admin 编辑器加实时 Markdown 预览；docs 管理页新增 webhook 配置区块（secret 不回传明文）
+- 设计文档状态头 DRAFT → 已实施
+
 ### 平台
 
 - GitCode（liaoyutianyuan/ven-blog）定位 dev 平台：issue #1~#12 + PR #1~#13 全程 devflow 流水线（受理→方案→实现→机器评审→PR→squash 合流）；GitHub 保持发布/同步平台

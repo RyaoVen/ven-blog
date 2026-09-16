@@ -259,6 +259,25 @@ func (r *DocRepository) RenameDescendants(oldPrefix, newPrefix string, updatedAt
 	return nil
 }
 
+// DeleteSubtree 事务删除子树（自身 + 全部前缀后代，单事务原子完成）。
+func (r *DocRepository) DeleteSubtree(rootPath string) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return fmt.Errorf("docs: begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.Exec("DELETE FROM docs WHERE path = ?", rootPath); err != nil {
+		return fmt.Errorf("docs: delete root: %w", err)
+	}
+	if _, err := tx.Exec("DELETE FROM docs WHERE path LIKE CONCAT(?, '/%')", rootPath); err != nil {
+		return fmt.Errorf("docs: delete descendants: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("docs: commit: %w", err)
+	}
+	return nil
+}
+
 // CountChildren 直接子节点数。
 func (r *DocRepository) CountChildren(id int64) (int, error) {
 	var n int
