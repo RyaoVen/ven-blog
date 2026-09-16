@@ -17,6 +17,15 @@
   - 后台：/admin/docs 树形管理（撤稿/发布/排序/级联删除）+ 轻量编辑器（新建/编辑）
   - 搜索：docs provider 贡献（published 匹配、摘要摘取）+ scope 切换 UI
 
+### 性能与 SEO（技术测评报告修复，2026-09-16）
+
+- **接口分页**：GET /api/posts 实现 page/size 分页（size 1-50，非法 400），响应带 total/page/size
+- **列表视图裁剪**：PostListItem（去正文）——/api/posts、/posts 列表页、首页 recentPosts、收藏/展示、后台列表统一瘦身；MCP post.list 保持全文（agent 唯一全文通道）
+- **SEO 基础设施**：/favicon.ico（程序生成 ICO）、/robots.txt（禁爬后台/接口）、/sitemap.xml（动态：静态页+posts lastmod）、/manifest.json
+- **鉴权错误契约回归**：12 用例表驱动固化（坏 JSON/空参/类型错位/错误凭证/未知用户/弱密码/重名全部 4xx，禁 500）
+- **图片宽度变体**：GET /images/:id?w=16-2000 缩放重压缩（CatmullRom+JPEG q85）+ FIFO 变体缓存；markdown 站内图片自动 srcset 480/960/1600 + lazy
+- **平台**：测评修复 issue 批次 #14~#22（框架需求 8~12 登记：head 注入/缓存诊断/错误契约/产物哈希/拼写统一）；docs/ops/deploy-hardening.md 部署加固手册
+
 ### 修复（全量 review，2026-09-16）
 
 - **webhook secret 加密落盘**：plugin.docs.webhook_secret 登记为敏感键（AES-GCM，BLOG_SECRET_KEY 未配置回退明文并警告），修正注释失实；投递器改现读配置（保存即时生效，无需重启）
