@@ -49,6 +49,53 @@ func toPostView(p *post.Post) PostView {
 	}
 }
 
+// PostListItem 列表视图：不含正文（水合载荷与公开列表接口瘦身；
+// 正文经详情接口/详情页单独获取）。保留统计字段供后台列表填充。
+type PostListItem struct {
+	ID         string    `json:"id"`
+	Title      string    `json:"title"`
+	Category   string    `json:"category"`
+	Summary    string    `json:"summary"`
+	CoverURL   string    `json:"coverUrl"`
+	AuthorName string    `json:"authorName"`
+	Tags       []string  `json:"tags"`
+	Pinned     bool      `json:"pinned"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+	Hits      int `json:"hits"`
+	Likes     int `json:"likes"`
+	Favorites int `json:"favorites"`
+}
+
+// toListItem 单篇转列表项（无正文）。
+func toListItem(p *post.Post) PostListItem {
+	tags := p.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+	return PostListItem{
+		ID:         strconv.FormatInt(p.ID, 10),
+		Title:      p.Title,
+		Category:   p.Category,
+		Summary:    p.Summary,
+		CoverURL:   p.CoverURL,
+		AuthorName: p.AuthorName,
+		Tags:       tags,
+		Pinned:     p.Pinned,
+		CreatedAt:  p.CreatedAt,
+		UpdatedAt:  p.UpdatedAt,
+	}
+}
+
+// toListItems 批量转列表项。
+func toListItems(posts []*post.Post) []PostListItem {
+	items := make([]PostListItem, 0, len(posts))
+	for _, p := range posts {
+		items = append(items, toListItem(p))
+	}
+	return items
+}
+
 // toPostViews 批量转换。
 func toPostViews(posts []*post.Post) []PostView {
 	views := make([]PostView, 0, len(posts))

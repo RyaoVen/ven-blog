@@ -65,7 +65,7 @@ func RegisterProfiles(a *hybrid.App, users *userapp.Service, posts *postapp.Serv
 				if favErr != nil {
 					return favErr
 				}
-				payload["favorites"] = toPostViews(favs)
+				payload["favorites"] = toListItems(favs)
 			}
 		}
 		return c.JSON(payload)
@@ -120,7 +120,7 @@ func RegisterProfiles(a *hybrid.App, users *userapp.Service, posts *postapp.Serv
 		return c.JSON(map[string]any{
 			"author":      toUserView(profile.User),
 			"intro":       map[string]any{"paragraphs": content.Paragraphs, "skills": content.Skills},
-			"showcase":    map[string]any{"projects": content.Projects, "articles": toPostViews(latest)},
+			"showcase":    map[string]any{"projects": content.Projects, "articles": toListItems(latest)},
 			"friendLinks": content.Friends,
 			"guestbook":   toGuestbookViews(entries),
 		})

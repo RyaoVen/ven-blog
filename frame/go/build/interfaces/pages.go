@@ -34,7 +34,7 @@ func RegisterPages(a *hybrid.App, posts *postapp.Service, comments *commentapp.S
 			return err
 		}
 		return c.JSON(map[string]any{
-			"posts":      toPostViews(paged.Posts),
+			"posts":      toListItems(paged.Posts),
 			"total":      paged.Total,
 			"page":       paged.Page,
 			"pageSize":   paged.PageSize,

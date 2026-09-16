@@ -19,7 +19,7 @@ export default function PostDetailPage({ bootstrap }: PageAppProps) {
     const state = (bootstrap.initialState ?? { post: null, likeCount: 0, favoriteCount: 0, comments: [] }) as PostDetailState;
     const post = state.post;
     const role = useRole();
-    const rendered = useMemo(() => (post ? renderMarkdown(post.content) : null), [post]);
+    const rendered = useMemo(() => (post ? renderMarkdown(post.content ?? "") : null), [post]);
     const { viewer, toggle } = usePostViewer(post?.id ?? "0", state.likeCount, state.favoriteCount);
     const articleRef = useRef<HTMLElement>(null);
 

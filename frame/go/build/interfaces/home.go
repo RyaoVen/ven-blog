@@ -102,7 +102,7 @@ func RegisterHome(a *hybrid.App, posts *postapp.Service, moments *momentapp.Serv
 			return err
 		}
 		return c.JSON(map[string]any{
-			"recentPosts":   toPostViews(recentPosts),
+			"recentPosts":   toListItems(recentPosts),
 			"recentMoments": recentMoments,
 			"stats":         map[string]any{"posts": postCount, "words": totalChars, "days": days, "launchAt": launchAt, "latestID": latestID, "latestAgo": latestAgo},
 			"projects":      content.Projects,
