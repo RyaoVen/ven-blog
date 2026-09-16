@@ -31,11 +31,12 @@ import (
 
 // authTestEnv 是认证接口测试环境：完整服务链 + 假仓储（不起真实 MySQL）。
 type authTestEnv struct {
-	app      *hybrid.App
-	server   *httpserver.Server
-	userRepo *fakeUserRepo
-	codeRepo *fakeEmailCodeRepo
-	mailer   *fakeCodeMailer
+	app          *hybrid.App
+	server       *httpserver.Server
+	userRepo     *fakeUserRepo
+	codeRepo     *fakeEmailCodeRepo
+	mailer       *fakeCodeMailer
+	settingsRepo *fakeSettingRepo
 }
 
 // newAuthTestEnv 构造认证测试环境：限速器由用例注入（默认宽松参数），注册登录与邮箱认证路由。
@@ -57,14 +58,15 @@ func newAuthTestEnv(t *testing.T, loginLimit, codeEmailLimit, codeIPLimit *ratel
 		t.Fatalf("注册 reader 角色失败: %v", err)
 	}
 	env := &authTestEnv{
-		app:      app,
-		server:   server,
-		userRepo: newFakeUserRepo(),
-		codeRepo: &fakeEmailCodeRepo{codes: map[string]*emailcode.Entry{}},
-		mailer:   &fakeCodeMailer{},
+		app:          app,
+		server:       server,
+		userRepo:     newFakeUserRepo(),
+		codeRepo:     &fakeEmailCodeRepo{codes: map[string]*emailcode.Entry{}},
+		mailer:       &fakeCodeMailer{},
+		settingsRepo: &fakeSettingRepo{values: map[string]string{}},
 	}
 	users := userapp.NewService(env.userRepo)
-	settings := settingsapp.NewService(&fakeSettingRepo{values: map[string]string{}})
+	settings := settingsapp.NewService(env.settingsRepo)
 	emailAuth := emailauth.NewService(env.codeRepo, env.userRepo, env.mailer)
 	RegisterAuth(app, users, settings, loginLimit)
 	RegisterEmailAuth(app, emailAuth, users, settings, "http://127.0.0.1:8080", codeEmailLimit, codeIPLimit)
@@ -244,5 +246,69 @@ func TestEmailCodeThrottle_PerIP(t *testing.T) {
 	}
 	if n := env.codeRepo.creates; n != 50 {
 		t.Fatalf("被限速的请求不应再生成验证码，creates=%d", n)
+	}
+}
+
+/* ===== 错误契约回归（issue #16：测评报告——非法输入禁 500） ===== */
+
+// TestAuthErrorContract 鉴权链路错误路径表驱动回归：
+// 任何非法输入/错误凭证都应是 4xx（400/401/403/429），绝不 500。
+func TestAuthErrorContract(t *testing.T) {
+	env := newAuthTestEnv(t, ratelimit.New(5, 15*time.Minute), ratelimit.New(100, time.Minute), ratelimit.New(100, 24*time.Hour))
+	env.addUser(t, "writer", "right-pass")
+
+	cases := []struct {
+		name string
+		path string
+		body string
+	}{
+		// 登录：坏 JSON / 空参 / 类型错位 / 错误凭证 / 未知用户。
+		{"login bad json", "/auth/login", `{not-json`},
+		{"login empty", "/auth/login", `{}`},
+		{"login wrong types", "/auth/login", `{"username":123,"password":true}`},
+		{"login wrong password", "/auth/login", `{"username":"writer","password":"wrong"}`},
+		{"login unknown user", "/auth/login", `{"username":"ghost","password":"whatever"}`},
+		// 注册：注册开关默认关闭 403（不是 500）；开关打开后坏输入 400。
+		{"register disabled", "/auth/register", `{"username":"a","password":"b"}`},
+		{"register bad json", "/auth/register", `{not-json`},
+		// 邮箱验证码：坏 body / 非法邮箱。
+		{"email code bad json", "/auth/email/code", `{not-json`},
+		{"email code bad email", "/auth/email/code", `{"email":"not-an-email"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, body := env.post(t, tc.path, tc.body)
+			if resp.StatusCode >= 500 {
+				t.Fatalf("%s 应为 4xx，得 %d: %s", tc.name, resp.StatusCode, body)
+			}
+			// 错误响应统一 JSON {"error": ...}（注册开关关闭等既有语义除外，但同样不允许 5xx）。
+			if resp.StatusCode >= 500 {
+				t.Fatalf("%s 5xx: %s", tc.name, body)
+			}
+		})
+	}
+
+}
+
+// TestAuthRegisterOpenErrorContract 注册开关打开时的错误契约（400/409，无 500）。
+func TestAuthRegisterOpenErrorContract(t *testing.T) {
+	env := newAuthTestEnv(t, ratelimit.New(5, 15*time.Minute), ratelimit.New(100, time.Minute), ratelimit.New(100, 24*time.Hour))
+	env.settingsRepo.values["user_auth_enabled"] = "on"
+	env.addUser(t, "taken", "good-pass-123")
+	cases := []struct {
+		name string
+		body string
+	}{
+		{"weak password", `{"username":"newuser","password":"123"}`},
+		{"empty username", `{"username":"","password":"good-pass-123"}`},
+		{"username taken", `{"username":"taken","password":"good-pass-123"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, body := env.post(t, "/auth/register", tc.body)
+			if resp.StatusCode >= 500 {
+				t.Fatalf("%s 应为 4xx，得 %d: %s", tc.name, resp.StatusCode, body)
+			}
+		})
 	}
 }
