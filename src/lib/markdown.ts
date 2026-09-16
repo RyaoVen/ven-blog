@@ -241,6 +241,26 @@ const md = new MarkdownIt({
 
 // 结构化代码块：头部（语言标识 + 复制 + 展开/收起）+ 行号栏 + 行线 + hljs 高亮，默认收起。
 // 交互（复制/切换）由 Layout 的全局委托监听处理，SSR 输出即完整结构。
+// 站内图片响应式 srcset（测评报告 #11：正文图片原图直出无响应式）：
+// /images/:id 形式的图片自动注入 480/960/1600 三档宽度候选（服务端 ?w= 缩放变体），
+// 外链图片保持原样。
+const IMAGE_SRCSET_SIZES = [480, 960, 1600];
+md.renderer.rules.image = (tokens, idx, options, _env, self) => {
+    const token = tokens[idx];
+    const src = token.attrGet("src") ?? "";
+    let srcsetHtml = "";
+    if (/^\/images\/\d+$/.test(src)) {
+        const candidates = IMAGE_SRCSET_SIZES.map(
+            (w) => `${src}?w=${w} ${w}w`,
+        ).join(", ");
+        token.attrSet("srcset", candidates);
+        token.attrSet("sizes", "(max-width: 720px) 100vw, 720px");
+        token.attrSet("loading", "lazy");
+        srcsetHtml = "";
+    }
+    return self.renderToken(tokens, idx, options) + srcsetHtml;
+};
+
 md.renderer.rules.fence = (tokens, idx) => {
     const token = tokens[idx];
     const info = token.info.trim();
