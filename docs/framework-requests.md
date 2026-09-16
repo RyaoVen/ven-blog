@@ -205,3 +205,73 @@ docs 插件（unit-7）需要树形 URL（`/docs/a/b/c`，深度不定）。当�
 - Node vitest：`[...slug]` 推导与 `matchRoute` 通配用例；
 - Go：`pagepattern`/`isr` 通配单测；
 - 业务仓 `/docs` 树深 3 内全路径 200。
+
+---
+
+## 需求 8：SSR head 注入（2026-09-16，测评报告 P0-1 驱动）
+
+### 背景
+全站无 <title>（head 仅 89 字节）。根因：entry-server generateDocument 固定 head（charset+viewport），无任何 title/meta 注入点。
+
+### 需求内容
+1. Node 端 generateDocument 支持 bootstrap.head 注入（title/description/og/keywords），值经防 XSS 转义（与 __VEN_BOOTSTRAP__ 同策略）
+2. 渲染协议扩展：Go 侧 PageCtx 增加声明式 SetMeta(title, description string)（或 head map），随 initialState 序列化
+3. StaticPage 物化场景同样生效（数据函数声明的 head 一并存档随物化直发）
+4. 未声明时回退站点默认 title（站点名）
+
+### 验收
+- Node vitest：注入与转义用例；Go：SetMeta 序列化用例
+- 业务仓接入后文章页 title = 文章标题、列表页 title 带页码
+
+---
+
+## 需求 9：页面缓存命中率诊断（测评报告 P1-6 驱动）
+
+### 背景
+线上页面缓存命中率 1.23%（744/60661），healthz 只有总计数，无法定位是缓存键过敏感还是不可缓存请求占比问题。
+
+### 需求内容
+1. pagecache 记录 miss 原因分类（首次/过期/键不匹配/不可缓存）
+2. 诊断端点（内部令牌保护）输出 miss 路径 TopN 与原因分布
+3. 可选后续：404 探测负缓存（短 TTL）
+
+### 验收
+- 诊断数据能回答"哪些路径在 miss、为什么"；默认关闭零性能损耗
+
+---
+
+## 需求 10：错误契约统一与 ETag（测评报告 P2-10/13 驱动）
+
+### 需求内容
+1. 框架 fallback：HTML 请求输出设计过的 404 页（业务可自定义模板），/api 前缀输出 JSON {"error":"not_found"}
+2. 去除面向用户的内部术语措辞（"Page route not found"）
+3. SSR 响应支持 ETag（弱校验）+ If-None-Match 304
+
+### 验收
+- HTML 404 有设计页、API 404 是 JSON；二次请求 304
+
+---
+
+## 需求 11：客户端产物内容哈希（测评报告 P1-5 驱动）
+
+### 需求内容
+1. spaBuilder 输出文件名带内容哈希（entry-client.<hash>.js）
+2. bootstrap.clientScriptPath 动态指向哈希文件名
+3. 配合部署侧 immutable 长缓存
+
+### 验收
+- 产物带哈希；内容不变时哈希稳定；页面引用与产物一致
+
+---
+
+## 需求 12：hybird→hybrid 拼写统一（测评报告 P2-16，已立项）
+
+### 关键约束
+hybrid/ + internal/ 业务仓层与上游框架仓同步——改名必须上游框架仓先行，业务仓跟随，否则永久分叉。
+
+### 需求内容
+1. 上游框架仓：module 名、hybrid/ 目录、品牌文案统一为 hybrid（一次性，发布 v2 大版本）
+2. 业务仓跟随：import 替换、目录改名、文档文案统一
+
+### 验收
+- 双仓测试全绿；业务仓与上游 diff 面为零（除业务层）；全站品牌拼写统一
