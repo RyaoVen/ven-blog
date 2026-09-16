@@ -68,7 +68,7 @@ func (p *docsPlugin) Register(rt *plugin.Runtime) error {
 		_ = db.Close()
 		return err
 	}
-	if err := registerAdminAPI(rt, p.svc, invalidate); err != nil {
+	if err := registerAdminAPI(rt, p.svc, invalidate, rt.Settings); err != nil {
 		_ = db.Close()
 		return err
 	}

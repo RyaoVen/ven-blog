@@ -78,6 +78,42 @@ export default function AdminDocsPage({ bootstrap }: PageAppProps) {
                 </a>
             </header>
             {error && <p style={{ color: "#c0392b" }}>{error}</p>}
+            <section
+                style={{
+                    border: `1px solid ${v.border}`,
+                    borderRadius: 10,
+                    padding: 16,
+                    marginBottom: 24,
+                    display: "grid",
+                    gap: 10,
+                }}
+            >
+                <strong style={{ fontSize: 14 }}>Webhook 出站（文档变更推送到外部）</strong>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <input
+                        className="ven-input"
+                        style={{ flex: 2, minWidth: 260, padding: "8px 10px", borderRadius: 8, border: `1px solid ${v.border}` }}
+                        value={hookUrl}
+                        onChange={(e) => setHookUrl(e.target.value)}
+                        placeholder="接收端 URL，如 https://example.com/hook"
+                    />
+                    <input
+                        className="ven-input"
+                        type="password"
+                        style={{ flex: 1, minWidth: 180, padding: "8px 10px", borderRadius: 8, border: `1px solid ${v.border}` }}
+                        value={hookSecret}
+                        onChange={(e) => setHookSecret(e.target.value)}
+                        placeholder={hookHasSecret ? "已设置（输入新值覆盖，留空不变）" : "HMAC 签名密钥（可选）"}
+                    />
+                    <button className="ven-btn" type="button" onClick={saveWebhook}>
+                        保存
+                    </button>
+                </div>
+                {hookMsg && <p style={{ color: v.textSecondary, fontSize: 13 }}>{hookMsg}</p>}
+                <p style={{ color: v.textSecondary, fontSize: 12 }}>
+                    事件：doc.created / updated / moved / deleted / imported；签名头 X-Ven-Signature（HMAC-SHA256）。
+                </p>
+            </section>
             {flat.length === 0 ? (
                 <p style={{ color: v.textSecondary }}>
                     还没有文档。用上方按钮新建，或通过 MCP <code>doc.create</code> 由 agent 创建。

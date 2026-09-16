@@ -1,6 +1,6 @@
 # Unit 7 — Docs 插件设计（草案 v0.1）
 
-> 状态：**DRAFT（设计阶段，未实施）**
+> 状态：**已实施（2026-09-16，issue #6~#12，PR #6~#12；review 修复见 issue #13）**
 > 归属：ven-blog 业务仓库，**首个运行在 Unit 6 插件内核上的插件**（`build/plugins/docs/`）
 > 上游：Unit 6（插件系统治理）、框架需求 7（catch-all 路由）
 > 用户已拍板决策：树形目录 / hook 四件套（webhook、MCP 增量、导入导出、SSE）/ admin 完整编辑器

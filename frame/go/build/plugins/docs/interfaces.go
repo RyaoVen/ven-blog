@@ -10,6 +10,8 @@ import (
 	"ven_hybird/hybrid"
 )
 
+// webhook 配置 settings 键（定义在 webhook.go，此处复用）。
+
 // InvalidateFunc 写操作后失效 /docs 静态页（三条固定深度模式全局失效 + SSE 联动）。
 type InvalidateFunc func()
 
@@ -101,9 +103,39 @@ func registerPages(rt *plugin.Runtime, svc *Service) error {
 // registerAdminAPI 注册后台管理 API（cookie 会话 + author 角色）。
 // 列表数据由管理页面 /admin/docs 的 initialState 直接灌入（posts 管理页先例），
 // data-only 取数走同一 handler，无需独立 GET API——避免与页面路由撞车。
-func registerAdminAPI(rt *plugin.Runtime, svc *Service, invalidate InvalidateFunc) error {
+func registerAdminAPI(rt *plugin.Runtime, svc *Service, invalidate InvalidateFunc, store plugin.SettingsStore) error {
 	app := rt.App
 	admin := []string{"author"}
+	// webhook 配置读写（secret 永不回传明文，仅回传是否已设置；投递时现读配置，保存即生效）。
+	if store != nil {
+		if err := app.Get("/admin/docs/webhook", admin, func(c *hybrid.ApiCtx) error {
+			url, _ := store.Get(SettingWebhookURL)
+			secret, _ := store.Get(SettingWebhookSecret)
+			return c.JSON(200, map[string]any{"url": url, "hasSecret": secret != ""})
+		}); err != nil {
+			return err
+		}
+		if err := app.Put("/admin/docs/webhook", admin, func(c *hybrid.ApiCtx) error {
+			var in struct {
+				URL    string  `json:"url"`
+				Secret *string `json:"secret"` // nil = 保持不变；&"" = 清除
+			}
+			if err := c.Bind(&in); err != nil {
+				return c.Error(400, "invalid payload")
+			}
+			if err := store.Set(SettingWebhookURL, strings.TrimSpace(in.URL)); err != nil {
+				return c.Error(500, "保存 url 失败")
+			}
+			if in.Secret != nil {
+				if err := store.Set(SettingWebhookSecret, *in.Secret); err != nil {
+					return c.Error(500, "保存 secret 失败")
+				}
+			}
+			return c.JSON(200, map[string]any{"saved": true})
+		}); err != nil {
+			return err
+		}
+	}
 	// 新建（path 全路径，隐式补父与 MCP 同语义）。
 	if err := app.Post("/admin/docs", admin, func(c *hybrid.ApiCtx) error {
 		var in struct {

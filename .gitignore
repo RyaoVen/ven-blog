@@ -27,3 +27,7 @@ tools/devflow/devflow.env
 
 # Go 网关启动时持久化的 Node 页面模式快照（运行时产物）
 frame/go/node-patterns.json
+
+# 运行时产物（冒烟/本地起服生成）
+frame/node/node-patterns.json
+frame/node/isr-pages/

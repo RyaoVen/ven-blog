@@ -24,8 +24,9 @@ type WebhookEvent struct {
 
 // WebhookDispatcher 出站 webhook 投递器（Startable/Stoppable）：
 // 写操作成功后异步入队，worker 独立 goroutine 投递；失败退避重试 3 次，最终失败仅记日志。
-// 配置：settings plugin.docs.webhook_url / plugin.docs.webhook_secret（AES-GCM 落盘同 settingsapp 先例）；
-// 未配置 url 时投递器空转（Start 不起 worker）。
+// 配置：settings plugin.docs.webhook_url / plugin.docs.webhook_secret——
+// secret 属敏感键，经 persistence sensitiveKeys AES-GCM 加密落盘（未配置 BLOG_SECRET_KEY 时回退明文并启动警告，与主业务同策略）；
+// 投递时现读配置：保存后即时生效，无需重启。
 type WebhookDispatcher struct {
 	store   plugin.SettingsStore
 	client  *http.Client
@@ -46,19 +47,14 @@ func NewWebhookDispatcher(store plugin.SettingsStore) *WebhookDispatcher {
 	}
 }
 
-// Settings 键（配置变更重启生效，与插件启停同语义）。
+// Settings 配置键（secret 经 persistence sensitiveKeys 加密落盘）。
 const (
-	settingsWebhookURL    = "plugin.docs.webhook_url"
-	settingsWebhookSecret = "plugin.docs.webhook_secret"
+	SettingWebhookURL    = "plugin.docs.webhook_url"
+	SettingWebhookSecret = "plugin.docs.webhook_secret"
 )
 
-// Start 实现 plugin.Startable：已配置 url 时启动 worker goroutine。
+// Start 实现 plugin.Startable：启动 worker（投递时现读配置，保存后即时生效）。
 func (w *WebhookDispatcher) Start() error {
-	url := w.config()
-	if url == "" {
-		log.Printf("docs: webhook 未配置（%s），投递器空转", settingsWebhookURL)
-		return nil
-	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.started {
@@ -66,8 +62,12 @@ func (w *WebhookDispatcher) Start() error {
 	}
 	w.started = true
 	w.wg.Add(1)
-	go w.loop(url)
-	log.Printf("docs: webhook 投递器已启动 → %s", url)
+	go w.loop()
+	if url := w.config(); url != "" {
+		log.Printf("docs: webhook 投递器已启动 → %s", url)
+	} else {
+		log.Printf("docs: webhook 投递器已启动（未配置 %s，事件将丢弃直至配置保存）", SettingWebhookURL)
+	}
 	return nil
 }
 
@@ -98,15 +98,17 @@ func (w *WebhookDispatcher) Emit(event, path string) {
 	}
 }
 
-// loop worker 主循环：出队 → 投递（退避 3 次）。
-func (w *WebhookDispatcher) loop(url string) {
+// loop worker 主循环：出队 → 现读配置 → 投递（退避 3 次）。
+func (w *WebhookDispatcher) loop() {
 	defer w.wg.Done()
 	for {
 		select {
 		case <-w.done:
 			return
 		case ev := <-w.ch:
-			w.deliver(url, ev)
+			if url := w.config(); url != "" {
+				w.deliver(url, ev)
+			}
 		}
 	}
 }
@@ -150,11 +152,11 @@ func (w *WebhookDispatcher) deliver(url string, ev WebhookEvent) {
 }
 
 func (w *WebhookDispatcher) config() string {
-	url, _ := w.store.Get(settingsWebhookURL)
+	url, _ := w.store.Get(SettingWebhookURL)
 	return strings.TrimSpace(url)
 }
 
 func (w *WebhookDispatcher) secret() string {
-	secret, _ := w.store.Get(settingsWebhookSecret)
+	secret, _ := w.store.Get(SettingWebhookSecret)
 	return strings.TrimSpace(secret)
 }
