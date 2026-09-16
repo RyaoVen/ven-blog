@@ -46,11 +46,31 @@ func currentUserID(c *hybrid.ApiCtx) (int64, error) {
 // authorNameFn 现取当前作者用户名（发文/删文后作者用户页文章数失效用）。
 func RegisterAPIs(a *hybrid.App, posts *postapp.Service, notifyNewPost PostNotifier, authorNameFn func() string) error {
 	if err := a.Get("/posts", nil, func(c *hybrid.ApiCtx) error {
-		list, err := posts.ListRecent(0)
+		// 分页：page/size（size 缺省 10、上限 50）；非法值 400（测评报告 #8：参数收了不生效比不暴露更糟）。
+		pageRaw, sizeRaw := c.Query("page"), c.Query("size")
+		page, size := 1, 10
+		if pageRaw != "" {
+			n, err := strconv.Atoi(pageRaw)
+			if err != nil || n < 1 {
+				return c.Error(400, "invalid page")
+			}
+			page = n
+		}
+		if sizeRaw != "" {
+			n, err := strconv.Atoi(sizeRaw)
+			if err != nil || n < 1 || n > 50 {
+				return c.Error(400, "invalid size (1-50)")
+			}
+			size = n
+		}
+		paged, err := posts.List(postapp.ListFilter{Page: page, PageSize: size})
 		if err != nil {
 			return c.Error(500, "internal error")
 		}
-		return c.JSON(200, map[string]any{"posts": toPostViews(list)})
+		return c.JSON(200, map[string]any{
+			"posts": toListItems(paged.Posts),
+			"total": paged.Total, "page": paged.Page, "size": paged.PageSize,
+		})
 	}); err != nil {
 		return err
 	}

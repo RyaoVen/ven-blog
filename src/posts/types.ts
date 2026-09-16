@@ -6,7 +6,8 @@ export interface Post {
     title: string;
     category: string;
     summary: string;
-    content: string;
+    /** 正文（列表视图已裁剪；详情接口/详情页才有） */
+    content?: string;
     coverUrl: string;
     authorName: string;
     tags: string[];

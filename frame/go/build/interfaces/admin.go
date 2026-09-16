@@ -225,7 +225,7 @@ func RegisterAdmin(
 		if err != nil {
 			return err
 		}
-		views := toPostViews(list)
+		views := toListItems(list)
 		// 批量统计（各一次查询出 map，避免 N+1）：点击来自 visits 聚合，点赞/收藏来自互动表
 		hits, err := visits.PostHits()
 		if err != nil {
