@@ -136,6 +136,10 @@ func Register(a *hybrid.App) ([]plugin.Stoppable, error) {
 	if err := interfaces.RegisterSubscribe(a, subscribe, posts, siteURLOf(settings)); err != nil {
 		return nil, err
 	}
+	// SEO 基础资源（favicon/robots/sitemap/manifest；站点基址与 RSS 同源）
+	if err := interfaces.RegisterSEO(a, posts, siteURLOf(settings)); err != nil {
+		return nil, err
+	}
 	if err := interfaces.RegisterPages(a, posts, comments, interactions, settings); err != nil {
 		return nil, err
 	}
