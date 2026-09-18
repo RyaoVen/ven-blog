@@ -96,6 +96,11 @@ type mcpTestEnv struct {
 // newMCPTestEnv 构造测试环境；authenticate 为 nil 时使用默认实现
 // （"ven_valid" → userID 1，其余报错）。
 func newMCPTestEnv(t *testing.T, authenticate func(rawKey string) (int64, error)) *mcpTestEnv {
+	return newMCPTestEnvOpts(t, authenticate, nil)
+}
+
+// newMCPTestEnvOpts 同 newMCPTestEnv，可选注入发文通知回调（订阅通知对齐测试用）。
+func newMCPTestEnvOpts(t *testing.T, authenticate func(rawKey string) (int64, error), notify PostNotifier) *mcpTestEnv {
 	t.Helper()
 	cfg := config.Config{
 		NodeSubmitTimeout: 5 * time.Second,
@@ -148,7 +153,7 @@ func newMCPTestEnv(t *testing.T, authenticate func(rawKey string) (int64, error)
 	env.users = userapp.NewService(env.userRepo)
 
 	mcp, err := RegisterMCP(app, env.keys, env.posts, env.moments, env.comments,
-		env.settings, env.users, env.authorFn, env.authorNameFn)
+		env.settings, env.users, env.authorFn, env.authorNameFn, notify)
 	if err != nil {
 		t.Fatalf("RegisterMCP: %v", err)
 	}

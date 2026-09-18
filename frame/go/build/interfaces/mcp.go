@@ -156,15 +156,16 @@ type MCP struct {
 	keys KeyAuthenticator
 	// extra 插件贡献 action 表（unit-6 §5.2）：启动期 Bootstrap 经 RegisterAction 写入，
 	// 运行期只读；mu 仅护注册期（Bootstrap 串行，防御性）。查表顺序：内置 mcpActions 优先。
-	extraMu      sync.RWMutex
-	extra        map[string]plugin.MCPActionFunc
-	posts        *postapp.Service
-	moments      *momentapp.Service
-	comments     *commentapp.Service
-	settings     *settingsapp.Service
-	users        *userapp.Service
-	authorFn     func() (*user.User, error)
-	authorNameFn func() string
+	extraMu       sync.RWMutex
+	extra         map[string]plugin.MCPActionFunc
+	posts         *postapp.Service
+	moments       *momentapp.Service
+	comments      *commentapp.Service
+	settings      *settingsapp.Service
+	users         *userapp.Service
+	authorFn      func() (*user.User, error)
+	authorNameFn  func() string
+	notifyNewPost PostNotifier
 }
 
 // RegisterAction 注册插件贡献的 action（unit-6 §5.2，实现 plugin.MCPRegistry）。
@@ -243,17 +244,19 @@ func RegisterMCP(
 	users *userapp.Service,
 	authorFn func() (*user.User, error),
 	authorNameFn func() string,
+	notifyNewPost PostNotifier,
 ) (*MCP, error) {
 	m := &MCP{
-		a:            a,
-		keys:         keys,
-		posts:        posts,
-		moments:      moments,
-		comments:     comments,
-		settings:     settings,
-		users:        users,
-		authorFn:     authorFn,
-		authorNameFn: authorNameFn,
+		a:             a,
+		keys:          keys,
+		posts:         posts,
+		moments:       moments,
+		comments:      comments,
+		settings:      settings,
+		users:         users,
+		authorFn:      authorFn,
+		authorNameFn:  authorNameFn,
+		notifyNewPost: notifyNewPost,
 	}
 	a.Server().App().Post("/api/mcp", m.mcpAuth, m.handle)
 	return m, nil
@@ -385,6 +388,10 @@ func (m *MCP) postCreate(ctx *fiber.Ctx, payload json.RawMessage) (any, *mcpErro
 	declarePostsChanged(m.a, p.ID)
 	// 作者用户页文章数 +1（与 web 发文接口对齐）
 	m.a.InvalidatePage("/users/" + m.authorNameFn())
+	// 订阅者邮件通知（与 web 发文接口对齐；agent 发文同样触达订阅者）
+	if m.notifyNewPost != nil {
+		m.notifyNewPost(p)
+	}
 	return fiber.Map{"id": strconv.FormatInt(p.ID, 10)}, nil
 }
 

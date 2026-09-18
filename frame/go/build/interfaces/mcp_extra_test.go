@@ -3,9 +3,11 @@ package interfaces
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"ven_hybird/build/domain/post"
 	"ven_hybird/build/plugin"
 )
 
@@ -84,3 +86,24 @@ func TestMCPRegisterAction_NilFnRejected(t *testing.T) {
 
 // containsStr 子串断言辅助。
 func containsStr(s, sub string) bool { return strings.Contains(s, sub) }
+
+// TestMCPPostCreate_TriggersNotify MCP 发文同样触达订阅者通知（与 web 发文接口对齐）。
+func TestMCPPostCreate_TriggersNotify(t *testing.T) {
+	called := 0
+	var got *post.Post
+	env := newMCPTestEnvOpts(t, nil, func(p *post.Post) { called++; got = p })
+	req := httptest.NewRequest(http.MethodPost, "/api/mcp", strings.NewReader(
+		`{"action":"post.create","payload":{"title":"通知验证","category":"技术","content":"正文"}}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer ven_valid")
+	resp, err := env.server.App().Test(req)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("create 应 200，得 %d", resp.StatusCode)
+	}
+	if called != 1 || got == nil || got.Title != "通知验证" {
+		t.Fatalf("通知应触发一次，called=%d got=%v", called, got)
+	}
+}

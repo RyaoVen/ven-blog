@@ -210,7 +210,7 @@ func Register(a *hybrid.App) ([]plugin.Stoppable, error) {
 	// /api/mcp 网关（agent 统一入口）：纯原生 fiber 路由，只认 key 不认 cookie，
 	// 与页面注册顺序无关，放链尾最稳；apiKeys 天然满足 interfaces.KeyAuthenticator。
 	// 返回 *MCP 交给插件 Runtime（插件经 RegisterAction 贡献 doc.* 式 action，unit-6 §5.2）。
-	mcpGateway, err := interfaces.RegisterMCP(a, apiKeys, posts, moments, comments, settings, users, authorFn, authorNameFn)
+	mcpGateway, err := interfaces.RegisterMCP(a, apiKeys, posts, moments, comments, settings, users, authorFn, authorNameFn, newPostNotify)
 	if err != nil {
 		return nil, err
 	}

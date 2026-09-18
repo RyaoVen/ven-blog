@@ -658,7 +658,7 @@ function Subscribe() {
                         邮箱订阅
                     </p>
                     <p style={{ fontSize: 13.5, color: v.textSecondary, margin: "0 0 14px" }}>
-                        留下邮箱，新文章发布后通知你（投递能力接入中，先记录地址）。
+                        留下邮箱，新文章发布后第一时间邮件通知你。
                     </p>
                     <form onSubmit={onSubmit} style={{ display: "flex", gap: 10 }}>
                         <input
