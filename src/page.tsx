@@ -384,7 +384,7 @@ function DualLists({ state }: { state: HomeState }) {
     );
 }
 
-function ListHeader({ title, moreHref }: { title: string; moreHref: string }) {
+function ListHeader({ title, moreHref }: { title: string; moreHref?: string }) {
     return (
         <div
             style={{
@@ -397,9 +397,19 @@ function ListHeader({ title, moreHref }: { title: string; moreHref: string }) {
             }}
         >
             <h2 style={{ fontSize: 20, margin: 0 }}>{title}</h2>
-            <a href={moreHref} className="ven-meta" style={{ textDecoration: "none" }}>
-                更多 →
-            </a>
+            {moreHref && (
+                <a
+                    href={moreHref}
+                    className="ven-meta"
+                    style={{ textDecoration: "none" }}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        navigate(moreHref);
+                    }}
+                >
+                    更多 →
+                </a>
+            )}
         </div>
     );
 }
@@ -409,7 +419,7 @@ function Dashboard({ state }: { state: HomeState }) {
     return (
         <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-                <ListHeader title="仪表盘" moreHref="/rss.xml" />
+                <ListHeader title="仪表盘" />
                 <PulseLine />
             </div>
             <Reveal>
