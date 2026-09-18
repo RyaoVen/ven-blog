@@ -1,8 +1,10 @@
-/** /docs/:a 固定深度薄壳（过渡方案：上游需求 7 合入后切 [...slug]） */
+/** /docs/:a —— 顶层节点按语义分派：section=书籍详情（介绍+目录）；doc=单篇章节阅读 */
 
 import type { PageAppProps } from "../../app/pageApp";
-import { DocDetailPage } from "../DocView";
+import { BookIntroPage } from "../BookIntro";
+import { ChapterReaderPage } from "../ChapterReader";
 
-export default function Page(props: PageAppProps) {
-    return <DocDetailPage {...props} />;
+export default function Page({ bootstrap }: PageAppProps) {
+    const mode = ((bootstrap.initialState as { mode?: string } | null)?.mode) ?? "chapter";
+    return mode === "book" ? <BookIntroPage {...props} /> : <ChapterReaderPage {...props} />;
 }

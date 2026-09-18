@@ -41,18 +41,24 @@ func newInvalidate(rt *plugin.Runtime) InvalidateFunc {
 // pattern 与 src/docs/**/page.tsx 推导严格一致（不一致启动即失败）。
 func registerPages(rt *plugin.Runtime, svc *Service) error {
 	app := rt.App
-	// 首页：公开动态页，initialState 为 published 导航树。
+	// 首页 = 书架（UI 2.0）：顶层书卡片 + 章节/小节计数。
 	if err := app.Page("/docs", nil, func(c *hybrid.PageCtx) error {
+		books, err := svc.Bookshelf()
+		if err != nil {
+			return err
+		}
 		tree, err := svc.Tree(true)
 		if err != nil {
 			return err
 		}
-		return c.JSON(map[string]any{"tree": tree})
+		return c.JSON(map[string]any{"mode": "bookshelf", "books": books, "tree": tree})
 	}); err != nil {
 		return err
 	}
 
-	// 文档页：三条固定深度 ISR 声明共享同一 handler。
+	// 文档页：三条固定深度 ISR 声明共享同一 handler，按节点语义返回三种模式数据：
+	//   book    —— 顶层 section：介绍正文 + 章节目录索引
+	//   chapter —— 章节阅读：所属书目录侧栏 + 上一章/下一章
 	docHandler := func(c *hybrid.PageCtx) error {
 		parts := make([]string, 0, 3)
 		for _, key := range []string{"a", "b", "c"} {
@@ -68,25 +74,46 @@ func registerPages(rt *plugin.Runtime, svc *Service) error {
 			// draft 不对公开页面曝光（admin 编辑走 #9 的 API 视图）。
 			return c.NotFound()
 		}
-		tree, err := svc.Tree(true)
-		if err != nil {
-			return err
+
+		// 所属顶层书（第一段）与其章节目录（侧栏数据源）。
+		book, bookChapters := res.Doc, res.Children
+		if res.Doc.Path != parts[0] {
+			if bookRes, err := svc.Get(parts[0]); err == nil {
+				book = bookRes.Doc
+				bookChapters = bookRes.Children
+			}
 		}
+		mode := "chapter"
+		if res.Doc.Kind == KindSection && len(parts) == 1 {
+			mode = "book"
+		}
+
 		published, err := svc.publishedPaths()
 		if err != nil {
 			return err
 		}
 		prev, next := neighbors(published, res.Doc.Path)
+
 		kids := make([]docView, 0, len(res.Children))
 		for _, ch := range res.Children {
 			if ch.Status == StatusPublished {
 				kids = append(kids, toView(ch, false))
 			}
 		}
+		chapters := make([]docView, 0, len(bookChapters))
+		for _, ch := range bookChapters {
+			if ch.Status == StatusPublished {
+				chapters = append(chapters, toView(ch, false))
+			}
+		}
+		bookView := docView{ID: strconv.FormatInt(book.ID, 10), Path: book.Path, Slug: book.Slug,
+			Title: book.Title, Summary: book.Summary, Kind: book.Kind, Tags: book.Tags}
 		return c.JSON(map[string]any{
+			"mode":     mode,
+			"book":     bookView,
+			"chapters": chapters,
 			"doc":      toView(res.Doc, true),
 			"children": kids,
-			"tree":     tree,
 			"prev":     prev,
 			"next":     next,
 		})

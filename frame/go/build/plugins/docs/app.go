@@ -632,6 +632,55 @@ func lastSegment(path string) string {
 	return segs[len(segs)-1]
 }
 
+// BookShelfItem 书架条目（顶层书：section 或顶层单文档）。
+type BookShelfItem struct {
+	Path      string    `json:"path"`
+	Slug      string    `json:"slug"`
+	Title     string    `json:"title"`
+	Summary   string    `json:"summary"`
+	Kind      Kind      `json:"kind"`
+	Tags      []string  `json:"tags"`
+	Chapters  int       `json:"chapters"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// Bookshelf 书架：顶层 published 节点（section 或顶层 doc）+ 直接章节数，按 sort_order → 字典序。
+// UI 2.0 书架视图数据源（/docs）。
+func (s *Service) Bookshelf() ([]BookShelfItem, error) {
+	all, err := s.repo.ListAll()
+	if err != nil {
+		return nil, err
+	}
+	childrenOf := make(map[int64]int)
+	for _, d := range all {
+		if d.Status == StatusPublished && d.ParentID != 0 {
+			childrenOf[d.ParentID]++
+		}
+	}
+	items := make([]BookShelfItem, 0, 8)
+	for _, d := range all {
+		if d.Status != StatusPublished || d.ParentID != 0 {
+			continue
+		}
+		tags := d.Tags
+		if tags == nil {
+			tags = []string{}
+		}
+		items = append(items, BookShelfItem{
+			Path: d.Path, Slug: d.Slug, Title: d.Title, Summary: d.Summary,
+			Kind: d.Kind, Tags: tags, Chapters: childrenOf[d.ID], UpdatedAt: d.UpdatedAt,
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		a, b := items[i], items[j]
+		if a.Path != b.Path {
+			return a.Path < b.Path
+		}
+		return a.Slug < b.Slug
+	})
+	return items, nil
+}
+
 // ExportFile doc.export 单文件。
 type ExportFile struct {
 	Path    string `json:"path"`
