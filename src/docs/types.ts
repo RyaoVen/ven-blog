@@ -40,16 +40,35 @@ export interface DocLink {
     title: string;
 }
 
-/** 文档详情页 initialState（Go 文档页 handler） */
-export interface DocPageState {
-    doc: DocView | null;
-    children: DocView[];
-    tree: DocsTreeNode[];
-    prev: DocLink | null;
-    next: DocLink | null;
+/** 书架条目（Go BookShelfItem） */
+export interface BookShelfItem {
+    path: string;
+    slug: string;
+    title: string;
+    summary: string;
+    kind: "doc" | "section";
+    tags: string[];
+    chapters: number;
+    updatedAt: string;
 }
 
-/** 文档首页 initialState（Go /docs handler） */
+/** 文档首页（书架）initialState（Go /docs handler） */
 export interface DocsHomeState {
+    mode: "bookshelf";
+    books: BookShelfItem[];
     tree: DocsTreeNode[];
+}
+
+/** 文档页 initialState（Go 文档页 handler，mode=book|chapter） */
+export interface DocPageState {
+    mode: "book" | "chapter";
+    /** 所属顶层书 */
+    book: DocView | null;
+    /** 书内章节目录（侧栏数据源） */
+    chapters: DocView[];
+    doc: DocView | null;
+    /** 当前节点的直接子节点（深层小节兜底） */
+    children: DocView[];
+    prev: DocLink | null;
+    next: DocLink | null;
 }

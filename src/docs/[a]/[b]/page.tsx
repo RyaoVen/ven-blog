@@ -1,8 +1,8 @@
-/** /docs/:a/:b 固定深度薄壳 */
+/** /docs/:a/:b —— 章节/小节阅读（可收起侧栏） */
 
 import type { PageAppProps } from "../../../app/pageApp";
-import { DocDetailPage } from "../../DocView";
+import { ChapterReaderPage } from "../../ChapterReader";
 
 export default function Page(props: PageAppProps) {
-    return <DocDetailPage {...props} />;
+    return <ChapterReaderPage {...props} />;
 }

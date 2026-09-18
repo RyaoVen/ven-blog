@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 )
@@ -78,6 +79,11 @@ func Open(dsn string) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open mysql: %w", err)
 	}
+	// 连接池上限：防止高并发下无限建连（TIME_WAIT 端口耗尽 → "can't assign requested address"）。
+	// 基准测试环境统一配置（A/B 同值），生产建议按容量规划调整。
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(5 * time.Minute)
 	if err := db.Ping(); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("ping mysql: %w", err)
