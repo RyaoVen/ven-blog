@@ -4,7 +4,7 @@ import type { PageAppProps } from "../../app/pageApp";
 import { BookIntroPage } from "../BookIntro";
 import { ChapterReaderPage } from "../ChapterReader";
 
-export default function Page({ bootstrap }: PageAppProps) {
-    const mode = ((bootstrap.initialState as { mode?: string } | null)?.mode) ?? "chapter";
+export default function Page(props: PageAppProps) {
+    const mode = ((props.bootstrap.initialState as { mode?: string } | null)?.mode) ?? "chapter";
     return mode === "book" ? <BookIntroPage {...props} /> : <ChapterReaderPage {...props} />;
 }
