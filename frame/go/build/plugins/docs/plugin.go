@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"log"
 
+	"ven_hybird/build/interfaces"
 	"ven_hybird/build/plugin"
 )
 
@@ -63,6 +64,26 @@ func (p *docsPlugin) Register(rt *plugin.Runtime) error {
 			return err
 		}
 	}
+	// 首页/admin 仪表盘统计供数（unit-6 扩展点：插件供数、宿主消费，页面每次现取）。
+	interfaces.RegisterDocsStats(func() *interfaces.DocsStats {
+		books, err := p.svc.Bookshelf()
+		if err != nil {
+			return nil
+		}
+		published, err := p.svc.ListAllPublished()
+		if err != nil {
+			return nil
+		}
+		stats := &interfaces.DocsStats{Books: len(books)}
+		for _, d := range published {
+			stats.Docs++
+			stats.TotalChars += len([]rune(d.Content))
+			if d.UpdatedAt.After(stats.LastUpdated) {
+				stats.LastUpdated = d.UpdatedAt
+			}
+		}
+		return stats
+	})
 	// 后台管理页面与 API（#9）：页面注册先行（路由契约）。
 	if err := registerAdminPages(rt, p.svc); err != nil {
 		_ = db.Close()

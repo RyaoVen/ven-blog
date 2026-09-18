@@ -62,9 +62,9 @@ type PostListItem struct {
 	Pinned     bool      `json:"pinned"`
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
-	Hits      int `json:"hits"`
-	Likes     int `json:"likes"`
-	Favorites int `json:"favorites"`
+	Hits       int       `json:"hits"`
+	Likes      int       `json:"likes"`
+	Favorites  int       `json:"favorites"`
 }
 
 // toListItem 单篇转列表项（无正文）。

@@ -35,7 +35,7 @@ func (f *fakeRepo) ListPaged(category string, page, pageSize int) ([]*post.Post,
 }
 
 func (f *fakeRepo) ListByAuthor(authorID int64) ([]*post.Post, error) { return nil, nil }
-func (f *fakeRepo) Get(id int64) (*post.Post, error)                 { return nil, nil }
+func (f *fakeRepo) Get(id int64) (*post.Post, error)                  { return nil, nil }
 func (f *fakeRepo) Search(query string, limit int) ([]*post.Post, error) {
 	return nil, nil
 }
@@ -53,8 +53,8 @@ func (f *fakeRepo) DailyPublication(days int) ([]post.DayPublication, error) {
 	return nil, nil
 }
 func (f *fakeRepo) CategoryCounts() ([]post.CategoryCount, error) { return nil, nil }
-func (f *fakeRepo) CountByCategory(category string) (int, error) { return 0, nil }
-func (f *fakeRepo) UpdateCategory(from, to string) error         { return nil }
+func (f *fakeRepo) CountByCategory(category string) (int, error)  { return 0, nil }
+func (f *fakeRepo) UpdateCategory(from, to string) error          { return nil }
 
 func (f *fakeRepo) SetPinned(id int64, pinned bool) error {
 	p, ok := f.byID[id]

@@ -21,8 +21,8 @@ type Verdict struct {
 type HostKind string
 
 const (
-	HostComment   HostKind = "comment"    // 评论（宿主为文章或动态）
-	HostGuestbook HostKind = "guestbook"  // 留言板留言
+	HostComment   HostKind = "comment"   // 评论（宿主为文章或动态）
+	HostGuestbook HostKind = "guestbook" // 留言板留言
 )
 
 // Request 审核输入：内容 + 宿主上下文 + 回复对象。

@@ -22,12 +22,12 @@ func TestRenderLayoutStructure(t *testing.T) {
 		"<!DOCTYPE html>",
 		`<a href="https://blog.example.com"`, // 头部站点名链接
 		testSiteName,                         // 站点名（头部 + 页脚）
-		"标题测试",                              // 布局标题
-		"<p>正文段落</p>",                       // 内容区（可信 HTML 原样注入）
-		"https://blog.example.com",            // 页脚站点公网地址
-		"©",                                   // 页脚版权
-		"border-bottom:1px solid",             // 头部细下边框
-		"border-top:1px solid",                // 页脚细上边框
+		"标题测试",                               // 布局标题
+		"<p>正文段落</p>",                        // 内容区（可信 HTML 原样注入）
+		"https://blog.example.com",           // 页脚站点公网地址
+		"©",                                  // 页脚版权
+		"border-bottom:1px solid",            // 头部细下边框
+		"border-top:1px solid",               // 页脚细上边框
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("layout missing %q:\n%s", want, got)
@@ -55,7 +55,7 @@ func TestRenderVerificationCode(t *testing.T) {
 	for _, want := range []string{
 		"123456",
 		"10 分钟内有效，请勿泄露。如果不是本人操作，请忽略本邮件。",
-		"font-size:34px",      // 大号等宽展示
+		"font-size:34px", // 大号等宽展示
 		"登录验证码",
 	} {
 		if !strings.Contains(got, want) {
@@ -207,11 +207,11 @@ func TestRenderModerationSummaryEmptyResult(t *testing.T) {
 
 func TestHTMLIntegrity(t *testing.T) {
 	outputs := map[string]string{
-		"layout":      RenderLayout(testSiteName, testSiteURL, "完整性", "<p>正文</p>"),
-		"code":        RenderVerificationCode(testSiteName, testSiteURL, "123456", "hint"),
-		"mention":     RenderMention(testSiteName, testSiteURL, "摘录", "/posts/1"),
-		"newArticle":  RenderNewArticle(testSiteName, testSiteURL, "标题", "摘要", "/posts/1"),
-		"summary":     RenderModerationSummary(testSiteName, testSiteURL, sampleResult()),
+		"layout":       RenderLayout(testSiteName, testSiteURL, "完整性", "<p>正文</p>"),
+		"code":         RenderVerificationCode(testSiteName, testSiteURL, "123456", "hint"),
+		"mention":      RenderMention(testSiteName, testSiteURL, "摘录", "/posts/1"),
+		"newArticle":   RenderNewArticle(testSiteName, testSiteURL, "标题", "摘要", "/posts/1"),
+		"summary":      RenderModerationSummary(testSiteName, testSiteURL, sampleResult()),
 		"summaryEmpty": RenderModerationSummary(testSiteName, testSiteURL, nil),
 	}
 	for name, out := range outputs {

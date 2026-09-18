@@ -60,10 +60,12 @@ type Item struct {
 }
 
 // AutoReview 拉取两类 AI 未判待审内容（各上限 limit）并逐条判定：
-//   claim 抢占成功 → approve → 调用宿主 Service 的 Approve；reject → 调用 Reject(id, reason)；
-//   pending → 抢占已打标，交人工（不再重复提交 LLM）；Review 返回 error → 重试 1 次，
-//   仍失败回滚抢占（保持 pending，下轮重判）；写库失败同样回滚。
-//   claim 失败（已被他实例抢占/已审）→ 跳过不计数（该条由抢占者处理）。
+//
+//	claim 抢占成功 → approve → 调用宿主 Service 的 Approve；reject → 调用 Reject(id, reason)；
+//	pending → 抢占已打标，交人工（不再重复提交 LLM）；Review 返回 error → 重试 1 次，
+//	仍失败回滚抢占（保持 pending，下轮重判）；写库失败同样回滚。
+//	claim 失败（已被他实例抢占/已审）→ 跳过不计数（该条由抢占者处理）。
+//
 // 逐条串行（成本可控、顺序确定）；ctx 透传给 Moderator（ticker 场景传 Background 派生）。
 // 任一宿主查询出错 → 返回部分结果与 error（本轮整体失败由接口层记录日志；已处理的保持已处理状态）。
 func (s *Service) AutoReview(ctx context.Context, limit int) (*Result, error) {
@@ -157,8 +159,9 @@ func hostTitleOfComment(c *comment.Comment) string {
 }
 
 // process 判定单条并落结果（调用前已完成 claim 抢占）：
-//   approve → 宿主 Approve（写库失败回滚抢占，保持 pending 下轮重试）；reject → 宿主 Reject（reason 截断到领域上限）；
-//   pending → 抢占已打标（ai_reviewed_at 非空），交人工复核；Review 两次都失败 → 回滚抢占（保持 pending）记 failed。
+//
+//	approve → 宿主 Approve（写库失败回滚抢占，保持 pending 下轮重试）；reject → 宿主 Reject（reason 截断到领域上限）；
+//	pending → 抢占已打标（ai_reviewed_at 非空），交人工复核；Review 两次都失败 → 回滚抢占（保持 pending）记 failed。
 func (s *Service) process(ctx context.Context, result *Result, item Item, req moderation.Request,
 	write func(Item, moderation.Verdict) error, unclaim func(int64) error) {
 	result.Processed++

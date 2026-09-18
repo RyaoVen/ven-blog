@@ -195,12 +195,17 @@ func RegisterAdmin(
 				CreatedAt: cm.CreatedAt,
 			})
 		}
+		docsBooks, docsDocs, docsChars := 0, 0, 0
+		if ds := CurrentDocsStats(); ds != nil {
+			docsBooks, docsDocs, docsChars = ds.Books, ds.Docs, ds.TotalChars
+		}
 		return c.JSON(map[string]any{
 			"stats": map[string]any{
 				"posts": postCount, "words": totalChars, "comments": commentCount,
 				"likes": likes, "favorites": favorites, "users": userCount,
 				"moments": momentCount, "subscribers": subscriberCount,
 				"visits": visitTotal, "postHits": postHitsTotal,
+				"docsBooks": docsBooks, "docsDocs": docsDocs, "docsChars": docsChars,
 			},
 			"pv30":           pv30,
 			"recentComments": recentViews,

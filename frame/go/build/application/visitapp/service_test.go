@@ -11,12 +11,12 @@ import (
 
 // fakeRepo 内存假仓储，记录调用供断言。
 type fakeRepo struct {
-	dates    []time.Time
-	paths    []string
-	total    int
+	dates     []time.Time
+	paths     []string
+	total     int
 	postTotal int
-	daily    []visit.DailyCount
-	hits     map[int64]int
+	daily     []visit.DailyCount
+	hits      map[int64]int
 }
 
 func (f *fakeRepo) Record(date time.Time, path string) error {
