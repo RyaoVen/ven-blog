@@ -59,6 +59,13 @@ export interface DocsHomeState {
     tree: DocsTreeNode[];
 }
 
+/** 歌单式头部统计（Go book handler stats） */
+export interface BookStats {
+    chapters: number;
+    totalChars: number;
+    lastUpdated: string;
+}
+
 /** 文档页 initialState（Go 文档页 handler，mode=book|chapter） */
 export interface DocPageState {
     mode: "book" | "chapter";
@@ -71,4 +78,6 @@ export interface DocPageState {
     children: DocView[];
     prev: DocLink | null;
     next: DocLink | null;
+    /** 书页统计（歌单式头部） */
+    stats?: BookStats;
 }

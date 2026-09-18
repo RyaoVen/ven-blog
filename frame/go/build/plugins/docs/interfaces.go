@@ -108,6 +108,17 @@ func registerPages(rt *plugin.Runtime, svc *Service) error {
 		}
 		bookView := docView{ID: strconv.FormatInt(book.ID, 10), Path: book.Path, Slug: book.Slug,
 			Title: book.Title, Summary: book.Summary, Kind: book.Kind, Tags: book.Tags}
+		// 歌单式头部统计：章节数/总字数/最后更新（按书内 published 章节实算）。
+		totalChars, lastUpdated := 0, book.UpdatedAt
+		for _, ch := range bookChapters {
+			if ch.Status != StatusPublished {
+				continue
+			}
+			totalChars += len([]rune(ch.Content))
+			if ch.UpdatedAt.After(lastUpdated) {
+				lastUpdated = ch.UpdatedAt
+			}
+		}
 		return c.JSON(map[string]any{
 			"mode":     mode,
 			"book":     bookView,
@@ -116,6 +127,11 @@ func registerPages(rt *plugin.Runtime, svc *Service) error {
 			"children": kids,
 			"prev":     prev,
 			"next":     next,
+			"stats": map[string]any{
+				"chapters":    len(chapters),
+				"totalChars":  totalChars,
+				"lastUpdated": lastUpdated.UTC().Format("2006-01-02T15:04:05Z07:00"),
+			},
 		})
 	}
 	for _, pattern := range []string{"/docs/:a", "/docs/:a/:b", "/docs/:a/:b/:c"} {
