@@ -2,7 +2,15 @@
 
 本仓库版本采用语义化版本（SemVer）。格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
-## [Unreleased] - docs 插件与插件系统治理（2026-09-16，GitCode dev 平台）
+## [v1.2.8] - 2026-09-17（docs 插件与插件系统治理）
+
+> 注：本版跨度含 docs 插件全套、插件系统治理基座、技术测评修复与基准测试系统（issue #1~#25，PR #1~#23，GitCode dev 平台）。
+
+### 订阅接入补全
+
+- **MCP post.create 触达订阅者**：agent 发文同样触发邮件通知（此前仅 web 发文接口触发）；订阅前端过时文案（"投递能力接入中"）更新为已接入表述
+
+### 新增
 
 ### 新增
 
