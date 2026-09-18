@@ -9,6 +9,45 @@ import { formatDateTime } from "../lib/format";
 import { v } from "../lib/theme";
 import type { BookShelfItem, DocsHomeState } from "./types";
 
+/** WireSpine 线框几何书脊：细描边结构线 + 竖排文字（无色块） */
+function WireSpine() {
+    const line = v.accent;
+    return (
+        <div
+            aria-hidden="true"
+            style={{
+                width: 30,
+                flexShrink: 0,
+                borderRight: `1px solid ${v.border}`,
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+            }}
+        >
+            <svg width="30" height="100%" viewBox="0 0 30 200" preserveAspectRatio="xMidYMid slice" style={{ position: "absolute", inset: 0 }}>
+                <line x1="6" y1="0" x2="6" y2="200" stroke={line} strokeWidth="1" opacity="0.35" />
+                <line x1="24" y1="0" x2="24" y2="200" stroke={line} strokeWidth="1" opacity="0.18" />
+                <rect x="11" y="10" width="8" height="8" fill="none" stroke={line} strokeWidth="1" opacity="0.7" />
+                <circle cx="15" cy="188" r="4" fill="none" stroke={line} strokeWidth="1" opacity="0.5" />
+                <line x1="15" y1="24" x2="15" y2="176" stroke={line} strokeWidth="1" opacity="0.25" strokeDasharray="2 6" />
+            </svg>
+            <span
+                style={{
+                    writingMode: "vertical-rl",
+                    fontSize: 10,
+                    letterSpacing: 3,
+                    color: v.textSecondary,
+                    whiteSpace: "nowrap",
+                    position: "relative",
+                }}
+            >
+                VEN · DOCS
+            </span>
+        </div>
+    );
+}
+
 /** FrameCorners 四角括线（复刻 author 页裱框 SVG） */
 function FrameCorners() {
     return (
@@ -36,31 +75,8 @@ function BookCard({ book, exhibit }: { book: BookShelfItem; exhibit: number }) {
         >
             <FrameCorners />
             <div className="ven-frame-inner" style={{ flexDirection: "row", gap: 16, padding: 0, overflow: "hidden" }}>
-                {/* 书脊 */}
-                <div
-                    aria-hidden="true"
-                    style={{
-                        width: 26,
-                        flexShrink: 0,
-                        background: `linear-gradient(180deg, ${v.accent} 0%, color-mix(in srgb, ${v.accent} 55%, ${v.bg}) 100%)`,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                    }}
-                >
-                    <span
-                        style={{
-                            writingMode: "vertical-rl",
-                            fontSize: 10,
-                            letterSpacing: 3,
-                            color: "#fff",
-                            opacity: 0.9,
-                            whiteSpace: "nowrap",
-                        }}
-                    >
-                        VEN · DOCS
-                    </span>
-                </div>
+                {/* 书脊（线框几何） */}
+                <WireSpine />
                 {/* 封面内容 */}
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "16px 18px 14px 0", minWidth: 0 }}>
                     <p className="ven-meta" style={{ margin: "0 0 8px" }}>
