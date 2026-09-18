@@ -34,6 +34,8 @@ export default function AdminDashboardPage({ bootstrap }: PageAppProps) {
         ["用户", stats.users],
         ["动态", stats.moments],
         ["订阅", stats.subscribers],
+        ["文档册", stats.docsBooks ?? 0],
+        ["文档篇", stats.docsDocs ?? 0],
     ];
     const series = range === "7" ? state.userGrowth.d7 : range === "365" ? state.userGrowth.d365 : state.userGrowth.d30;
 

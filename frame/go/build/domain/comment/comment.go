@@ -15,14 +15,14 @@ const (
 
 // Comment 评论实体。Username 与 PostTitle 是读取模型字段（仓储联表填充），写回时不持久化。
 type Comment struct {
-	ID        int64
-	PostID    int64 // 宿主为文章时非零
-	MomentID  int64 // 宿主为动态时非零（与 PostID 二选一）
-	UserID    int64
-	Username  string
-	PostTitle string // 所属文章标题（后台评论管理联表填充）
-	Content   string
-	ReplyTo   string // 回复目标用户名（@ 形式平铺展示，空串表示非回复）
+	ID             int64
+	PostID         int64 // 宿主为文章时非零
+	MomentID       int64 // 宿主为动态时非零（与 PostID 二选一）
+	UserID         int64
+	Username       string
+	PostTitle      string // 所属文章标题（后台评论管理联表填充）
+	Content        string
+	ReplyTo        string // 回复目标用户名（@ 形式平铺展示，空串表示非回复）
 	Status         string // approved | pending | rejected（开启评论审核后新评论为 pending）
 	RejectedReason string // 驳回原因：仅 Status==rejected 时非空；其余状态由仓储保证清空
 	CreatedAt      time.Time

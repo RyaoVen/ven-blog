@@ -160,7 +160,7 @@ func SeedUsers(repo userSeeder) error {
 	}
 	authorPassword := os.Getenv("BLOG_AUTHOR_PASSWORD")
 	if authorPassword == "" {
-		return fmt.Errorf("seed users: BLOG_AUTHOR_PASSWORD 未配置：首次启动需要种子 author 密码，"+
+		return fmt.Errorf("seed users: BLOG_AUTHOR_PASSWORD 未配置：首次启动需要种子 author 密码，" +
 			"请在环境变量或 .env.local 中设置（如 BLOG_AUTHOR_PASSWORD=<强密码>）后重启")
 	}
 	readerPassword := os.Getenv("BLOG_READER_PASSWORD")

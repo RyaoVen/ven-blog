@@ -93,10 +93,10 @@ type summaryItemData struct {
 
 // summaryBodyData 摘要正文模板数据。
 type summaryBodyData struct {
-	StatLine   string
+	StatLine    string
 	HasAbnormal bool
-	Sections   []summarySectionData
-	AdminLink  string
+	Sections    []summarySectionData
+	AdminLink   string
 }
 
 // RenderModerationSummary 内容审核摘要邮件：统计行 + 驳回/需人工复核/判定失败三段明细列表 +

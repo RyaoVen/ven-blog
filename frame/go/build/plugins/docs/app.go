@@ -295,6 +295,21 @@ func (s *Service) Tree(onlyPublished bool) ([]*TreeNode, error) {
 	return roots, nil
 }
 
+// ListAllPublished 返回全部 published 文档（计数/字数统计用，顺序不敏感）。
+func (s *Service) ListAllPublished() ([]*Doc, error) {
+	all, err := s.repo.ListAll()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*Doc, 0, len(all))
+	for _, d := range all {
+		if d.Status == StatusPublished {
+			out = append(out, d)
+		}
+	}
+	return out, nil
+}
+
 // publishedPaths 返回 published 节点的扁平序（DFS：sort_order → slug；根级先、子随后），
 // 供上一页/下一页计算。
 func (s *Service) publishedPaths() ([]*Doc, error) {

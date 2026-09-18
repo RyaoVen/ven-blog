@@ -6,6 +6,9 @@ import type { DayCount } from "./charts";
 
 /** 后台统计 */
 export interface AdminStats {
+    docsBooks?: number;
+    docsDocs?: number;
+    docsChars?: number;
     posts: number;
     words: number;
     comments: number;

@@ -423,6 +423,8 @@ function Dashboard({ state }: { state: HomeState }) {
                 >
                     <StatCard label="文章总数" value={state.stats.posts} unit="篇" />
                     <StatCard label="累计字数" value={state.stats.words} unit="字" />
+                    {(state.stats.docsBooks ?? 0) > 0 && <StatCard label="文档书架" value={state.stats.docsBooks} unit="册" />}
+                    {(state.stats.docsDocs ?? 0) > 0 && <StatCard label="文档笔记" value={state.stats.docsDocs} unit="篇" />}
                     <StatCard label="运营时长" durationSince={state.stats.launchAt} fallbackDays={state.stats.days} />
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 28 }}>

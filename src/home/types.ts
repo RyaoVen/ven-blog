@@ -15,6 +15,9 @@ export interface HomeMoment {
 export interface HomeStats {
     posts: number;
     words: number;
+    /** docs 插件维度：书架册数与文档篇数（插件未启用时为 0） */
+    docsBooks?: number;
+    docsDocs?: number;
     /** 运营天数（最早文章起算，SSR 展示用） */
     days: number;
     /** 运营起点（最早文章时间，RFC3339；客户端滚动计时用） */

@@ -101,10 +101,14 @@ func RegisterHome(a *hybrid.App, posts *postapp.Service, moments *momentapp.Serv
 		if err != nil {
 			return err
 		}
+		docsBooks, docsDocs := 0, 0
+		if ds := CurrentDocsStats(); ds != nil {
+			docsBooks, docsDocs = ds.Books, ds.Docs
+		}
 		return c.JSON(map[string]any{
 			"recentPosts":   toListItems(recentPosts),
 			"recentMoments": recentMoments,
-			"stats":         map[string]any{"posts": postCount, "words": totalChars, "days": days, "launchAt": launchAt, "latestID": latestID, "latestAgo": latestAgo},
+			"stats":         map[string]any{"posts": postCount, "words": totalChars, "days": days, "launchAt": launchAt, "latestID": latestID, "latestAgo": latestAgo, "docsBooks": docsBooks, "docsDocs": docsDocs},
 			"projects":      content.Projects,
 			"quotes":        content.Quotes,
 			"timeline":      timeline,
